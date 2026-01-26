@@ -37,30 +37,24 @@ def row_to_dict(row):
 def rows_to_dicts(rows):
     return [dict(row) for row in rows]
 
-# Функция для добавления недостающих столбцов в таблицы
+
 def migrate_database():
     conn = get_db_connection()
     cursor = conn.cursor()
     
-    # Проверяем и добавляем недостающие столбцы в таблицу user_profiles
+    # Проверяем и добавляем недостающие столбцы в таблицу users
     try:
-        cursor.execute("SELECT avatar FROM user_profiles LIMIT 1")
+        cursor.execute("SELECT role FROM users LIMIT 1")
     except sqlite3.OperationalError:
-        print("Добавляем столбец avatar в таблицу user_profiles...")
-        # Сначала добавляем столбец без DEFAULT значения
-        cursor.execute('ALTER TABLE user_profiles ADD COLUMN avatar TEXT')
-        # Затем обновляем существующие записи
-        cursor.execute('UPDATE user_profiles SET avatar = "default_avatar.png" WHERE avatar IS NULL')
+        print("Добавляем столбец role в таблицу users...")
+        cursor.execute('ALTER TABLE users ADD COLUMN role TEXT DEFAULT "user"')
     
-    # Проверяем столбец created_at в user_profiles
     try:
-        cursor.execute("SELECT created_at FROM user_profiles LIMIT 1")
+        cursor.execute("SELECT is_banned FROM users LIMIT 1")
     except sqlite3.OperationalError:
-        print("Добавляем столбец created_at в таблицу user_profiles...")
-        cursor.execute('ALTER TABLE user_profiles ADD COLUMN created_at TIMESTAMP')
-        cursor.execute('UPDATE user_profiles SET created_at = CURRENT_TIMESTAMP WHERE created_at IS NULL')
+        print("Добавляем столбец is_banned в таблицу users...")
+        cursor.execute('ALTER TABLE users ADD COLUMN is_banned INTEGER DEFAULT 0')
     
-    # Проверяем столбец created_at в users
     try:
         cursor.execute("SELECT created_at FROM users LIMIT 1")
     except sqlite3.OperationalError:
@@ -68,15 +62,59 @@ def migrate_database():
         cursor.execute('ALTER TABLE users ADD COLUMN created_at TIMESTAMP')
         cursor.execute('UPDATE users SET created_at = CURRENT_TIMESTAMP WHERE created_at IS NULL')
     
+    # Проверяем и добавляем недостающие столбцы в таблицу user_profiles
+    try:
+        cursor.execute("SELECT avatar FROM user_profiles LIMIT 1")
+    except sqlite3.OperationalError:
+        print("Добавляем столбец avatar в таблицу user_profiles...")
+        cursor.execute('ALTER TABLE user_profiles ADD COLUMN avatar TEXT')
+        cursor.execute('UPDATE user_profiles SET avatar = "default_avatar.png" WHERE avatar IS NULL')
+    
+    try:
+        cursor.execute("SELECT created_at FROM user_profiles LIMIT 1")
+    except sqlite3.OperationalError:
+        print("Добавляем столбец created_at в таблицу user_profiles...")
+        cursor.execute('ALTER TABLE user_profiles ADD COLUMN created_at TIMESTAMP')
+        cursor.execute('UPDATE user_profiles SET created_at = CURRENT_TIMESTAMP WHERE created_at IS NULL')
+    
+    # Создаем таблицу черного списка, если ее нет
+    cursor.execute('''
+    CREATE TABLE IF NOT EXISTS blacklist (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        blocker_id INTEGER NOT NULL,
+        blocked_id INTEGER NOT NULL,
+        reason TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (blocker_id) REFERENCES users(id),
+        FOREIGN KEY (blocked_id) REFERENCES users(id),
+        UNIQUE(blocker_id, blocked_id)
+    )
+    ''')
+    
+    # Создаем таблицу жалоб, если ее нет
+    cursor.execute('''
+    CREATE TABLE IF NOT EXISTS reports (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        reporter_id INTEGER NOT NULL,
+        reported_id INTEGER NOT NULL,
+        reason TEXT NOT NULL,
+        status TEXT DEFAULT 'pending',
+        admin_notes TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (reporter_id) REFERENCES users(id),
+        FOREIGN KEY (reported_id) REFERENCES users(id)
+    )
+    ''')
+    
     conn.commit()
     conn.close()
 
-# Таблицы для хранения пользователей и их данных
 def create_tables():
     connection = get_db_connection()
     cursor = connection.cursor()
     
-    # Таблица пользователей
+    # Таблица пользователей (без дополнительных столбцов, они добавятся через миграцию)
     cursor.execute('''
     CREATE TABLE IF NOT EXISTS users (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -85,7 +123,7 @@ def create_tables():
     )
     ''')
     
-    # Таблица профилей пользователей (без created_at и avatar в CREATE TABLE)
+    # Таблица профилей пользователей (без дополнительных столбцов)
     cursor.execute('''
     CREATE TABLE IF NOT EXISTS user_profiles (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -128,29 +166,75 @@ def create_tables():
     
     # Выполняем миграции для существующих таблиц
     migrate_database()
+    
+    # Создаем тех-админа, если его нет
+    create_tech_admin()
+
+def create_tech_admin():
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    # Проверяем, существует ли уже тех-админ
+    cursor.execute("SELECT id FROM users WHERE username = 'techadmin'")
+    tech_admin = cursor.fetchone()
+    
+    if not tech_admin:
+        # Создаем тех-админа
+        cursor.execute("INSERT INTO users (username, password, role) VALUES (?, ?, ?)", 
+                      ('techadmin', 'techadmin123', 'techadmin'))
+        print("Создан аккаунт тех-админа: Логин: techadmin, Пароль: techadmin123")
+    
+    # Проверяем, существует ли админ
+    cursor.execute("SELECT id FROM users WHERE username = 'admin'")
+    admin = cursor.fetchone()
+    
+    if not admin:
+        # Обновляем существующего админа или создаем нового
+        cursor.execute("SELECT id FROM users WHERE username = 'admin'")
+        existing_admin = cursor.fetchone()
+        
+        if existing_admin:
+            # Обновляем роль существующего админа
+            cursor.execute("UPDATE users SET role = 'admin' WHERE username = 'admin'")
+        else:
+            # Создаем нового админа
+            cursor.execute("INSERT INTO users (username, password, role) VALUES (?, ?, ?)", 
+                          ('admin', 'admin123', 'admin'))
+            print("Создан аккаунт администратора: Логин: admin, Пароль: admin123")
+    
+    conn.commit()
+    conn.close()
+
 
 
 @app.route('/')
 def index():
     if 'user_id' in session:
-        if session.get('username') == 'admin':
+        username = session.get('username')
+        if username == 'admin':
             return redirect('/admin')
+        elif username == 'techadmin':
+            return redirect('/techadmin')
         else:
             return redirect('/home')
     return redirect('/login')
+
+
 
 @app.route('/home')
 def home():
     if 'user_id' not in session:
         return redirect('/login')
     
-    # Добавляем информацию о заявках в друзья на главную
     user_id = session['user_id']
     conn = get_db_connection()
+    
+    # Получаем информацию о заявках в друзья
     friend_requests_count = conn.execute('''
         SELECT COUNT(*) as count FROM friendships 
         WHERE receiver_id = ? AND status = 'pending'
     ''', (user_id,)).fetchone()['count']
+    
     conn.close()
     
     return render_template('home.html', 
@@ -186,6 +270,12 @@ def profile():
         WHERE receiver_id = ? AND status = 'pending'
     ''', (user_id,)).fetchone()['count']
     
+    # Получаем количество пользователей в черном списке
+    blacklist_count = conn.execute('''
+        SELECT COUNT(*) as count FROM blacklist 
+        WHERE blocker_id = ?
+    ''', (user_id,)).fetchone()['count']
+    
     conn.close()
     
     return render_template('profile.html', 
@@ -193,7 +283,8 @@ def profile():
                           profile=profile_data,
                           posts_count=posts_count,
                           friends_count=friends_count,
-                          friend_requests_count=friend_requests_count)
+                          friend_requests_count=friend_requests_count,
+                          blacklist_count=blacklist_count)
 
 @app.route('/profile/edit', methods=['GET', 'POST'])
 def edit_profile():
@@ -276,22 +367,22 @@ def find_friends():
             conn = get_db_connection()
             
             # Ищем пользователей по имени пользователя или ФИО
-            # Используем COALESCE для обработки NULL значений
             rows = conn.execute('''
                 SELECT u.id, u.username, up.full_name, 
                        COALESCE(up.avatar, 'default_avatar.png') as avatar 
                 FROM users u
                 LEFT JOIN user_profiles up ON u.id = up.user_id
                 WHERE (u.username LIKE ? OR up.full_name LIKE ?) 
-                AND u.id != ?
+                AND u.id != ? AND u.is_banned = 0
                 LIMIT 20
             ''', (f'%{search_query}%', f'%{search_query}%', user_id)).fetchall()
             
             # Преобразуем Row объекты в словари
             search_results = rows_to_dicts(rows)
             
-            # Проверяем статус дружбы для каждого найденного пользователя
+            # Проверяем статус дружбы и черного списка для каждого найденного пользователя
             for user in search_results:
+                # Проверяем статус дружбы
                 friend_status = conn.execute('''
                     SELECT status FROM friendships 
                     WHERE (sender_id = ? AND receiver_id = ?) 
@@ -299,6 +390,14 @@ def find_friends():
                 ''', (user_id, user['id'], user['id'], user_id)).fetchone()
                 
                 user['friend_status'] = friend_status['status'] if friend_status else None
+                
+                # Проверяем, находится ли пользователь в черном списке
+                blacklisted = conn.execute('''
+                    SELECT id FROM blacklist 
+                    WHERE blocker_id = ? AND blocked_id = ?
+                ''', (user_id, user['id'])).fetchone()
+                
+                user['is_blacklisted'] = blacklisted is not None
             
             conn.close()
     
@@ -316,6 +415,17 @@ def add_friend(friend_id):
         return redirect('/find_friends')
     
     conn = get_db_connection()
+    
+    # Проверяем, не заблокирован ли пользователь
+    is_blacklisted = conn.execute('''
+        SELECT id FROM blacklist 
+        WHERE blocker_id = ? AND blocked_id = ?
+    ''', (user_id, friend_id)).fetchone()
+    
+    if is_blacklisted:
+        flash('Вы не можете добавить в друзья пользователя из черного списка!', 'error')
+        conn.close()
+        return redirect('/find_friends')
     
     # Проверяем, не существует ли уже заявка
     existing_request = conn.execute('''
@@ -481,6 +591,285 @@ def remove_friend(friend_id):
     flash('Пользователь удален из друзей', 'info')
     return redirect('/friends')
 
+# Черный список
+@app.route('/blacklist')
+def blacklist():
+    if 'user_id' not in session:
+        return redirect('/login')
+    
+    user_id = session['user_id']
+    conn = get_db_connection()
+    
+    # Получаем список пользователей в черном списке
+    blacklist_rows = conn.execute('''
+        SELECT u.id, u.username, up.full_name, 
+               COALESCE(up.avatar, 'default_avatar.png') as avatar,
+               b.reason, b.created_at
+        FROM blacklist b
+        JOIN users u ON b.blocked_id = u.id
+        LEFT JOIN user_profiles up ON u.id = up.user_id
+        WHERE b.blocker_id = ?
+        ORDER BY b.created_at DESC
+    ''', (user_id,)).fetchall()
+    
+    blacklisted_users = rows_to_dicts(blacklist_rows)
+    
+    conn.close()
+    
+    return render_template('blacklist.html', blacklisted_users=blacklisted_users)
+
+@app.route('/add_to_blacklist/<int:user_id>', methods=['GET', 'POST'])
+def add_to_blacklist(user_id):
+    if 'user_id' not in session:
+        return redirect('/login')
+    
+    blocker_id = session['user_id']
+    
+    if blocker_id == user_id:
+        flash('Нельзя добавить себя в черный список!', 'error')
+        return redirect(request.referrer or '/find_friends')
+    
+    if request.method == 'POST':
+        reason = request.form.get('reason', '')
+        
+        conn = get_db_connection()
+        
+        # Проверяем, не добавлен ли уже пользователь в черный список
+        existing = conn.execute('''
+            SELECT id FROM blacklist 
+            WHERE blocker_id = ? AND blocked_id = ?
+        ''', (blocker_id, user_id)).fetchone()
+        
+        if existing:
+            flash('Пользователь уже в вашем черном списке', 'info')
+        else:
+            # Добавляем в черный список
+            conn.execute('''
+                INSERT INTO blacklist (blocker_id, blocked_id, reason)
+                VALUES (?, ?, ?)
+            ''', (blocker_id, user_id, reason))
+            
+            # Удаляем из друзей, если были друзьями
+            conn.execute('''
+                DELETE FROM friendships 
+                WHERE ((sender_id = ? AND receiver_id = ?) 
+                OR (sender_id = ? AND receiver_id = ?)) 
+                AND status = 'accepted'
+            ''', (blocker_id, user_id, user_id, blocker_id))
+            
+            # Отменяем все заявки в друзья между этими пользователями
+            conn.execute('''
+                DELETE FROM friendships 
+                WHERE (sender_id = ? AND receiver_id = ?) 
+                OR (sender_id = ? AND receiver_id = ?)
+            ''', (blocker_id, user_id, user_id, blocker_id))
+            
+            flash('Пользователь добавлен в черный список', 'success')
+        
+        conn.commit()
+        conn.close()
+        
+        return redirect('/blacklist')
+    
+    # GET запрос - показываем форму
+    conn = get_db_connection()
+    user_info = conn.execute('''
+        SELECT u.username, up.full_name 
+        FROM users u
+        LEFT JOIN user_profiles up ON u.id = up.user_id
+        WHERE u.id = ?
+    ''', (user_id,)).fetchone()
+    
+    conn.close()
+    
+    if user_info:
+        return render_template('add_to_blacklist.html', 
+                             user_id=user_id, 
+                             username=user_info['username'],
+                             full_name=user_info['full_name'])
+    else:
+        flash('Пользователь не найден', 'error')
+        return redirect('/find_friends')
+
+@app.route('/remove_from_blacklist/<int:blocked_id>')
+def remove_from_blacklist(blocked_id):
+    if 'user_id' not in session:
+        return redirect('/login')
+    
+    blocker_id = session['user_id']
+    
+    conn = get_db_connection()
+    
+    # Удаляем из черного списка
+    conn.execute('''
+        DELETE FROM blacklist 
+        WHERE blocker_id = ? AND blocked_id = ?
+    ''', (blocker_id, blocked_id))
+    
+    conn.commit()
+    conn.close()
+    
+    flash('Пользователь удален из черного списка', 'info')
+    return redirect('/blacklist')
+
+# Жалобы на пользователей
+@app.route('/report_user/<int:user_id>', methods=['GET', 'POST'])
+def report_user(user_id):
+    if 'user_id' not in session:
+        return redirect('/login')
+    
+    reporter_id = session['user_id']
+    
+    if reporter_id == user_id:
+        flash('Нельзя отправить жалобу на себя!', 'error')
+        return redirect(request.referrer or '/find_friends')
+    
+    if request.method == 'POST':
+        reason = request.form.get('reason', '').strip()
+        
+        if not reason or len(reason) < 10:
+            flash('Пожалуйста, опишите причину жалобы подробнее (минимум 10 символов)', 'error')
+            return redirect(f'/report_user/{user_id}')
+        
+        conn = get_db_connection()
+        
+        # Отправляем жалобу
+        conn.execute('''
+            INSERT INTO reports (reporter_id, reported_id, reason, status)
+            VALUES (?, ?, ?, 'pending')
+        ''', (reporter_id, user_id, reason))
+        
+        conn.commit()
+        conn.close()
+        
+        flash('Жалоба отправлена администратору. Спасибо за ваше сообщение!', 'success')
+        return redirect('/find_friends')
+    
+    # GET запрос - показываем форму
+    conn = get_db_connection()
+    user_info = conn.execute('''
+        SELECT u.username, up.full_name 
+        FROM users u
+        LEFT JOIN user_profiles up ON u.id = up.user_id
+        WHERE u.id = ?
+    ''', (user_id,)).fetchone()
+    
+    conn.close()
+    
+    if user_info:
+        return render_template('report_user.html', 
+                             user_id=user_id, 
+                             username=user_info['username'],
+                             full_name=user_info['full_name'])
+    else:
+        flash('Пользователь не найден', 'error')
+        return redirect('/find_friends')
+
+# Панель тех-админа
+@app.route('/techadmin')
+def techadmin():
+    if 'user_id' not in session:
+        return redirect('/login')
+    
+    # Проверяем, является ли пользователь тех-админом
+    conn = get_db_connection()
+    user = conn.execute('SELECT role FROM users WHERE id = ?', (session['user_id'],)).fetchone()
+    conn.close()
+    
+    if not user or user['role'] != 'techadmin':
+        flash('Доступ запрещен', 'error')
+        return redirect('/home')
+    
+    return render_template('techadmin.html')
+
+@app.route('/techadmin/reports')
+def techadmin_reports():
+    if 'user_id' not in session:
+        return redirect('/login')
+    
+    # Проверяем, является ли пользователь тех-админом
+    conn = get_db_connection()
+    user = conn.execute('SELECT role FROM users WHERE id = ?', (session['user_id'],)).fetchone()
+    
+    if not user or user['role'] != 'techadmin':
+        conn.close()
+        flash('Доступ запрещен', 'error')
+        return redirect('/home')
+    
+    # Получаем все жалобы
+    reports_rows = conn.execute('''
+        SELECT r.*, 
+               reporter.username as reporter_username,
+               reported.username as reported_username,
+               reporter_profile.full_name as reporter_full_name,
+               reported_profile.full_name as reported_full_name
+        FROM reports r
+        JOIN users reporter ON r.reporter_id = reporter.id
+        JOIN users reported ON r.reported_id = reported.id
+        LEFT JOIN user_profiles reporter_profile ON reporter.id = reporter_profile.user_id
+        LEFT JOIN user_profiles reported_profile ON reported.id = reported_profile.user_id
+        ORDER BY r.created_at DESC
+    ''').fetchall()
+    
+    reports = rows_to_dicts(reports_rows)
+    
+    conn.close()
+    
+    return render_template('techadmin_reports.html', reports=reports)
+
+@app.route('/techadmin/report_action/<int:report_id>/<action>', methods=['POST'])
+def techadmin_report_action(report_id, action):
+    if 'user_id' not in session:
+        return redirect('/login')
+    
+    # Проверяем, является ли пользователь тех-админом
+    conn = get_db_connection()
+    user = conn.execute('SELECT role FROM users WHERE id = ?', (session['user_id'],)).fetchone()
+    
+    if not user or user['role'] != 'techadmin':
+        conn.close()
+        flash('Доступ запрещен', 'error')
+        return redirect('/home')
+    
+    admin_notes = request.form.get('admin_notes', '')
+    
+    if action == 'approve':
+        # Помечаем жалобу как обработанную
+        conn.execute('''
+            UPDATE reports 
+            SET status = 'approved', admin_notes = ?, updated_at = CURRENT_TIMESTAMP
+            WHERE id = ?
+        ''', (admin_notes, report_id))
+        
+        # Получаем информацию о жалобе
+        report = conn.execute('SELECT reported_id FROM reports WHERE id = ?', (report_id,)).fetchone()
+        if report:
+            # Баним пользователя (можно добавить более сложную логику)
+            conn.execute('''
+                UPDATE users SET is_banned = 1 WHERE id = ?
+            ''', (report['reported_id'],))
+        
+        flash('Жалоба одобрена, пользователь забанен', 'success')
+    
+    elif action == 'reject':
+        # Помечаем жалобу как отклоненную
+        conn.execute('''
+            UPDATE reports 
+            SET status = 'rejected', admin_notes = ?, updated_at = CURRENT_TIMESTAMP
+            WHERE id = ?
+        ''', (admin_notes, report_id))
+        flash('Жалоба отклонена', 'info')
+    
+    elif action == 'delete':
+        # Удаляем жалобу
+        conn.execute('DELETE FROM reports WHERE id = ?', (report_id,))
+        flash('Жалоба удалена', 'info')
+    
+    conn.commit()
+    conn.close()
+    
+    return redirect('/techadmin/reports')
+
 @app.route('/my_posts')
 def my_posts():
     if 'user_id' not in session:
@@ -541,16 +930,25 @@ def login():
         try:
             connection = get_db_connection()
             cursor = connection.cursor()
-            cursor.execute("SELECT id FROM users WHERE username = ? AND password = ?", (username, password))
-            user = cursor.fetchone()
+            cursor.execute("SELECT id, username, role, is_banned FROM users WHERE username = ? AND password = ?", (username, password))
+            user_row = cursor.fetchone()
             connection.close()
             
-            if user:
+            if user_row:
+                # Преобразуем Row в словарь
+                user = dict(user_row)
+                
+                # Проверяем, не забанен ли пользователь (для обычных пользователей)
+                if user.get('role') == 'user' and user.get('is_banned', 0) == 1:
+                    return render_template('login.html', error="Ваш аккаунт заблокирован")
+                
                 session['user_id'] = user['id']
-                session['username'] = username
+                session['username'] = user['username']
                 
                 if username == 'admin':
                     return redirect('/admin')
+                elif username == 'techadmin':
+                    return redirect('/techadmin')
                 else:
                     return redirect('/home')      
             else:
