@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Паблики</title>
+    <style>
+        .group-card {
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+            display: flex;
+            gap: 20px;
+            background: white;
+        }
+        .group-avatar-large {
+            width: 100px;
+            height: 100px;
+            border-radius: 10px;
+            object-fit: cover;
+        }
+        .group-info {
+            flex: 1;
+        }
+        .group-stats {
+            display: flex;
+            gap: 15px;
+            margin: 10px 0;
+            color: #666;
+        }
+        .group-stats span {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        .create-group-btn {
+            background: #28a745;
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            margin-bottom: 20px;
+        }
+        .search-bar {
+            margin-bottom: 20px;
+        }
+        .search-bar input {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 16px;
+        }
+        .tabs {
+            display: flex;
+            border-bottom: 1px solid #ddd;
+            margin-bottom: 20px;
+        }
+        .tab {
+            padding: 10px 20px;
+            cursor: pointer;
+            border-bottom: 2px solid transparent;
+        }
+        .tab.active {
+            border-bottom: 2px solid #007bff;
+            color: #007bff;
+        }
+    </style>
+</head>
+<body>
+    <div style="padding: 20px; max-width: 1000px; margin: 0 auto;">
+        <h1>Паблики</h1>
+
+        <div style="margin-bottom: 20px;">
+            <a href="/home" style="margin-right: 10px;">← Главная</a>
+            <a href="/feed" style="margin-right: 10px;">Лента</a>
+            <a href="/profile" style="margin-right: 10px;">Профиль</a>
+        </div>
+
+        <button class="create-group-btn" onclick="openCreateGroupModal()">
+            + Создать паблик
+        </button>
+
+        <div class="search-bar">
+            <form method="GET" action="/groups">
+                <input type="text" name="search" placeholder="Поиск пабликов..." value="{{ search_query }}">
+            </form>
+        </div>
+
+        <div class="tabs">
+            <div class="tab active" onclick="switchTab('all')">Все паблики</div>
+            <div class="tab" onclick="switchTab('my')">Мои паблики</div>
+            <div class="tab" onclick="switchTab('popular')">Популярные</div>
+        </div>
+
+        {% if groups %}
+        <div id="groups-container">
+            {% for group in groups %}
+            <div class="group-card">
+                <img src="{{ url_for('static', filename='uploads/groups/' + group.avatar) if group.avatar else 'https://via.placeholder.com/100?text=Group' }}"
+                     class="group-avatar-large"
+                     onerror="this.src='https://via.placeholder.com/100?text=Group'">
+
+                <div class="group-info">
+                    <h2 style="margin-top: 0;">
+                        <a href="/group/{{ group.id }}" style="color: inherit; text-decoration: none;">
+                            {{ group.name }}
+                        </a>
+                    </h2>
+
+                    <p style="color: #666;">{{ group.description or 'Нет описания' }}</p>
+
+                    <div class="group-stats">
+                        <span>👥 {{ group.members_count }} участников</span>
+                        <span>📝 {{ group.posts_count }} постов</span>
+                        <span>📅 Создан {{ group.created_at[:10]|replace('-', '.')|replace('.', '.', 2) }}</span>
+                    </div>
+                </div>
+
+                <div style="display: flex; flex-direction: column; justify-content: center;">
+                    {% if group.is_member %}
+                        {% if group.role == 'admin' %}
+                        <span style="background: #dc3545; color: white; padding: 5px 10px; border-radius: 3px; margin-bottom: 10px;">
+                            Администратор
+                        </span>
+                        {% endif %}
+                        <a href="/group/{{ group.id }}" style="padding: 10px 20px; background: #007bff; color: white; text-decoration: none; border-radius: 5px; text-align: center;">
+                            Открыть
+                        </a>
+                    {% else %}
+                        <form method="POST" action="/join_group/{{ group.id }}">
+                            <button type="submit" style="padding: 10px 20px; background: #28a745; color: white; border: none; border-radius: 5px; cursor: pointer;">
+                                Вступить
+                            </button>
+                        </form>
+                    {% endif %}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div style="text-align: center; padding: 40px; color: #666;">
+            <h3>Паблики не найдены</h3>
+            <p>Создайте первый паблик или попробуйте изменить поисковый запрос</p>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Модальное окно создания паблика -->
+    <div id="createGroupModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000;">
+        <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; padding: 30px; border-radius: 10px; width: 500px;">
+            <h2>Создать паблик</h2>
+            <form method="POST" action="/create_group" enctype="multipart/form-data">
+                <div style="margin-bottom: 15px;">
+                    <label>Название паблика *</label>
+                    <input type="text" name="name" required style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px;">
+                </div>
+
+                <div style="margin-bottom: 15px;">
+                    <label>Описание</label>
+                    <textarea name="description" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px; height: 100px;"></textarea>
+                </div>
+
+                <div style="margin-bottom: 15px;">
+                    <label>Аватар</label>
+                    <input type="file" name="avatar" accept="image/*">
+                </div>
+
+                <div style="margin-bottom: 20px;">
+                    <label>
+                        <input type="checkbox" name="is_public" checked>
+                        Публичный паблик (виден всем)
+                    </label>
+                </div>
+
+                <div style="display: flex; justify-content: space-between;">
+                    <button type="button" onclick="closeCreateGroupModal()" style="padding: 10px 20px; background: #6c757d; color: white; border: none; border-radius: 4px;">
+                        Отмена
+                    </button>
+                    <button type="submit" style="padding: 10px 20px; background: #28a745; color: white; border: none; border-radius: 4px;">
+                        Создать
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        function openCreateGroupModal() {
+            document.getElementById('createGroupModal').style.display = 'block';
+        }
+
+        function closeCreateGroupModal() {
+            document.getElementById('createGroupModal').style.display = 'none';
+        }
+
+        function switchTab(tab) {
+            // AJAX загрузка пабликов для вкладки
+            fetch(`/groups/tab/${tab}`)
+                .then(response => response.text())
+                .then(html => {
+                    document.getElementById('groups-container').innerHTML = html;
+                });
+        }
+
+        // Закрытие модального окна при клике вне его
+        document.getElementById('createGroupModal').addEventListener('click', function(e) {
+            if (e.target === this) {
+                closeCreateGroupModal();
+            }
+        });
+    </script>
+</body>
+</html>
