@@ -91,21 +91,8 @@ def migrate_database():
     )
     ''')
     
-    # Создаем таблицу жалоб, если ее нет
-    cursor.execute('''
-    CREATE TABLE IF NOT EXISTS reports (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        reporter_id INTEGER NOT NULL,
-        reported_id INTEGER NOT NULL,
-        reason TEXT NOT NULL,
-        status TEXT DEFAULT 'pending',
-        admin_notes TEXT,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (reporter_id) REFERENCES users(id),
-        FOREIGN KEY (reported_id) REFERENCES users(id)
-    )
-    ''')
+    
+    
     
     conn.commit()
     conn.close()
@@ -160,7 +147,22 @@ def create_tables():
         UNIQUE(sender_id, receiver_id)
     )
     ''')
-    
+
+    cursor.execute('''
+    CREATE TABLE IF NOT EXISTS reports (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        reporter_id INTEGER NOT NULL,
+        reported_id INTEGER NOT NULL,
+        reason TEXT NOT NULL,
+        status TEXT DEFAULT 'pending',
+        admin_notes TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (reporter_id) REFERENCES users(id),
+        FOREIGN KEY (reported_id) REFERENCES users(id)
+    )
+    ''')
+
     connection.commit()
     connection.close()
     
@@ -749,6 +751,70 @@ def add_friend(friend_id):
     
     return redirect('/find_friends')
 
+@app.route('/add_friend_to_blacklist/<int:friend_id>')
+def add_friend_to_blacklist(friend_id):
+    """Добавить друга в черный список из раздела друзей"""
+    if 'user_id' not in session:
+        return redirect('/login')
+    
+    blocker_id = session['user_id']
+    
+    if blocker_id == friend_id:
+        flash('Нельзя добавить себя в черный список!', 'error')
+        return redirect('/friends')
+    
+    conn = get_db_connection()
+    
+    # Получаем информацию о друге
+    friend_info = conn.execute('''
+        SELECT u.username, up.full_name 
+        FROM users u
+        LEFT JOIN user_profiles up ON u.id = up.user_id
+        WHERE u.id = ?
+    ''', (friend_id,)).fetchone()
+    
+    if not friend_info:
+        conn.close()
+        flash('Пользователь не найден', 'error')
+        return redirect('/friends')
+    
+    # Проверяем, не добавлен ли уже пользователь в черный список
+    existing = conn.execute('''
+        SELECT id FROM blacklist 
+        WHERE blocker_id = ? AND blocked_id = ?
+    ''', (blocker_id, friend_id)).fetchone()
+    
+    if existing:
+        flash('Пользователь уже в вашем черном списке', 'info')
+    else:
+        # Добавляем в черный список
+        conn.execute('''
+            INSERT INTO blacklist (blocker_id, blocked_id, reason)
+            VALUES (?, ?, ?)
+        ''', (blocker_id, friend_id, 'Добавлен из раздела друзей'))
+        
+        # Удаляем из друзей
+        conn.execute('''
+            DELETE FROM friendships 
+            WHERE ((sender_id = ? AND receiver_id = ?) 
+            OR (sender_id = ? AND receiver_id = ?)) 
+            AND status = 'accepted'
+        ''', (blocker_id, friend_id, friend_id, blocker_id))
+        
+        # Отменяем все заявки в друзья между этими пользователями
+        conn.execute('''
+            DELETE FROM friendships 
+            WHERE (sender_id = ? AND receiver_id = ?) 
+            OR (sender_id = ? AND receiver_id = ?)
+        ''', (blocker_id, friend_id, friend_id, blocker_id))
+        
+        flash(f'{friend_info["username"]} добавлен в черный список и удален из друзей', 'success')
+    
+    conn.commit()
+    conn.close()
+    
+    return redirect('/friends')
+
 @app.route('/friends')
 def friends():
     if 'user_id' not in session:
@@ -999,6 +1065,61 @@ def remove_from_blacklist(blocked_id):
     return redirect('/blacklist')
 
 # Жалобы на пользователей
+@app.route('/report_friend/<int:friend_id>', methods=['GET', 'POST'])
+def report_friend(friend_id):
+    """Отправить жалобу на друга из раздела друзей"""
+    if 'user_id' not in session:
+        return redirect('/login')
+    
+    reporter_id = session['user_id']
+    
+    if reporter_id == friend_id:
+        flash('Нельзя отправить жалобу на себя!', 'error')
+        return redirect('/friends')
+    
+    if request.method == 'POST':
+        reason = request.form.get('reason', '').strip()
+        violation_type = request.form.get('violation_type', '')
+        
+        if not reason or len(reason) < 10:
+            flash('Пожалуйста, опишите причину жалобы подробнее (минимум 10 символов)', 'error')
+            return redirect(f'/report_friend/{friend_id}')
+        
+        conn = get_db_connection()
+        
+        # Отправляем жалобу
+        full_reason = f"Тип нарушения: {violation_type}\n\n{reason}"
+        conn.execute('''
+            INSERT INTO reports (reporter_id, reported_id, reason, status)
+            VALUES (?, ?, ?, 'pending')
+        ''', (reporter_id, friend_id, full_reason))
+        
+        conn.commit()
+        conn.close()
+        
+        flash('Жалоба отправлена администратору. Спасибо за ваше сообщение!', 'success')
+        return redirect('/friends')
+    
+    # GET запрос - показываем форму
+    conn = get_db_connection()
+    friend_info = conn.execute('''
+        SELECT u.username, up.full_name 
+        FROM users u
+        LEFT JOIN user_profiles up ON u.id = up.user_id
+        WHERE u.id = ?
+    ''', (friend_id,)).fetchone()
+    
+    conn.close()
+    
+    if friend_info:
+        return render_template('report_user.html', 
+                             user_id=friend_id, 
+                             username=friend_info['username'],
+                             full_name=friend_info['full_name'])
+    else:
+        flash('Пользователь не найден', 'error')
+        return redirect('/friends')
+
 @app.route('/report_user/<int:user_id>', methods=['GET', 'POST'])
 def report_user(user_id):
     if 'user_id' not in session:
@@ -1012,6 +1133,7 @@ def report_user(user_id):
     
     if request.method == 'POST':
         reason = request.form.get('reason', '').strip()
+        violation_type = request.form.get('violation_type', 'other')
         
         if not reason or len(reason) < 10:
             flash('Пожалуйста, опишите причину жалобы подробнее (минимум 10 символов)', 'error')
@@ -1019,17 +1141,39 @@ def report_user(user_id):
         
         conn = get_db_connection()
         
-        # Отправляем жалобу
-        conn.execute('''
-            INSERT INTO reports (reporter_id, reported_id, reason, status)
-            VALUES (?, ?, ?, 'pending')
-        ''', (reporter_id, user_id, reason))
+        # ОТЛАДКА: Выводим информацию
+        print(f"=== ОТПРАВКА ЖАЛОБЫ ===")
+        print(f"Жалобщик ID: {reporter_id}")
+        print(f"Нарушитель ID: {user_id}")
+        print(f"Причина: {reason}")
+        print(f"Тип нарушения: {violation_type}")
         
-        conn.commit()
-        conn.close()
+        try:
+            # Отправляем жалобу
+            full_reason = f"Тип нарушения: {violation_type}\n{reason}"
+            conn.execute('''
+                INSERT INTO reports (reporter_id, reported_id, reason, status)
+                VALUES (?, ?, ?, 'pending')
+            ''', (reporter_id, user_id, full_reason))
+            
+            conn.commit()
+            
+            # Проверяем, сохранилась ли жалоба
+            last_report = conn.execute('SELECT * FROM reports ORDER BY id DESC LIMIT 1').fetchone()
+            if last_report:
+                print(f"Жалоба сохранена! ID: {last_report['id']}")
+                print(f"Статус: {last_report['status']}")
+            else:
+                print("ОШИБКА: Жалоба не сохранилась!")
+                
+        except Exception as e:
+            print(f"ОШИБКА при сохранении жалобы: {e}")
+            flash('Ошибка при отправке жалобы', 'error')
+        finally:
+            conn.close()
         
         flash('Жалоба отправлена администратору. Спасибо за ваше сообщение!', 'success')
-        return redirect('/find_friends')
+        return redirect('/friends')
     
     # GET запрос - показываем форму
     conn = get_db_connection()
@@ -1049,7 +1193,7 @@ def report_user(user_id):
                              full_name=user_info['full_name'])
     else:
         flash('Пользователь не найден', 'error')
-        return redirect('/find_friends')
+        return redirect('/friends')  
 
 # Панель тех-админа
 @app.route('/techadmin')
@@ -1075,15 +1219,24 @@ def techadmin_reports():
     
     # Проверяем, является ли пользователь тех-админом
     conn = get_db_connection()
-    user = conn.execute('SELECT role FROM users WHERE id = ?', (session['user_id'],)).fetchone()
+    user = conn.execute('SELECT username, role FROM users WHERE id = ?', (session['user_id'],)).fetchone()
+    
+    print(f"=== ТЕХ-АДМИН ЗАПРОС ===")
+    print(f"Пользователь: {user['username'] if user else 'не найден'}")
+    print(f"Роль: {user['role'] if user else 'нет'}")
     
     if not user or user['role'] != 'techadmin':
         conn.close()
         flash('Доступ запрещен', 'error')
         return redirect('/home')
     
-    # Получаем все жалобы
-    reports_rows = conn.execute('''
+    # Получаем статус фильтра
+    status_filter = request.args.get('status', 'all')
+    
+    print(f"Фильтр статуса: {status_filter}")
+    
+    # Формируем запрос в зависимости от фильтра
+    query = '''
         SELECT r.*, 
                reporter.username as reporter_username,
                reported.username as reported_username,
@@ -1094,14 +1247,67 @@ def techadmin_reports():
         JOIN users reported ON r.reported_id = reported.id
         LEFT JOIN user_profiles reporter_profile ON reporter.id = reporter_profile.user_id
         LEFT JOIN user_profiles reported_profile ON reported.id = reported_profile.user_id
-        ORDER BY r.created_at DESC
-    ''').fetchall()
+    '''
     
+    if status_filter != 'all':
+        query += f" WHERE r.status = '{status_filter}'"
+    
+    query += " ORDER BY r.created_at DESC"
+    
+    print(f"Выполняем SQL запрос...")
+    
+    reports_rows = conn.execute(query).fetchall()
     reports = rows_to_dicts(reports_rows)
+    
+    print(f"Найдено жалоб: {len(reports)}")
+    for i, report in enumerate(reports):
+        print(f"  {i+1}. ID: {report['id']}, Статус: {report['status']}, От: {report['reporter_username']}, На: {report['reported_username']}")
     
     conn.close()
     
     return render_template('techadmin_reports.html', reports=reports)
+
+@app.route('/debug/reports')
+def debug_reports():
+    """Отладка: показать все жалобы в базе"""
+    conn = get_db_connection()
+    
+    # Проверяем структуру таблицы
+    cursor = conn.cursor()
+    cursor.execute("PRAGMA table_info(reports)")
+    columns = cursor.fetchall()
+    
+    print("=== СТРУКТУРА ТАБЛИЦЫ REPORTS ===")
+    for col in columns:
+        print(f"  {col['name']}: {col['type']}")
+    
+    # Получаем все жалобы
+    reports = conn.execute('SELECT * FROM reports ORDER BY id DESC').fetchall()
+    
+    conn.close()
+    
+    if not reports:
+        return "В таблице reports нет данных"
+    
+    html = "<h1>Все жалобы в базе:</h1>"
+    html += f"<p>Всего жалоб: {len(reports)}</p>"
+    
+    for report in reports:
+        html += f"""
+        <div style="border:1px solid #ccc; padding:10px; margin:10px;">
+            <h3>Жалоба #{report['id']}</h3>
+            <p><strong>Статус:</strong> {report['status']}</p>
+            <p><strong>Жалобщик ID:</strong> {report['reporter_id']}</p>
+            <p><strong>Нарушитель ID:</strong> {report['reported_id']}</p>
+            <p><strong>Причина:</strong> {report['reason'][:100]}...</p>
+            <p><strong>Создана:</strong> {report['created_at']}</p>
+            <p><strong>Обновлена:</strong> {report['updated_at']}</p>
+        </div>
+        """
+    
+    return html
+
+
 
 @app.route('/techadmin/report_action/<int:report_id>/<action>', methods=['POST'])
 def techadmin_report_action(report_id, action):
@@ -1156,6 +1362,37 @@ def techadmin_report_action(report_id, action):
     
     return redirect('/techadmin/reports')
 
+@app.route('/techadmin/stats')
+def techadmin_stats():
+    """Получение статистики для тех-админа"""
+    if 'user_id' not in session:
+        return jsonify({'error': 'Требуется авторизация'}), 401
+    
+    conn = get_db_connection()
+    
+    # Проверяем, является ли пользователь тех-админом
+    user = conn.execute('SELECT role FROM users WHERE id = ?', (session['user_id'],)).fetchone()
+    
+    if not user or user['role'] != 'techadmin':
+        conn.close()
+        return jsonify({'error': 'Доступ запрещен'}), 403
+    
+    # Получаем статистику жалоб
+    pending_reports = conn.execute('''SELECT COUNT(*) as count FROM reports WHERE status = 'pending''').fetchone()['count']
+    total_reports = conn.execute('''SELECT COUNT(*) as count FROM reports''').fetchone()['count']
+    
+    # Получаем статистику пользователей
+    banned_users = conn.execute('''SELECT COUNT(*) as count FROM users WHERE is_banned = 1''').fetchone()['count']
+    total_users = conn.execute('''SELECT COUNT(*) as count FROM users''').fetchone()['count']
+    
+    conn.close()
+    
+    return jsonify({
+        'pending_reports': pending_reports,
+        'total_reports': total_reports,
+        'banned_users': banned_users,
+        'total_users': total_users
+    })
 @app.route('/my_posts')
 def my_posts():
     if 'user_id' not in session:
@@ -1285,6 +1522,8 @@ def get_user_stats():
         'posts_count': posts_count,
         'friends_count': friends_count
     })
+
+
 
 if __name__ == '__main__':
     create_tables()

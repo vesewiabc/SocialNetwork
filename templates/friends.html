@@ -152,14 +152,26 @@
                             <p style="margin: 0; color: #666;">@{{ friend.username }}</p>
                         </div>
                         
+                       
                         <div class="actions">
                             <a href="#" 
-                               style="padding: 8px 15px; background: #007bff; color: white; text-decoration: none; border-radius: 4px; margin-right: 5px;">
+                            style="padding: 8px 15px; background: #007bff; color: white; text-decoration: none; border-radius: 4px; margin-right: 5px;">
                                 Написать
                             </a>
+                            
+                            <a href="/add_friend_to_blacklist/{{ friend.id }}" 
+                            onclick="return confirm('Добавить {{ friend.username }} в черный список? Пользователь будет удален из друзей.')"
+                            style="padding: 8px 15px; background: #ffc107; color: black; text-decoration: none; border-radius: 4px; margin-right: 5px;">
+                                В черный список
+                            </a>
+                            <a href="/report_friend/{{ friend.id }}" 
+                            style="padding: 8px 15px; background: #dc3545; color: white; text-decoration: none; border-radius: 4px; margin-right: 5px;">
+                                Жалоба
+                            </a>
+                            
                             <a href="/remove_friend/{{ friend.id }}" 
-                               onclick="return confirm('Удалить {{ friend.username }} из друзей?')"
-                               style="padding: 8px 15px; background: #dc3545; color: white; text-decoration: none; border-radius: 4px;">
+                            onclick="return confirm('Удалить {{ friend.username }} из друзей?')"
+                            style="padding: 8px 15px; background: #6c757d; color: white; text-decoration: none; border-radius: 4px;">
                                 Удалить
                             </a>
                         </div>

@@ -630,25 +630,7 @@
                 </div>
             </div>
             
-            <div class="friends-online">
-                <h4 style="margin-top: 0; margin-bottom: 15px;">Быстрые действия</h4>
-                <div class="quick-actions">
-                    <a href="/profile/edit" class="quick-action">
-                        <i class="fas fa-user-edit" style="color: #007bff;"></i>
-                        <span>Редактировать профиль</span>
-                    </a>
-                    <a href="/blacklist" class="quick-action">
-                        <i class="fas fa-shield-alt" style="color: #6c757d;"></i>
-                        <span>Настройки приватности</span>
-                    </a>
-                    {% if username in ['admin', 'techadmin'] %}
-                    <a href="/{{ 'admin' if username == 'admin' else 'techadmin' }}" class="quick-action">
-                        <i class="fas fa-cog" style="color: #ffc107;"></i>
-                        <span>Панель управления</span>
-                    </a>
-                    {% endif %}
-                </div>
-            </div>
+            
         </div>
     </div>
 

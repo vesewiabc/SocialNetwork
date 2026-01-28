@@ -46,10 +46,11 @@
             <h2 style="margin: 0 0 15px 0; color: #0c5460;">Управление жалобами</h2>
             <p>На этой панели вы можете просматривать и обрабатывать жалобы от пользователей.</p>
             
+            <!-- В techadmin.html, в admin-card добавьте: -->
             <div style="margin-top: 20px;">
                 <a href="/techadmin/reports" 
-                   style="padding: 12px 24px; background: #17a2b8; color: white; text-decoration: none; border-radius: 5px; display: inline-block;">
-                    Просмотр жалоб
+                style="padding: 12px 24px; background: #17a2b8; color: white; text-decoration: none; border-radius: 5px; display: inline-block;">
+                    Просмотр жалоб (<span id="pending-reports-count">0</span> новых)
                 </a>
             </div>
         </div>
@@ -96,18 +97,20 @@
     </div>
     
     <script>
-        // Загружаем статистику
-        fetch('/techadmin/stats')
-            .then(response => response.json())
-            .then(data => {
-                document.getElementById('pending-reports').textContent = data.pending_reports || 0;
-                document.getElementById('total-reports').textContent = data.total_reports || 0;
-                document.getElementById('banned-users').textContent = data.banned_users || 0;
-                document.getElementById('total-users').textContent = data.total_users || 0;
-            })
-            .catch(error => {
-                console.error('Ошибка загрузки статистики:', error);
-            });
-    </script>
+    // Загружаем статистику
+    fetch('/techadmin/stats')
+        .then(response => response.json())
+        .then(data => {
+            document.getElementById('pending-reports').textContent = data.pending_reports || 0;
+            document.getElementById('total-reports').textContent = data.total_reports || 0;
+            document.getElementById('banned-users').textContent = data.banned_users || 0;
+            document.getElementById('total-users').textContent = data.total_users || 0;
+            document.getElementById('pending-reports-count').textContent = data.pending_reports || 0;
+        })
+        .catch(error => {
+            console.error('Ошибка загрузки статистики:', error);
+        });
+</script>
+    
 </body>
 </html>
