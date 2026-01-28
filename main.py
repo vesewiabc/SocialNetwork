@@ -205,7 +205,245 @@ def create_tech_admin():
     conn.commit()
     conn.close()
 
+def get_news_feed(user_id=None, limit=30):
+    """Получение ленты новостей (посты пользователей + импортированные новости)"""
+    conn = get_db_connection()
+    
+    user_posts = []
+    imported_news = []
+    
+    try:
+        # Получаем посты пользователей
+        if user_id:
+            try:
+                user_posts_rows = conn.execute('''
+                    SELECT p.*, u.username, up.avatar, up.full_name,
+                           (SELECT COUNT(*) FROM post_likes WHERE post_id = p.id) as likes_count,
+                           (SELECT COUNT(*) FROM comments WHERE post_id = p.id) as comments_count
+                    FROM posts p
+                    JOIN users u ON p.user_id = u.id
+                    LEFT JOIN user_profiles up ON u.id = up.user_id
+                    WHERE u.id = ? OR u.id IN (
+                        SELECT CASE 
+                            WHEN sender_id = ? THEN receiver_id 
+                            ELSE sender_id 
+                        END as friend_id
+                        FROM friendships 
+                        WHERE (sender_id = ? OR receiver_id = ?) AND status = 'accepted'
+                    )
+                    ORDER BY p.created_at DESC
+                    LIMIT 15
+                ''', (user_id, user_id, user_id, user_id)).fetchall()
+                
+                if user_posts_rows:
+                    user_posts = rows_to_dicts(user_posts_rows)
+            except Exception as e:
+                print(f"Ошибка при получении постов: {e}")
+        
+        # Получаем импортированные новости
+        try:
+            news_rows = conn.execute('''
+                SELECT *, 'news' as type FROM imported_news
+                ORDER BY published DESC
+                LIMIT 15
+            ''').fetchall()
+            
+            if news_rows:
+                imported_news = rows_to_dicts(news_rows)
+        except Exception as e:
+            print(f"Ошибка при получении новостей: {e}")
+            
+    except Exception as e:
+        print(f"Общая ошибка при получении ленты: {e}")
+    finally:
+        conn.close()
+    
+    # Объединяем
+    all_feed = []
+    
+    # Добавляем посты
+    for post in user_posts:
+        post['type'] = 'post'
+        all_feed.append(post)
+    
+    # Добавляем новости
+    for news in imported_news:
+        news['type'] = 'news'
+        all_feed.append(news)
+    
+    # Сортируем по дате создания (если есть)
+    try:
+        all_feed.sort(key=lambda x: x.get('created_at') or x.get('published') or '', reverse=True)
+    except:
+        pass
+    
+    return all_feed[:limit]
 
+def fetch_rbc_news():
+    """Получение новостей с RBC.ru"""
+    try:
+        # Основные RSS ленты RBC
+        rss_urls = [
+            'https://rssexport.rbc.ru/rbcnews/news/30/full.rss',
+            'https://rssexport.rbc.ru/rbcnews/news/20/full.rss',
+            'https://rssexport.rbc.ru/rbcnews/news/10/full.rss'
+        ]
+        
+        all_news = []
+        
+        for rss_url in rss_urls:
+            try:
+                # Парсим RSS ленту
+                feed = feedparser.parse(rss_url)
+                
+                # Проверяем, есть ли записи
+                if hasattr(feed, 'entries') and feed.entries:
+                    for entry in feed.entries[:3]:  # Берем первые 3 новости
+                        try:
+                            title = entry.get('title', 'Новость без названия')
+                            description = entry.get('description', '')
+                            link = entry.get('link', '')
+                            
+                            # Пропускаем если нет ссылки
+                            if not link:
+                                continue
+                            
+                            # Очищаем описание от HTML тегов
+                            if description:
+                                # Используем BeautifulSoup для очистки HTML
+                                soup = BeautifulSoup(description, 'html.parser')
+                                # Удаляем все теги, оставляем только текст
+                                clean_description = soup.get_text().strip()
+                                
+                                # Обрезаем слишком длинные описания
+                                if len(clean_description) > 150:
+                                    clean_description = clean_description[:150] + '...'
+                            else:
+                                clean_description = 'Читать далее...'
+                            
+                            # Обрабатываем дату публикации
+                            published = entry.get('published', '')
+                            if published:
+                                try:
+                                    # Пробуем распарсить дату в разных форматах
+                                    parsed_date = None
+                                    date_formats = [
+                                        '%a, %d %b %Y %H:%M:%S %z',
+                                        '%a, %d %b %Y %H:%M:%S %Z',
+                                        '%Y-%m-%dT%H:%M:%S%z',
+                                        '%Y-%m-%d %H:%M:%S'
+                                    ]
+                                    
+                                    for date_format in date_formats:
+                                        try:
+                                            parsed_date = datetime.strptime(published, date_format)
+                                            break
+                                        except:
+                                            continue
+                                    
+                                    if parsed_date:
+                                        published_str = parsed_date.strftime('%d.%m.%Y %H:%M')
+                                    else:
+                                        published_str = datetime.now().strftime('%d.%m.%Y %H:%M')
+                                except:
+                                    published_str = datetime.now().strftime('%d.%m.%Y %H:%M')
+                            else:
+                                published_str = datetime.now().strftime('%d.%m.%Y %H:%M')
+                            
+                            # Создаем объект новости
+                            news_item = {
+                                'title': title,
+                                'description': clean_description,
+                                'link': link,
+                                'published': published_str,
+                                'source': 'RBC'
+                            }
+                            
+                            all_news.append(news_item)
+                            
+                        except Exception as e:
+                            print(f"Ошибка при обработке новости: {e}")
+                            continue
+                else:
+                    print(f"Нет записей в RSS ленте: {rss_url}")
+                    
+            except Exception as e:
+                print(f"Ошибка при получении RSS с {rss_url}: {e}")
+                continue
+        
+        # Удаляем дубликаты по ссылкам
+        seen_links = set()
+        unique_news = []
+        for news in all_news:
+            if news['link'] not in seen_links:
+                seen_links.add(news['link'])
+                unique_news.append(news)
+        
+        return unique_news[:8]  # Возвращаем до 8 новостей
+        
+    except Exception as e:
+        print(f"Критическая ошибка при получении новостей RBC: {e}")
+        return []
+
+def import_news_to_db():
+    """Импорт новостей в базу данных"""
+    try:
+        # Пробуем получить новости
+        news_items = fetch_rbc_news()
+        
+        # Если не получили новости, пробуем альтернативный источник
+        if not news_items:
+            print("Не удалось получить новости RBC, пробуем альтернативный источник...")
+            news_items = fetch_alternative_news()
+        
+        if not news_items:
+            print("Не удалось получить новости ни из одного источника")
+            return False
+        
+        conn = get_db_connection()
+        
+        imported_count = 0
+        for news in news_items:
+            try:
+                # Проверяем, не существует ли уже такая новость
+                existing = conn.execute(
+                    'SELECT id FROM imported_news WHERE link = ?',
+                    (news['link'],)
+                ).fetchone()
+                
+                if not existing:
+                    # Преобразуем строку даты в datetime объект
+                    published_str = news.get('published', '')
+                    try:
+                        published_dt = datetime.strptime(published_str, '%d.%m.%Y %H:%M')
+                    except:
+                        published_dt = datetime.now()
+                    
+                    conn.execute('''
+                        INSERT INTO imported_news (title, description, link, source, published)
+                        VALUES (?, ?, ?, ?, ?)
+                    ''', (
+                        news['title'],
+                        news['description'],
+                        news['link'],
+                        news.get('source', 'news'),
+                        published_dt
+                    ))
+                    imported_count += 1
+                    
+            except Exception as e:
+                print(f"Ошибка при импорте новости '{news.get('title', '')}': {e}")
+                continue
+        
+        conn.commit()
+        conn.close()
+        
+        print(f"Успешно импортировано {imported_count} новостей")
+        return imported_count > 0
+        
+    except Exception as e:
+        print(f"Критическая ошибка при импорте новостей в БД: {e}")
+        return False
 
 @app.route('/')
 def index():
@@ -221,25 +459,73 @@ def index():
 
 
 
-@app.route('/home')
+@app.route('/home', methods=['GET', 'POST'])
 def home():
     if 'user_id' not in session:
         return redirect('/login')
     
     user_id = session['user_id']
+    
+    if request.method == 'POST':
+        # Создание нового поста
+        content = request.form.get('content', '').strip()
+        
+        if content:
+            conn = get_db_connection()
+            try:
+                conn.execute('''
+                    INSERT INTO posts (user_id, content)
+                    VALUES (?, ?)
+                ''', (user_id, content))
+                conn.commit()
+                flash('Пост опубликован!', 'success')
+            except Exception as e:
+                flash(f'Ошибка при публикации поста: {str(e)[:50]}', 'error')
+            finally:
+                conn.close()
+        else:
+            flash('Пост не может быть пустым', 'error')
+        
+        return redirect('/home')
+    
+    # GET запрос - показываем ленту
+    feed_items = []
+    
+    try:
+        # Пробуем импортировать новости (только раз в 20 запросов)
+        import_counter = session.get('import_counter', 0)
+        import_counter += 1
+        session['import_counter'] = import_counter
+        
+        if import_counter % 20 == 0:
+            print(f"Попытка импорта новостей (запрос #{import_counter})...")
+            import_news_to_db()
+        
+        # Получаем ленту новостей
+        feed_items = get_news_feed(user_id, limit=20)
+        
+    except Exception as e:
+        print(f"Ошибка при подготовке ленты: {e}")
+        flash('Не удалось загрузить все новости', 'info')
+    
+    # Получаем количество заявок в друзья
+    friend_requests_count = 0
     conn = get_db_connection()
-    
-    # Получаем информацию о заявках в друзья
-    friend_requests_count = conn.execute('''
-        SELECT COUNT(*) as count FROM friendships 
-        WHERE receiver_id = ? AND status = 'pending'
-    ''', (user_id,)).fetchone()['count']
-    
-    conn.close()
+    try:
+        result = conn.execute('''
+            SELECT COUNT(*) as count FROM friendships 
+            WHERE receiver_id = ? AND status = 'pending'
+        ''', (user_id,)).fetchone()
+        friend_requests_count = result['count'] if result else 0
+    except Exception as e:
+        print(f"Ошибка при получении заявок: {e}")
+    finally:
+        conn.close()
     
     return render_template('home.html', 
                           username=session.get('username'),
-                          friend_requests_count=friend_requests_count)
+                          friend_requests_count=friend_requests_count,
+                          feed_items=feed_items)
 
 @app.route('/profile')
 def profile():
@@ -973,6 +1259,32 @@ def user_page():
 def logout():
     session.clear()
     return redirect('/login')
+
+@app.route('/get_user_stats')
+def get_user_stats():
+    if 'user_id' not in session:
+        return jsonify({'error': 'Требуется авторизация'}), 401
+    
+    user_id = session['user_id']
+    conn = get_db_connection()
+    
+    # Получаем количество постов пользователя
+    posts_count = conn.execute('''
+        SELECT COUNT(*) as count FROM posts WHERE user_id = ?
+    ''', (user_id,)).fetchone()['count']
+    
+    # Получаем количество друзей
+    friends_count = conn.execute('''
+        SELECT COUNT(*) as count FROM friendships 
+        WHERE (sender_id = ? OR receiver_id = ?) AND status = 'accepted'
+    ''', (user_id, user_id)).fetchone()['count']
+    
+    conn.close()
+    
+    return jsonify({
+        'posts_count': posts_count,
+        'friends_count': friends_count
+    })
 
 if __name__ == '__main__':
     create_tables()
