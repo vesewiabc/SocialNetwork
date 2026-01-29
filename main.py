@@ -4,6 +4,7 @@ import os
 from datetime import datetime
 import hashlib
 from werkzeug.utils import secure_filename
+from flask import jsonify
 
 app = Flask(__name__)
 app.secret_key = "123"
@@ -90,10 +91,6 @@ def migrate_database():
         UNIQUE(blocker_id, blocked_id)
     )
     ''')
-    
-    
-    
-    
     conn.commit()
     conn.close()
 
@@ -109,7 +106,19 @@ def create_tables():
         password TEXT NOT NULL
     )
     ''')
-    
+
+    cursor.execute('''
+    CREATE TABLE IF NOT EXISTS imported_news (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        title TEXT NOT NULL,
+        description TEXT,
+        link TEXT NOT NULL UNIQUE,
+        source TEXT DEFAULT 'RBC',
+        published TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        imported_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+    ''')
+
     # Таблица профилей пользователей (без дополнительных столбцов)
     cursor.execute('''
     CREATE TABLE IF NOT EXISTS user_profiles (
@@ -150,16 +159,16 @@ def create_tables():
 
     cursor.execute('''
     CREATE TABLE IF NOT EXISTS reports (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        reporter_id INTEGER NOT NULL,
-        reported_id INTEGER NOT NULL,
-        reason TEXT NOT NULL,
-        status TEXT DEFAULT 'pending',
-        admin_notes TEXT,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (reporter_id) REFERENCES users(id),
-        FOREIGN KEY (reported_id) REFERENCES users(id)
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    reporter_id INTEGER NOT NULL,
+    reported_id INTEGER NOT NULL,
+    reason TEXT NOT NULL,
+    status TEXT DEFAULT 'pending',
+    admin_notes TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (reporter_id) REFERENCES users(id),
+    FOREIGN KEY (reported_id) REFERENCES users(id)
     )
     ''')
 
@@ -1129,7 +1138,7 @@ def report_user(user_id):
     
     if reporter_id == user_id:
         flash('Нельзя отправить жалобу на себя!', 'error')
-        return redirect(request.referrer or '/find_friends')
+        return redirect(request.referrer or '/friends')
     
     if request.method == 'POST':
         reason = request.form.get('reason', '').strip()
@@ -1141,38 +1150,22 @@ def report_user(user_id):
         
         conn = get_db_connection()
         
-        # ОТЛАДКА: Выводим информацию
-        print(f"=== ОТПРАВКА ЖАЛОБЫ ===")
-        print(f"Жалобщик ID: {reporter_id}")
-        print(f"Нарушитель ID: {user_id}")
-        print(f"Причина: {reason}")
-        print(f"Тип нарушения: {violation_type}")
-        
         try:
             # Отправляем жалобу
-            full_reason = f"Тип нарушения: {violation_type}\n{reason}"
+            full_reason = f"Тип нарушения: {violation_type}\n\n{reason}"
             conn.execute('''
                 INSERT INTO reports (reporter_id, reported_id, reason, status)
                 VALUES (?, ?, ?, 'pending')
             ''', (reporter_id, user_id, full_reason))
             
             conn.commit()
-            
-            # Проверяем, сохранилась ли жалоба
-            last_report = conn.execute('SELECT * FROM reports ORDER BY id DESC LIMIT 1').fetchone()
-            if last_report:
-                print(f"Жалоба сохранена! ID: {last_report['id']}")
-                print(f"Статус: {last_report['status']}")
-            else:
-                print("ОШИБКА: Жалоба не сохранилась!")
-                
+            flash('Жалоба отправлена администратору. Спасибо за ваше сообщение!', 'success')
         except Exception as e:
-            print(f"ОШИБКА при сохранении жалобы: {e}")
+            print(f"Ошибка при сохранении жалобы: {e}")
             flash('Ошибка при отправке жалобы', 'error')
         finally:
             conn.close()
         
-        flash('Жалоба отправлена администратору. Спасибо за ваше сообщение!', 'success')
         return redirect('/friends')
     
     # GET запрос - показываем форму
@@ -1183,7 +1176,6 @@ def report_user(user_id):
         LEFT JOIN user_profiles up ON u.id = up.user_id
         WHERE u.id = ?
     ''', (user_id,)).fetchone()
-    
     conn.close()
     
     if user_info:
@@ -1193,8 +1185,8 @@ def report_user(user_id):
                              full_name=user_info['full_name'])
     else:
         flash('Пользователь не найден', 'error')
-        return redirect('/friends')  
-
+        return redirect('/friends')
+    
 # Панель тех-админа
 @app.route('/techadmin')
 def techadmin():
@@ -1266,48 +1258,6 @@ def techadmin_reports():
     conn.close()
     
     return render_template('techadmin_reports.html', reports=reports)
-
-@app.route('/debug/reports')
-def debug_reports():
-    """Отладка: показать все жалобы в базе"""
-    conn = get_db_connection()
-    
-    # Проверяем структуру таблицы
-    cursor = conn.cursor()
-    cursor.execute("PRAGMA table_info(reports)")
-    columns = cursor.fetchall()
-    
-    print("=== СТРУКТУРА ТАБЛИЦЫ REPORTS ===")
-    for col in columns:
-        print(f"  {col['name']}: {col['type']}")
-    
-    # Получаем все жалобы
-    reports = conn.execute('SELECT * FROM reports ORDER BY id DESC').fetchall()
-    
-    conn.close()
-    
-    if not reports:
-        return "В таблице reports нет данных"
-    
-    html = "<h1>Все жалобы в базе:</h1>"
-    html += f"<p>Всего жалоб: {len(reports)}</p>"
-    
-    for report in reports:
-        html += f"""
-        <div style="border:1px solid #ccc; padding:10px; margin:10px;">
-            <h3>Жалоба #{report['id']}</h3>
-            <p><strong>Статус:</strong> {report['status']}</p>
-            <p><strong>Жалобщик ID:</strong> {report['reporter_id']}</p>
-            <p><strong>Нарушитель ID:</strong> {report['reported_id']}</p>
-            <p><strong>Причина:</strong> {report['reason'][:100]}...</p>
-            <p><strong>Создана:</strong> {report['created_at']}</p>
-            <p><strong>Обновлена:</strong> {report['updated_at']}</p>
-        </div>
-        """
-    
-    return html
-
-
 
 @app.route('/techadmin/report_action/<int:report_id>/<action>', methods=['POST'])
 def techadmin_report_action(report_id, action):
@@ -1522,8 +1472,6 @@ def get_user_stats():
         'posts_count': posts_count,
         'friends_count': friends_count
     })
-
-
 
 if __name__ == '__main__':
     create_tables()
