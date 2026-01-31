@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Отправить жалобу</title>
+    <style>
+        .info-box {
+            background: #d1ecf1;
+            border: 2px solid #bee5eb;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div style="padding: 20px; max-width: 600px; margin: 0 auto;">
+        <h1>Отправить жалобу</h1>
+        
+        <div style="margin-bottom: 20px;">
+            <a href="javascript:history.back()" style="margin-right: 10px;">← Назад</a>
+            <a href="/profile">Профиль</a>
+        </div>
+        
+        <div class="info-box">
+            <h3 style="margin: 0 0 10px 0; color: #0c5460;">Отправка жалобы на пользователя</h3>
+            <p style="margin: 0; color: #0c5460;">
+                Вы отправляете жалобу на <strong>{{ full_name if full_name else username }}</strong> (@{{ username }}).
+            </p>
+            <p style="margin: 10px 0 0 0; color: #0c5460;">
+                <strong>Пожалуйста, опишите проблему подробно:</strong><br>
+                • Что именно произошло?<br>
+                • Когда это случилось?<br>
+                • Есть ли доказательства (скриншоты и т.д.)?
+            </p>
+        </div>
+        
+                <form method="POST" action="/report_user/{{ user_id }}" style="background: #f5f5f5; padding: 20px; border-radius: 5px;">
+            
+            <!-- Текстовое поле -->
+            <textarea name="reason" 
+                    placeholder="Опишите причину жалобы подробно (минимум 10 символов)..."
+                    required
+                    style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px; height: 150px;"></textarea>
+            
+            
+            <div style="margin-top: 15px;">
+                <label style="display: block; margin-bottom: 5px;"><strong>Тип нарушения:</strong></label>
+                <select name="violation_type" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                    <option value="spam">Спам</option>
+                    <option value="harassment">Оскорбления/травля</option>
+                    <option value="inappropriate_content">Неуместный контент</option>
+                    <option value="fake_account">Фейковый аккаунт</option>
+                    <option value="scam">Мошенничество</option>
+                    <option value="other">Другое</option>
+                </select>
+            </div>
+            
+            <!-- Кнопки -->
+            <div style="display: flex; gap: 10px; margin-top: 20px;">
+                <button type="submit" 
+                        style="padding: 10px 20px; background: #dc3545; color: white; border: none; border-radius: 5px; cursor: pointer;">
+                    Отправить жалобу
+                </button>
+                
+                <a href="javascript:history.back()" 
+                style="padding: 10px 20px; background: #6c757d; color: white; text-decoration: none; border-radius: 5px; display: inline-block;">
+                    Отмена
+                </a>
+            </div>
+        </form>
+    </div>
+    <script>
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.querySelector('form');
+    
+    form.addEventListener('submit', function(e) {
+        e.preventDefault(); // Предотвращаем стандартную отправку
+        
+        console.log('Форма отправляется...');
+        
+        // Собираем данные формы
+        const formData = new FormData(form);
+        
+        // Отправляем AJAX запрос
+        fetch(form.action, {
+            method: 'POST',
+            body: formData,
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        })
+        .then(response => {
+            console.log('Ответ получен:', response);
+            if (response.ok) {
+                // Перенаправляем после успешной отправки
+                window.location.href = '/friends';
+            } else {
+                alert('Ошибка при отправке жалобы');
+            }
+        })
+        .catch(error => {
+            console.error('Ошибка:', error);
+            alert('Ошибка сети при отправке жалобы');
+        });
+    });
+});
+</script>
+</body>
+</html>
