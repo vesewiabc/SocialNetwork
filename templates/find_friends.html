@@ -1,3 +1,141 @@
+<<<<<<< HEAD
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Поиск друзей</title>
+    <style>
+        .user-card {
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+        .avatar {
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            object-fit: cover;
+        }
+        .user-info {
+            flex: 1;
+        }
+        .status-badge {
+            padding: 3px 8px;
+            border-radius: 12px;
+            font-size: 12px;
+            margin-left: 10px;
+        }
+        .status-pending { background: #fff3cd; color: #856404; }
+        .status-accepted { background: #d4edda; color: #155724; }
+        .status-rejected { background: #f8d7da; color: #721c24; }
+    </style>
+</head>
+<body>
+    <div style="padding: 20px; max-width: 800px; margin: 0 auto;">
+        <h1>Поиск друзей</h1>
+        
+        <div style="margin-bottom: 20px;">
+            <a href="/profile" style="margin-right: 10px;">← Назад к профилю</a>
+            <a href="/friends" style="margin-right: 10px;">Мои друзья</a>
+            <a href="/home">Главная</a>
+        </div>
+        
+        <!-- Форма поиска -->
+        <div style="background: #f8f9fa; padding: 20px; border-radius: 8px; margin-bottom: 30px;">
+            <h3>Найти друзей</h3>
+            <form method="POST" action="/find_friends" style="margin-top: 15px;">
+                <div style="display: flex; gap: 10px;">
+                    <input type="text" 
+                           name="search_query" 
+                           placeholder="Введите имя пользователя или ФИО" 
+                           style="flex: 1; padding: 10px; border: 1px solid #ddd; border-radius: 4px;"
+                           value="{{ request.form.search_query if request.form }}">
+                    <button type="submit" style="padding: 10px 20px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer;">
+                        Искать
+                    </button>
+                </div>
+            </form>
+            <p style="margin-top: 10px; color: #666; font-size: 14px;">
+                Поиск по имени пользователя или полному имени (ФИО)
+            </p>
+        </div>
+        
+        <!-- Результаты поиска -->
+        {% if search_results %}
+            <h3>Найдено пользователей: {{ search_results|length }}</h3>
+            
+            <div style="margin-top: 20px;">
+                {% for user in search_results %}
+                <div class="user-card">
+                    <img src="{{ url_for('static', filename='uploads/avatars/' + (user.avatar or 'default_avatar.png')) }}" 
+                         alt="Аватар" 
+                         class="avatar"
+                         onerror="this.src='https://via.placeholder.com/60?text=No+Avatar'">
+                    
+                    <div class="user-info">
+                        <h4 style="margin: 0 0 5px 0;">
+                            {{ user.full_name if user.full_name else user.username }}
+                            {% if user.friend_status %}
+                                <span class="status-badge status-{{ user.friend_status }}">
+                                    {% if user.friend_status == 'pending' %}
+                                        Заявка отправлена
+                                    {% elif user.friend_status == 'accepted' %}
+                                        В друзьях
+                                    {% elif user.friend_status == 'rejected' %}
+                                        Отклонено
+                                    {% endif %}
+                                </span>
+                            {% endif %}
+                        </h4>
+                        <p style="margin: 0; color: #666;">@{{ user.username }}</p>
+                    </div>
+                    
+                    <div>
+                        {% if not user.friend_status %}
+                            <form method="POST" action="{{ url_for('add_friend', friend_id=user.id) }}" style="display: inline;">
+                                <button type="submit" style="padding: 8px 15px; background: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer;">
+                                    Добавить в друзья
+                                </button>
+                            </form>
+                        {% elif user.friend_status == 'pending' %}
+                            <button style="padding: 8px 15px; background: #6c757d; color: white; border: none; border-radius: 4px; cursor: not-allowed;" disabled>
+                                Ожидает подтверждения
+                            </button>
+                        {% elif user.friend_status == 'accepted' %}
+                            <button style="padding: 8px 15px; background: #17a2b8; color: white; border: none; border-radius: 4px; cursor: not-allowed;" disabled>
+                                Уже в друзьях
+                            </button>
+                        {% endif %}
+                        
+                        <a href="#" style="margin-left: 10px; padding: 8px 15px; border: 1px solid #007bff; color: #007bff; text-decoration: none; border-radius: 4px;">
+                            Профиль
+                        </a>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        {% elif request.method == 'POST' %}
+            <div style="background: #f8f9fa; padding: 30px; text-align: center; border-radius: 8px;">
+                <h3>Пользователи не найдены</h3>
+                <p>Попробуйте изменить поисковый запрос</p>
+            </div>
+        {% else %}
+            <div style="background: #f8f9fa; padding: 30px; text-align: center; border-radius: 8px;">
+                <h3>Найдите новых друзей!</h3>
+                <p>Введите имя пользователя или ФИО в поле поиска выше</p>
+                <p style="color: #666; font-size: 14px; margin-top: 10px;">
+                    Вы также можете зайти на страницу "Мои друзья" для управления заявками
+                </p>
+            </div>
+        {% endif %}
+    </div>
+</body>
+=======
 
 <!DOCTYPE html>
 <html lang="ru">
@@ -135,4 +273,5 @@
         {% endif %}
     </div>
 </body>
+>>>>>>> c84eaf8ee89e5e7caf8081dcf88b4abda2c60b54
 </html>
