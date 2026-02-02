@@ -11,7 +11,7 @@ import re
 
 
     
-app = Flask(name)
+app = Flask(__name__)
 app.secret_key = "123"
 
 # Настройки для загрузки файлов
@@ -2190,9 +2190,7 @@ def manage_group(group_id):
     conn = get_db_connection()
 
 
-membership = conn.execute('''
-        SELECT role FROM group_members WHERE group_id = ? AND user_id = ?
-    ''', (group_id, user_id)).fetchone()
+    membership = conn.execute(''' SELECT role FROM group_members WHERE group_id = ? AND user_id = ? ''', (group_id, user_id)).fetchone()
 
     if not membership or membership['role'] != 'admin':
         flash('У вас нет прав для управления этой группой', 'error')
@@ -2399,7 +2397,7 @@ def handle_group_request(group_id, request_id, action):
                 return jsonify({'success': True})
 
 
-elif action == 'reject':
+        elif action == 'reject':
             conn.execute('DELETE FROM group_requests WHERE id = ?', (request_id,))
             conn.commit()
             return jsonify({'success': True})
@@ -3008,7 +3006,7 @@ def techadmin_report_action(report_id, action):
         flash('Жалоба одобрена, пользователь забанен', 'success')
 
 
-elif action == 'reject':
+    elif action == 'reject':
         # Помечаем жалобу как отклоненную
         conn.execute('''
             UPDATE reports 
@@ -3185,7 +3183,7 @@ def check_table_structure():
     cursor = conn.cursor()
 
 
-# Получаем информацию о таблице post_media
+    # Получаем информацию о таблице post_media
     cursor.execute("PRAGMA table_info(post_media)")
     columns = cursor.fetchall()
 
@@ -3197,6 +3195,6 @@ def check_table_structure():
     return result
 
 
-if name == 'main':
+if __name__ == 'main':
     create_tables()
     app.run(debug=True, host='0.0.0.0', port=5555)
