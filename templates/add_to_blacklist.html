@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 <!DOCTYPE html>
 <html lang="ru">
 <head>
@@ -64,71 +63,4 @@
         </form>
     </div>
 </body>
-=======
-<!DOCTYPE html>
-<html lang="ru">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Добавить в черный список</title>
-    <style>
-        .warning-box {
-            background: #fff3cd;
-            border: 2px solid #ffeaa7;
-            border-radius: 8px;
-            padding: 20px;
-            margin-bottom: 20px;
-        }
-    </style>
-</head>
-<body>
-    <div style="padding: 20px; max-width: 600px; margin: 0 auto;">
-        <h1>Добавить в черный список</h1>
-        
-        <div style="margin-bottom: 20px;">
-            <a href="javascript:history.back()" style="margin-right: 10px;">← Назад</a>
-            <a href="/profile">Профиль</a>
-        </div>
-        
-        <div class="warning-box">
-            <h3 style="margin: 0 0 10px 0; color: #856404;">Важная информация:</h3>
-            <p style="margin: 0; color: #856404;">
-                Вы собираетесь добавить <strong>{{ full_name if full_name else username }}</strong> (@{{ username }}) в черный список.
-            </p>
-            <p style="margin: 10px 0 0 0; color: #856404;">
-                <strong>Последствия:</strong><br>
-                1. Вы не сможете видеть друг друга в поиске<br>
-                2. Все существующие связи (дружба, заявки) будут удалены<br>
-                3. Пользователь не сможет отправлять вам сообщения или заявки в друзья<br>
-                4. Вы сможете разблокировать пользователя в любое время
-            </p>
-        </div>
-        
-        <form method="POST" action="/add_to_blacklist/{{ user_id }}" style="background: #f5f5f5; padding: 20px; border-radius: 5px;">
-            <div style="margin-bottom: 20px;">
-                <label style="display: block; margin-bottom: 10px;"><strong>Причина (необязательно):</strong></label>
-                <textarea name="reason" 
-                          placeholder="Опишите причину добавления в черный список..."
-                          style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px; height: 100px;"></textarea>
-                <p style="margin-top: 5px; color: #666; font-size: 14px;">
-                    Указание причины поможет вам вспомнить, почему пользователь был добавлен в черный список.
-                </p>
-            </div>
-            
-            <div style="display: flex; gap: 10px;">
-                <button type="submit" 
-                        onclick="return confirm('Вы уверены, что хотите добавить этого пользователя в черный список?')"
-                        style="padding: 10px 20px; background: #dc3545; color: white; border: none; border-radius: 5px; cursor: pointer;">
-                    Добавить в черный список
-                </button>
-                
-                <a href="javascript:history.back()" 
-                   style="padding: 10px 20px; background: #6c757d; color: white; text-decoration: none; border-radius: 5px; display: inline-block;">
-                    Отмена
-                </a>
-            </div>
-        </form>
-    </div>
-</body>
->>>>>>> c84eaf8ee89e5e7caf8081dcf88b4abda2c60b54
 </html>
