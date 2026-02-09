@@ -85,34 +85,35 @@
         
         .main-content {
             display: grid;
-            grid-template-columns: 300px 1fr 300px;
+            grid-template-columns: 300px 1fr;
             gap: 20px;
             margin-top: 20px;
         }
         
-        .sidebar {
+        .sidebar-left {
             background-color: white;
             border-radius: 8px;
             padding: 20px;
             box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            height: fit-content;
         }
         
-        .sidebar h3 {
+        .sidebar-left h3 {
             margin-bottom: 15px;
             color: #1877f2;
             border-bottom: 2px solid #f0f2f5;
             padding-bottom: 8px;
         }
         
-        .sidebar ul {
+        .sidebar-left ul {
             list-style: none;
         }
         
-        .sidebar ul li {
+        .sidebar-left ul li {
             margin-bottom: 10px;
         }
         
-        .sidebar ul li a {
+        .sidebar-left ul li a {
             color: #333;
             text-decoration: none;
             display: flex;
@@ -123,11 +124,18 @@
             transition: background-color 0.3s;
         }
         
-        .sidebar ul li a:hover {
+        .sidebar-left ul li a:hover {
             background-color: #f0f2f5;
         }
         
+        .sidebar-right {
+            grid-column: 2;
+            grid-row: 1;
+            margin-left: 20px;
+        }
+        
         .feed {
+            grid-column: 2;
             display: flex;
             flex-direction: column;
             gap: 20px;
@@ -143,7 +151,7 @@
         .create-post textarea {
             width: 100%;
             height: 100px;
-            padding: 15px;
+padding: 15px;
             border: 1px solid #ddd;
             border-radius: 8px;
             resize: vertical;
@@ -294,15 +302,16 @@
             color: #65676b;
             padding: 4px 8px;
             border-radius: 4px;
-            font-size: 12px;
+font-size: 12px;
             margin-bottom: 10px;
         }
         
-        .right-sidebar {
+        .stats-sidebar {
             background-color: white;
             border-radius: 8px;
             padding: 20px;
             box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            height: fit-content;
         }
         
         .stats {
@@ -357,6 +366,39 @@
             color: #65676b;
         }
         
+        .friend-requests-notification {
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            border-radius: 5px;
+            padding: 15px;
+            margin-top: 20px;
+        }
+        
+        .friend-requests-notification div {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        
+        .friend-requests-notification strong {
+            display: block;
+            margin-bottom: 5px;
+        }
+        
+        .friend-requests-notification p {
+            margin: 5px 0 0 0;
+            color: #856404;
+            font-size: 14px;
+        }
+        
+        .friend-requests-notification a {
+            padding: 8px 15px;
+            background: #28a745;
+            color: white;
+            text-decoration: none;
+            border-radius: 4px;
+        }
+        
         @media (max-width: 768px) {
             .main-content {
                 grid-template-columns: 1fr;
@@ -371,6 +413,16 @@
                 flex-wrap: wrap;
                 justify-content: center;
             }
+            
+            .sidebar-right {
+                grid-column: 1;
+                grid-row: 3;
+                margin-left: 0;
+            }
+            
+            .feed {
+                grid-column: 1;
+            }
         }
     </style>
 </head>
@@ -378,9 +430,8 @@
     <header>
         <div class="container">
             <div class="header-content">
-                <div class="logo">Голос</div>
+                <div class="logo">LinkA</div>
                 <div class="user-info">
-                    
                     <div class="user-welcome">
                         Привет, {{ username }}!
                         <a href="/logout" style="margin-left: 15px; color: white; text-decoration: none;">
@@ -394,13 +445,13 @@
 
     <div class="container">
         <div class="main-content">
-            <!-- Левая панель -->
-            <div class="sidebar">
+            <!-- Левая панель - только меню -->
+            <div class="sidebar-left">
                 <h3>Меню</h3>
                 <ul>
                     <li>
                         <a href="/profile">
-                            <i class="fas fa-user-circle"></i> Мой профиль
+<i class="fas fa-user-circle"></i> Мой профиль
                         </a>
                     </li>
                     <li>
@@ -423,19 +474,48 @@
                             <i class="fas fa-newspaper"></i> Мои посты
                         </a>
                     </li>
-
                     <li style="margin-bottom: 10px;">
-                        <a href="/groups" style="color: #1877f2; text-decoration: none;">
+                        <a href="/groups">
                             <i class="fas fa-users"></i> Группы
                         </a>
                     </li>
-
                     <li>
                         <a href="/blacklist">
                             <i class="fas fa-ban"></i> Черный список
                         </a>
                     </li>    
                 </ul>
+
+                <div class="sidebar-right">
+                    <div class="stats-sidebar">
+                        <h3>Статистика</h3>
+                        <div class="stats">
+                            <div class="stat-item">
+                                <div class="stat-number" id="posts-count">0</div>
+                                <div class="stat-label">Посты</div>
+                            </div>
+                            <div class="stat-item">
+                                <div class="stat-number" id="friends-count">0</div>
+                                <div class="stat-label">Друзья</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Уведомление о заявках в друзья -->
+                {% if friend_requests_count > 0 %}
+                <div class="friend-requests-notification">
+                    <div>
+                        <div>
+                            <strong>У вас {{ friend_requests_count }} новая заявка в друзья!</strong>
+                            <p>
+                                Перейдите в раздел "Друзья", чтобы принять или отклонить заявки
+                            </p>
+                        </div>
+                        <a href="/friends">Перейти</a>
+                    </div>
+                </div>
+                {% endif %}
             </div>
 
             <!-- Основная лента -->
@@ -475,7 +555,7 @@
                 <!-- Лента постов и новостей -->
                 {% if feed_items and feed_items|length > 0 %}
                     {% for item in feed_items %}
-                        {% if item.type == 'post' %}
+{% if item.type == 'post' %}
                             <!-- Пост пользователя -->
                             <div class="post">
                                 <div class="post-header">
@@ -532,10 +612,10 @@
                                     </div>
                                 </div>
                                 <div class="news-content">
-                                    <p>{{ item.description or 'Нет описания' }}</p>
+                            
                                     {% if item.link %}
                                         <a href="{{ item.link }}" target="_blank">
-                                            <i class="fas fa-external-link-alt"></i> Читать полностью
+<i class="fas fa-external-link-alt"></i> Читать полностью
                                         </a>
                                     {% endif %}
                                 </div>
@@ -552,129 +632,16 @@
                 {% else %}
                     <div class="empty-feed">
                         <i class="fas fa-newspaper fa-3x" style="color: #ddd; margin-bottom: 20px;"></i>
-                        <h3>Лента пуста</h3>
+                        
+<h3>Лента пуста</h3>
                         <p>Начните с публикации первого поста или подождите, пока появятся новости</p>
                     </div>
                 {% endif %}
             </div>
 
-            <!-- Правая панель -->
-            <div class="right-sidebar">
-                <h3>Статистика</h3>
-                <div class="stats">
-                    <div class="stat-item">
-                        <div class="stat-number" id="posts-count">0</div>
-                        <div class="stat-label">Посты</div>
-                    </div>
-                    <div class="stat-item">
-                        <div class="stat-number" id="friends-count">0</div>
-                        <div class="stat-label">Друзья</div>
-                    </div>
-                </div>
-                
-                <h3 style="margin-top: 30px;">Быстрые действия</h3>
-                <ul style="list-style: none; margin-top: 15px;">
-                    
-                    <li style="margin-bottom: 10px;">
-                        <a href="/profile/edit" style="color: #1877f2; text-decoration: none;">
-                            <i class="fas fa-edit"></i> Редактировать профиль
-                        </a>
-                    </li>
-                    
-                    <li style="margin-bottom: 10px;">
-                        <a href="/groups" style="color: #1877f2; text-decoration: none;">
-                            <i class="fas fa-users"></i> Группы
-                        </a>
-                    </li>
-                    
-                </ul>
-
-                <!-- Уведомление о заявках в друзья (из упрощенной версии) -->
-                {% if friend_requests_count > 0 %}
-                <div style="background: #fff3cd; border: 1px solid #ffeaa7; border-radius: 5px; padding: 15px; margin-top: 20px;">
-                    <div style="display: flex; align-items: center; justify-content: space-between;">
-                        <div>
-                            <strong>У вас {{ friend_requests_count }} новая заявка в друзья!</strong>
-                            <p style="margin: 5px 0 0 0; color: #856404; font-size: 14px;">
-                                Перейдите в раздел "Друзья", чтобы принять или отклонить заявки
-                            </p>
-                        </div>
-                        <a href="/friends" style="padding: 8px 15px; background: #28a745; color: white; text-decoration: none; border-radius: 4px;">
-                            Перейти
-                        </a>
-                    </div>
-                </div>
-                {% endif %}
-            </div>
+            <!-- Правая панель - только статистика -->
+            
         </div>
     </div>
-
-    <script>
-        // Загрузка статистики
-        document.addEventListener('DOMContentLoaded', function() {
-            fetch('/get_user_stats')
-                .then(response => response.json())
-                .then(data => {
-                    if (data.posts_count !== undefined) {
-                        document.getElementById('posts-count').textContent = data.posts_count;
-                    }
-                    if (data.friends_count !== undefined) {
-                        document.getElementById('friends-count').textContent = data.friends_count;
-                    }
-                })
-                .catch(error => console.error('Ошибка загрузки статистики:', error));
-        });
-        
-        // Функция для импорта новостей
-        function importNews() {
-            if (confirm('Загрузить новые новости?')) {
-                fetch('/import_news', {
-                    method: 'POST'
-                })
-                .then(response => response.json())
-                .then(data => {
-                    if (data.success) {
-                        alert('Новости успешно загружены!');
-                        location.reload();
-                    } else {
-                        alert('Ошибка при загрузке новостей: ' + data.message);
-                    }
-                })
-                .catch(error => {
-                    console.error('Ошибка:', error);
-                    alert('Ошибка при загрузке новостей');
-                });
-            }
-        }
-        
-        // Автообновление каждые 60 секунд
-        setTimeout(() => {
-            location.reload();
-        }, 60000);
-
-        // Обработка лайков
-        document.querySelectorAll('.action-btn').forEach(button => {
-            if (button.textContent.includes('Нравится')) {
-                button.addEventListener('click', function() {
-                    const post = this.closest('.post');
-                    const likesSpan = this.querySelector('span');
-                    
-                    if (likesSpan) {
-                        const currentLikes = parseInt(likesSpan.textContent.replace(/[()]/g, '')) || 0;
-                        likesSpan.textContent = `(${currentLikes + 1})`;
-                        
-                        // В реальном приложении здесь будет AJAX-запрос
-                        fetch('/like_post', {
-                            method: 'POST',
-                            headers: {
-                                'Content-Type': 'application/json',
-                            },
-                            body: JSON.stringify({ post_id: post.dataset.id })
-                        });
-                    }
-                });
-            }
-        });
-    </script>
 </body>
 </html>

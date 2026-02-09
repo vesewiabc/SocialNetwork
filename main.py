@@ -1611,7 +1611,7 @@ def report_friend(friend_id):
 
     if request.method == 'POST':
         reason = request.form.get('reason', '').strip()
-        violation_type = request.form.get('violation_type', '')
+        violation_type = request.form.get('violation_type', 'other')
 
         if not reason or len(reason) < 10:
             flash('Пожалуйста, опишите причину жалобы подробнее (минимум 10 символов)', 'error')
@@ -1619,17 +1619,24 @@ def report_friend(friend_id):
 
         conn = get_db_connection()
 
-# Отправляем жалобу
-        full_reason = f"Тип нарушения: {violation_type}\n\n{reason}"
-        conn.execute('''
-            INSERT INTO reports (reporter_id, reported_id, reason, status)
-            VALUES (?, ?, ?, 'pending')
-        ''', (reporter_id, friend_id, full_reason))
+        try:
+            # Отправляем жалобу
+            full_reason = f"Тип нарушения: {violation_type}\n\n{reason}"
+            conn.execute('''
+                INSERT INTO reports (reporter_id, reported_id, reason, status)
+                VALUES (?, ?, ?, 'pending')
+            ''', (reporter_id, friend_id, full_reason))
 
-        conn.commit()
-        conn.close()
+            conn.commit()
+            flash('Жалоба отправлена администратору. Спасибо за ваше сообщение!', 'success')
+            
+        except Exception as e:
+            conn.rollback()
+            print(f"Ошибка при сохранении жалобы: {e}")
+            flash('Ошибка при отправке жалобы. Попробуйте позже.', 'error')
+        finally:
+            conn.close()
 
-        flash('Жалоба отправлена администратору. Спасибо за ваше сообщение!', 'success')
         return redirect('/friends')
 
     # GET запрос - показываем форму
@@ -1647,7 +1654,8 @@ def report_friend(friend_id):
         return render_template('report_user.html',
                                user_id=friend_id,
                                username=friend_info['username'],
-                               full_name=friend_info['full_name'])
+                               full_name=friend_info['full_name'],
+                               source='friends')
     else:
         flash('Пользователь не найден', 'error')
         return redirect('/friends')
@@ -1655,6 +1663,7 @@ def report_friend(friend_id):
 
 @app.route('/report_user/<int:user_id>', methods=['GET', 'POST'])
 def report_user(user_id):
+    """Отправить жалобу на пользователя из поиска"""
     if 'user_id' not in session:
         return redirect('/login')
 
@@ -1662,7 +1671,7 @@ def report_user(user_id):
 
     if reporter_id == user_id:
         flash('Нельзя отправить жалобу на себя!', 'error')
-        return redirect(request.referrer or '/friends')
+        return redirect('/find_friends')
 
     if request.method == 'POST':
         reason = request.form.get('reason', '').strip()
@@ -1684,13 +1693,15 @@ def report_user(user_id):
 
             conn.commit()
             flash('Жалоба отправлена администратору. Спасибо за ваше сообщение!', 'success')
+            
         except Exception as e:
+            conn.rollback()
             print(f"Ошибка при сохранении жалобы: {e}")
-            flash('Ошибка при отправке жалобы', 'error')
+            flash('Ошибка при отправке жалобы. Попробуйте позже.', 'error')
         finally:
             conn.close()
 
-        return redirect('/friends')
+        return redirect('/find_friends')
 
     # GET запрос - показываем форму
     conn = get_db_connection()
@@ -1700,16 +1711,17 @@ def report_user(user_id):
         LEFT JOIN user_profiles up ON u.id = up.user_id
         WHERE u.id = ?
     ''', (user_id,)).fetchone()
-    conn.close()
 
+    conn.close()
     if user_info:
         return render_template('report_user.html',
                                user_id=user_id,
                                username=user_info['username'],
-                               full_name=user_info['full_name'])
+                               full_name=user_info['full_name'],
+                               source='find_friends')
     else:
         flash('Пользователь не найден', 'error')
-        return redirect('/friends')
+        return redirect('/find_friends')
 
 
 # ==================== ГРУППЫ ====================
