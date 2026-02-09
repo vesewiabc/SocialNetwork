@@ -3188,12 +3188,10 @@ def get_user_stats():
         'friends_count': friends_count
     })
 
-
 @app.route('/check_table_structure')
 def check_table_structure():
     conn = get_db_connection()
     cursor = conn.cursor()
-
 
     # Получаем информацию о таблице post_media
     cursor.execute("PRAGMA table_info(post_media)")
@@ -3209,4 +3207,8 @@ def check_table_structure():
 
 if __name__ == '__main__':
     create_tables()
+
+if __name__ == '__main__':
+    create_tables()
+
     app.run(debug=True, host='0.0.0.0', port=5555)
