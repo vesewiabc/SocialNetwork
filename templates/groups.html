@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Группы</title>
+    <style>
+        .group-card {
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+            display: flex;
+            gap: 20px;
+            background: white;
+            transition: box-shadow 0.3s ease;
+        }
+        .group-card:hover {
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        .group-avatar-large {
+            width: 80px;
+            height: 80px;
+            border-radius: 8px;
+            object-fit: cover;
+        }
+        .group-info {
+            flex: 1;
+        }
+        .group-stats {
+            display: flex;
+            gap: 15px;
+            margin: 10px 0;
+            color: #666;
+            font-size: 14px;
+        }
+        .group-stats span {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        .create-group-btn {
+            background: #28a745;
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            margin-bottom: 20px;
+        }
+        .search-bar {
+            margin-bottom: 20px;
+        }
+        .search-bar input {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 16px;
+        }
+        .tabs {
+            display: flex;
+            border-bottom: 1px solid #ddd;
+            margin-bottom: 20px;
+        }
+        .tab {
+            padding: 10px 20px;
+            cursor: pointer;
+            text-decoration: none;
+            color: #333;
+            border-bottom: 2px solid transparent;
+        }
+        .tab:hover {
+            background: #f8f9fa;
+        }
+        .tab.active {
+            border-bottom: 2px solid #007bff;
+            color: #007bff;
+            font-weight: bold;
+        }
+        .group-actions {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            gap: 10px;
+            min-width: 120px;
+        }
+        .subscribe-btn {
+            padding: 8px 16px;
+            background: #28a745;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        .unsubscribe-btn {
+            padding: 8px 16px;
+            background: #dc3545;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        .group-name {
+            color: #007bff;
+            text-decoration: none;
+            font-size: 18px;
+            font-weight: bold;
+        }
+        .group-name:hover {
+            text-decoration: underline;
+        }
+        .role-badge {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 12px;
+            margin-left: 8px;
+            font-weight: normal;
+        }
+        .role-admin {
+            background: #dc3545;
+            color: white;
+        }
+        .role-member {
+            background: #6c757d;
+            color: white;
+        }
+    </style>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link rel="icon" type="image/png" href="{{ url_for('static', filename='uploads/favicon.png') }}">
+</head>
+<body>
+    <div style="padding: 20px; max-width: 1000px; margin: 0 auto;">
+        <h1>Группы</h1>
+
+        <div style="margin-bottom: 20px;">
+            <a href="/home" style="margin-right: 10px;">← Главная</a>
+            <a href="/profile" style="margin-right: 10px;">Профиль</a>
+        </div>
+
+        <button class="create-group-btn" onclick="openCreateGroupModal()">
+            + Создать группу
+        </button>
+
+        <div class="search-bar">
+            <form method="GET" action="/groups">
+                <input type="text" name="search" placeholder="Поиск групп..." value="{{ search_query }}">
+                <input type="hidden" name="tab" value="{{ current_tab }}">
+            </form>
+        </div>
+
+        <!-- Измененный порядок вкладок: сначала Все группы, потом Мои группы -->
+        <div class="tabs">
+            <a href="/groups?tab=all" class="tab {% if current_tab == 'all' %}active{% endif %}">Все группы</a>
+            <a href="/groups?tab=my" class="tab {% if current_tab == 'my' %}active{% endif %}">Мои группы</a>
+        </div>
+
+        {% if groups %}
+        <div id="groups-container">
+            {% for group in groups %}
+            <div class="group-card">
+                <a href="/group/{{ group.id }}">
+                    <img src="{{ url_for('static', filename='uploads/groups/' + group.avatar) if group.avatar else 'https://via.placeholder.com/80?text=Group' }}"
+                         class="group-avatar-large"
+                         <img src="...">
+                </a>
+
+                <div class="group-info">
+                    <h2 style="margin-top: 0;">
+                        <a href="/group/{{ group.id }}" class="group-name">
+                            {{ group.name }}
+                            {% if group.role %}
+                                <span class="role-badge role-{{ group.role }}">
+                                    {% if group.role == 'admin' %}
+                                        Администратор
+                                    {% elif group.role == 'moderator' %}
+                                        Модератор
+                                    {% else %}
+                                        Участник
+                                    {% endif %}
+                                </span>
+                            {% endif %}
+                        </a>
+                    </h2>
+
+                    <p style="color: #666; margin: 5px 0;">{{ group.description or 'Нет описания' }}</p>
+
+                    <div class="group-stats">
+                        <span>👥 {{ group.members_count }} участников</span>
+                        <span>📝 {{ group.posts_count }} постов</span>
+                        <span>📅 Создан {{ group.created_at[:10] if group.created_at else '' }}</span>
+                    </div>
+                </div>
+
+                <div class="group-actions">
+                    {% if group.is_member %}
+                        <form method="POST"
+                              action="/leave_group/{{ group.id }}"
+                              style="margin: 0;"
+                              class="leave-group-form"
+                              data-is-creator="{{ '1' if group.creator_id == session_user_id else '0' }}"
+                              data-group-name="{{ group.name }}">
+                            <button type="submit" class="unsubscribe-btn">
+                                Отписаться
+                            </button>
+                        </form>
+                    {% else %}
+                        {% if group.has_pending_request %}
+                        <div style="padding: 8px 16px; background: #fff3cd; color: #856404; border-radius: 4px; font-size: 14px; text-align: center;">
+                            ⏳ Заявка отправлена
+                        </div>
+                        {% else %}
+                        <form method="POST" action="/join_group/{{ group.id }}">
+                            <button type="submit" class="subscribe-btn">
+                                {% if group.is_public %}Подписаться{% else %}Подать заявку{% endif %}
+                            </button>
+                        </form>
+                        {% endif %}
+                    {% endif %}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div style="text-align: center; padding: 40px; color: #666;">
+            <h3>
+                {% if current_tab == 'my' %}
+                    У вас нет групп
+                {% else %}
+                    Группы не найдены
+                {% endif %}
+            </h3>
+            <p>
+                {% if current_tab == 'my' %}
+                    Вы не подписаны ни на одну группу. Найдите интересные группы во вкладке "Все группы" или создайте свою!
+                {% else %}
+                    Создайте первую группу или попробуйте изменить поисковый запрос
+                {% endif %}
+            </p>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Модальное окно создания группы -->
+    <div id="createGroupModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000;">
+        <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; padding: 30px; border-radius: 10px; width: 500px; max-width: 90%;">
+            <h2>Создать группу</h2>
+            <form method="POST" action="/create_group" enctype="multipart/form-data">
+                <div style="margin-bottom: 15px;">
+                    <label>Название группы *</label>
+                    <input type="text" name="name" required style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px;">
+                </div>
+
+                <div style="margin-bottom: 15px;">
+                    <label>Описание</label>
+                    <textarea name="description" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px; height: 100px;" placeholder="О чем эта группа?"></textarea>
+                </div>
+
+                <div style="margin-bottom: 15px;">
+                    <label>Аватар</label>
+                    <input type="file" name="avatar" accept="image/*">
+                </div>
+
+                <div style="margin-bottom: 20px;">
+                    <label>
+                        <input type="checkbox" name="is_public" checked>
+                        Публичная группа (видна всем)
+                    </label>
+                </div>
+
+                <div style="display: flex; justify-content: space-between;">
+                    <button type="button" onclick="closeCreateGroupModal()" style="padding: 10px 20px; background: #6c757d; color: white; border: none; border-radius: 4px;">
+                        Отмена
+                    </button>
+                    <button type="submit" style="padding: 10px 20px; background: #28a745; color: white; border: none; border-radius: 4px;">
+                        Создать
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        function confirmUnsubscribe(isCreator, groupName) {
+            if (isCreator) {
+                return confirm(`ВНИМАНИЕ! Вы являетесь создателем группы "${groupName}".\n\nЕсли вы покинете группу, она будет полностью УДАЛЕНА вместе со всеми постами, участниками и данными!\n\nВы уверены, что хотите удалить группу?`);
+            } else {
+                return confirm(`Вы уверены, что хотите отписаться от группы "${groupName}"?`);
+            }
+        }
+
+        // Привязываем подтверждение к формам с классом leave-group-form
+        document.querySelectorAll('.leave-group-form').forEach(form => {
+            form.addEventListener('submit', function(e) {
+                const isCreator = this.dataset.isCreator === '1';
+                const groupName = this.dataset.groupName || '';
+                if (!confirmUnsubscribe(isCreator, groupName)) {
+                    e.preventDefault();
+                }
+            });
+        });
+
+        function openCreateGroupModal() {
+            document.getElementById('createGroupModal').style.display = 'block';
+        }
+
+        function closeCreateGroupModal() {
+            document.getElementById('createGroupModal').style.display = 'none';
+        }
+
+        // Закрытие модального окна при клике вне его
+        document.getElementById('createGroupModal').addEventListener('click', function(e) {
+            if (e.target === this) {
+                closeCreateGroupModal();
+            }
+        });
+
+        // Автофокус в поле поиска при нажатии /
+        document.addEventListener('keydown', function(e) {
+            if (e.key === '/' && document.activeElement.tagName !== 'INPUT' && document.activeElement.tagName !== 'TEXTAREA') {
+                e.preventDefault();
+                document.querySelector('input[name="search"]').focus();
+            }
+        });
+    </script>
+</body>
+</html>

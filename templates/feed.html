@@ -1,0 +1,728 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Лента новостей - Социальная сеть</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background: #f0f2f5;
+        }
+        .header {
+            background: white;
+            padding: 15px 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            position: fixed;
+            top: 0;
+            width: 100%;
+            z-index: 1000;
+        }
+        .container {
+            max-width: 800px;
+            margin: 80px auto 20px;
+            padding: 0 15px;
+        }
+        .create-post {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        .post-textarea {
+            width: 100%;
+            min-height: 100px;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            resize: vertical;
+            font-family: inherit;
+            font-size: 16px;
+            margin-bottom: 10px;
+        }
+        .post-button {
+            background: #1877f2;
+            color: white;
+            border: none;
+            padding: 10px 30px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 16px;
+        }
+        .post-button:hover {
+            background: #166fe5;
+        }
+        .feed-item {
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        .post-header {
+            display: flex;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+        .avatar {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            margin-right: 15px;
+            object-fit: cover;
+        }
+        .user-info {
+            flex-grow: 1;
+        }
+        .username {
+            font-weight: bold;
+            color: #333;
+            text-decoration: none;
+            font-size: 18px;
+        }
+        .post-time {
+            color: #65676b;
+            font-size: 14px;
+            margin-top: 3px;
+        }
+        .post-content {
+            margin: 15px 0;
+            line-height: 1.6;
+            font-size: 16px;
+            color: #333;
+        }
+        .news-header {
+            background: #f8f9fa;
+            padding: 12px 15px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .news-source {
+            color: #dc3545;
+            font-weight: bold;
+            font-size: 14px;
+        }
+        .news-time {
+            color: #6c757d;
+            font-size: 13px;
+        }
+        .news-title {
+            font-size: 20px;
+            font-weight: bold;
+            margin-bottom: 12px;
+            color: #333;
+        }
+        .news-description {
+            color: #555;
+            margin-bottom: 15px;
+            line-height: 1.5;
+            font-size: 15px;
+        }
+        .news-image {
+            width: 100%;
+            max-height: 400px;
+            object-fit: cover;
+            border-radius: 8px;
+            margin-bottom: 15px;
+        }
+        .external-link {
+            display: inline-block;
+            background: #1877f2;
+            color: white;
+            text-decoration: none;
+            padding: 8px 20px;
+            border-radius: 5px;
+            font-weight: bold;
+            margin-top: 10px;
+        }
+        .external-link:hover {
+            background: #166fe5;
+        }
+        .post-actions {
+            display: flex;
+            align-items: center;
+            padding-top: 15px;
+            border-top: 1px solid #eee;
+            margin-top: 15px;
+        }
+        .action-button {
+            background: none;
+            border: none;
+            padding: 8px 20px;
+            cursor: pointer;
+            color: #65676b;
+            display: flex;
+            align-items: center;
+            font-size: 14px;
+            margin-right: 10px;
+        }
+        .action-button:hover {
+            background: #f0f2f5;
+            border-radius: 5px;
+        }
+        .action-button i {
+            margin-right: 8px;
+            font-size: 18px;
+        }
+        .likes-count {
+            margin-left: 5px;
+            font-weight: bold;
+        }
+        .nav-links {
+            display: flex;
+            gap: 25px;
+            margin-left: 30px;
+        }
+        .nav-link {
+            text-decoration: none;
+            color: #333;
+            font-weight: bold;
+            font-size: 16px;
+            padding: 8px 0;
+            position: relative;
+        }
+        .nav-link:hover {
+            color: #1877f2;
+        }
+        .nav-link.active {
+            color: #1877f2;
+        }
+        .nav-link.active:after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: 3px;
+            background: #1877f2;
+            border-radius: 3px;
+        }
+        .notification-badge {
+            background: #dc3545;
+            color: white;
+            border-radius: 50%;
+            width: 20px;
+            height: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            margin-left: 5px;
+            position: absolute;
+            top: -5px;
+            right: -10px;
+        }
+        .header-content {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        .logo {
+            font-size: 28px;
+            font-weight: bold;
+            color: #1877f2;
+            text-decoration: none;
+        }
+        .nav-section {
+            display: flex;
+            align-items: center;
+        }
+        .user-menu {
+            margin-left: 30px;
+            display: flex;
+            align-items: center;
+            gap: 20px;
+        }
+        .icon-link {
+            text-decoration: none;
+            color: #333;
+            font-size: 20px;
+            position: relative;
+        }
+        .logout-link {
+            color: #dc3545;
+        }
+        .comments-section {
+            margin-top: 20px;
+            padding-top: 20px;
+            border-top: 1px solid #eee;
+        }
+        .comments-list {
+            max-height: 300px;
+            overflow-y: auto;
+            margin-bottom: 15px;
+        }
+        .comment-item {
+            background: #f8f9fa;
+            padding: 10px;
+            border-radius: 5px;
+            margin-bottom: 10px;
+        }
+        .comment-author {
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 5px;
+        }
+        .comment-content {
+            color: #555;
+            margin-bottom: 5px;
+        }
+        .comment-time {
+            font-size: 12px;
+            color: #999;
+        }
+        .comment-form textarea {
+            width: 100%;
+            min-height: 80px;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            resize: vertical;
+            margin-bottom: 10px;
+        }
+        .comment-submit {
+            background: #1877f2;
+            color: white;
+            border: none;
+            padding: 8px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        .comment-submit:hover {
+            background: #166fe5;
+        }
+        .empty-feed {
+            text-align: center;
+            padding: 40px;
+            color: #666;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        .empty-feed i {
+            font-size: 48px;
+            color: #ddd;
+            margin-bottom: 15px;
+        }
+        .refresh-button {
+            background: #28a745;
+            color: white;
+            border: none;
+            padding: 8px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin-left: 10px;
+        }
+        .refresh-button:hover {
+            background: #218838;
+        }
+        .import-status {
+            background: #d4edda;
+            color: #155724;
+            padding: 10px;
+            border-radius: 5px;
+            margin-bottom: 15px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .tabs {
+            display: flex;
+            border-bottom: 1px solid #ddd;
+            margin-bottom: 20px;
+            background: white;
+            padding: 0 20px;
+            border-radius: 10px 10px 0 0;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        .tab {
+            padding: 15px 25px;
+            cursor: pointer;
+            border-bottom: 3px solid transparent;
+            font-weight: bold;
+        }
+        .tab:hover {
+            background: #f8f9fa;
+        }
+        .tab.active {
+            border-bottom: 3px solid #1877f2;
+            color: #1877f2;
+        }
+        .groups-sidebar {
+            position: fixed;
+            right: 20px;
+            top: 100px;
+            width: 300px;
+            background: white;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 15px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        .group-tag {
+            display: inline-block;
+            background: #e9f7fe;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 12px;
+            margin-left: 5px;
+        }
+    </style>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link rel="icon" type="image/png" href="{{ url_for('static', filename='uploads/favicon.png') }}">
+</head>
+<body>
+    <div class="header">
+        <div class="header-content">
+            <a href="/home" class="logo">СоцСеть</a>
+            <div class="nav-section">
+                <div class="nav-links">
+                    <a href="/home" class="nav-link">Главная</a>
+                    <a href="/profile" class="nav-link">Профиль</a>
+                    <a href="/friends" class="nav-link">Друзья</a>
+                    <a href="/feed" class="nav-link active">Лента</a>
+                    <a href="/find_friends" class="nav-link">Поиск</a>
+                    <a href="/groups" class="nav-link">Группы</a>
+                </div>
+                <div class="user-menu">
+                    <a href="/friends" class="icon-link" style="position: relative;">
+                        <i class="fas fa-user-friends"></i>
+                        {% if friend_requests_count > 0 %}
+                        <span class="notification-badge">{{ friend_requests_count }}</span>
+                        {% endif %}
+                    </a>
+                    <a href="/logout" class="icon-link logout-link">
+                        <i class="fas fa-sign-out-alt"></i>
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="container">
+        <!-- Вкладки (из второй версии feed.html) -->
+        <div class="tabs">
+            <div class="tab active" onclick="switchTab('all')">Все посты</div>
+            <div class="tab" onclick="switchTab('friends')">Друзья</div>
+            <div class="tab" onclick="switchTab('groups')">Группы</div>
+        </div>
+
+        <!-- Форма создания поста -->
+        <div class="create-post">
+            <h3 style="margin-top: 0; margin-bottom: 15px; color: #333;">Создать пост</h3>
+            <form method="POST" action="/feed">
+                <textarea name="content" class="post-textarea" 
+                          placeholder="Что у вас нового, {{ username }}?" required></textarea>
+                <div style="text-align: right;">
+                    <select name="visibility" style="padding: 8px; border: 1px solid #ddd; border-radius: 4px; margin-right: 10px;">
+                        <option value="public">Для всех</option>
+                        <option value="friends">Только друзьям</option>
+                        <option value="private">Только мне</option>
+                    </select>
+                    <button type="submit" class="post-button">
+                        <i class="fas fa-paper-plane"></i> Опубликовать
+                    </button>
+                </div>
+            </form>
+        </div>
+
+        <!-- Сообщения Flash -->
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="import-status" style="{% if category == 'error' %}background: #f8d7da; color: #721c24;{% endif %}">
+                        {{ message }}
+                        <a href="/feed" class="refresh-button">
+                            <i class="fas fa-sync-alt"></i> Обновить
+                        </a>
+                    </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        <!-- Лента новостей -->
+        {% if feed_items %}
+            {% for item in feed_items %}
+            <div class="feed-item">
+                {% if item.type == 'post' %}
+                    <!-- Пост пользователя -->
+                    <div class="post-header">
+                        <img src="{{ url_for('static', filename='uploads/avatars/' + (item.avatar or 'default_avatar.png')) }}" 
+                             alt="Аватар" class="avatar" 
+                             onerror="this.onerror=null; this.src='https://ui-avatars.com/api/?name={{ item.username|urlencode }}&background=random&size=50'">
+                        <div class="user-info">
+                            <div class="username">
+                                {{ item.full_name or item.username }}
+                                {% if item.group_id %}
+                                <span class="group-tag">Паблик: {{ item.group_name }}</span>
+                                {% endif %}
+                            </div>
+                            <div class="post-time">
+                                <i class="far fa-clock"></i> {{ item.created_at }}
+                                {% if item.group_id %}
+                                • {{ item.group_name }}
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                    <div class="post-content">
+                        {{ item.content|safe }}
+                    </div>
+                    <div class="post-actions">
+                        <button class="action-button like-button" data-post-id="{{ item.id }}">
+                            <i class="fas fa-thumbs-up {% if item.user_liked %}text-primary{% endif %}" 
+                               style="{% if item.user_liked %}color: #1877f2;{% endif %}"></i>
+                            <span class="likes-count">{{ item.likes_count or 0 }}</span>
+                        </button>
+                        <button class="action-button comment-button" data-post-id="{{ item.id }}">
+                            <i class="fas fa-comment"></i>
+                            <span>{{ item.comments_count or 0 }}</span>
+                        </button>
+                        <button class="action-button share-button" data-post-id="{{ item.id }}">
+                            <i class="fas fa-share"></i> Поделиться
+                        </button>
+                    </div>
+                    
+                    <!-- Комментарии -->
+                    <div class="comments-section" id="comments-{{ item.id }}" style="display: none;">
+                        <h4 style="margin-top: 0; margin-bottom: 15px;">Комментарии</h4>
+                        <div class="comments-list" id="comments-list-{{ item.id }}">
+                            <!-- Комментарии будут загружены здесь -->
+                        </div>
+                        <form class="comment-form" data-post-id="{{ item.id }}">
+                            <textarea name="content" placeholder="Добавить комментарий..." required></textarea>
+                            <button type="submit" class="comment-submit">
+                                <i class="fas fa-paper-plane"></i> Отправить
+                            </button>
+                        </form>
+                    </div>
+                    
+                {% elif item.type == 'news' %}
+                    <!-- Импортированная новость -->
+                    <div class="news-header">
+                        <span class="news-source">
+                            <i class="fas fa-newspaper"></i> RBC News
+                        </span>
+                        <span class="news-time">
+                            <i class="far fa-clock"></i> {{ item.published or item.imported_at }}
+                        </span>
+                    </div>
+                    <div class="news-title">{{ item.title }}</div>
+                    {% if item.description %}
+                    <div class="news-description">
+                        <i class="fas fa-align-left"></i> {{ item.description }}
+                    </div>
+                    {% endif %}
+                    <a href="{{ item.link }}" target="_blank" class="external-link">
+                        <i class="fas fa-external-link-alt"></i> Читать на RBC.ru
+                    </a>
+                {% endif %}
+            </div>
+            {% endfor %}
+        {% else %}
+            <div class="empty-feed">
+                <i class="far fa-newspaper"></i>
+                <h3>Лента пуста</h3>
+                <p>Добавьте друзей или создайте первый пост!</p>
+                <div style="margin-top: 20px;">
+                    <a href="/find_friends" style="background: #1877f2; color: white; padding: 10px 20px; border-radius: 5px; text-decoration: none; margin-right: 10px;">
+                        <i class="fas fa-user-plus"></i> Найти друзей
+                    </a>
+                    <a href="/feed" class="refresh-button">
+                        <i class="fas fa-sync-alt"></i> Обновить ленту
+                    </a>
+                </div>
+            </div>
+        {% endif %}
+    </div>
+
+    <!-- Боковая панель с группами (из второй версии) -->
+    <div class="groups-sidebar">
+        <h3 style="margin-top: 0;">Ваши группы</h3>
+        {% for group in my_groups %}
+        <div style="display: flex; align-items: center; margin-bottom: 10px; padding: 10px; border-radius: 5px; background: #f8f9fa;">
+            <img src="{{ url_for('static', filename='uploads/groups/' + group.avatar) if group.avatar else 'https://via.placeholder.com/30?text=G' }}"
+                 style="width: 30px; height: 30px; border-radius: 5px; margin-right: 10px;"
+                 onerror="this.src='https://via.placeholder.com/30?text=G'">
+            <div style="flex: 1;">
+                <strong><a href="/group/{{ group.id }}" style="color: inherit; text-decoration: none;">{{ group.name }}</a></strong>
+                <div style="font-size: 12px; color: #666;">{{ group.members_count }} участников</div>
+            </div>
+        </div>
+        {% endfor %}
+
+        <div style="margin-top: 20px; text-align: center;">
+            <a href="/groups" style="display: block; padding: 10px; background: #28a745; color: white; text-decoration: none; border-radius: 5px;">
+                Найти группы
+            </a>
+        </div>
+    </div>
+
+    <script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Лайки постов
+        document.querySelectorAll('.like-button').forEach(button => {
+            button.addEventListener('click', function() {
+                const postId = this.dataset.postId;
+                const likeIcon = this.querySelector('i');
+                const likesCount = this.querySelector('.likes-count');
+                
+                fetch(`/like_post/${postId}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.action === 'like') {
+                        likeIcon.style.color = '#1877f2';
+                        likeIcon.classList.add('text-primary');
+                    } else {
+                        likeIcon.style.color = '';
+                        likeIcon.classList.remove('text-primary');
+                    }
+                    likesCount.textContent = data.likes_count;
+                })
+                .catch(error => console.error('Error:', error));
+            });
+        });
+        
+        // Комментарии
+        document.querySelectorAll('.comment-button').forEach(button => {
+            button.addEventListener('click', function() {
+                const postId = this.dataset.postId;
+                const commentsSection = document.getElementById(`comments-${postId}`);
+                const commentsList = document.getElementById(`comments-list-${postId}`);
+                
+                if (commentsSection.style.display === 'none') {
+                    // Загружаем комментарии
+                    fetch(`/get_comments/${postId}`)
+                        .then(response => {
+                            if (!response.ok) {
+                                throw new Error('Network response was not ok');
+                            }
+                            return response.json();
+                        })
+                        .then(comments => {
+                            commentsList.innerHTML = '';
+                            
+                            if (!comments || comments.length === 0) {
+                                commentsList.innerHTML = `
+                                    <div style="text-align: center; padding: 20px; color: #666;">
+                                        <i class="far fa-comment-dots" style="font-size: 24px; margin-bottom: 10px;"></i>
+                                        <p>Комментариев пока нет</p>
+                                    </div>
+                                `;
+                            } else {
+                                comments.forEach(comment => {
+                                    const commentDate = new Date(comment.created_at);
+                                    const formattedDate = commentDate.toLocaleString('ru-RU', {
+                                        day: '2-digit',
+                                        month: '2-digit',
+                                        year: 'numeric',
+                                        hour: '2-digit',
+                                        minute: '2-digit'
+                                    });
+                                    
+                                    const commentDiv = document.createElement('div');
+                                    commentDiv.className = 'comment-item';
+                                    commentDiv.innerHTML = `
+                                        <div class="comment-author">
+                                            <i class="fas fa-user"></i> ${comment.full_name || comment.username}
+                                        </div>
+                                        <div class="comment-content">${comment.content}</div>
+                                        <div class="comment-time">
+                                            <i class="far fa-clock"></i> ${formattedDate}
+                                        </div>
+                                    `;
+                                    commentsList.appendChild(commentDiv);
+                                });
+                            }
+                        })
+                        .catch(error => {
+                            console.error('Error loading comments:', error);
+                            commentsList.innerHTML = `
+                                <div style="color: #dc3545; text-align: center;">
+                                    <i class="fas fa-exclamation-circle"></i> Ошибка загрузки комментариев
+                                </div>
+                            `;
+                        });
+                    
+                    commentsSection.style.display = 'block';
+                } else {
+                    commentsSection.style.display = 'none';
+                }
+            });
+        });
+        
+        // Отправка комментариев
+        document.querySelectorAll('.comment-form').forEach(form => {
+            form.addEventListener('submit', function(e) {
+                e.preventDefault();
+                const postId = this.dataset.postId;
+                const content = this.querySelector('textarea').value;
+                
+                if (!content.trim()) {
+                    alert('Введите текст комментария');
+                    return;
+                }
+                
+                const formData = new FormData();
+                formData.append('content', content);
+                
+                fetch(`/add_comment/${postId}`, {
+                    method: 'POST',
+                    body: new URLSearchParams({
+                        'content': content
+                    }),
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                    }
+                })
+                .then(response => {
+                    if (response.ok) {
+                        location.reload();
+                    } else {
+                        alert('Ошибка при отправке комментария');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('Ошибка сети');
+                });
+            });
+        });
+
+        // Переключение вкладок
+        function switchTab(tab) {
+            // Обновляем активную вкладку
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            event.target.classList.add('active');
+
+            // Здесь будет AJAX загрузка постов для выбранной вкладки
+            fetch(`/feed/${tab}`)
+                .then(response => response.text())
+                .then(html => {
+                    // Обновляем содержимое ленты
+                    document.querySelector('.container').innerHTML = html;
+                });
+        }
+        
+        // Автоматическое обновление ленты каждые 5 минут
+        setTimeout(function() {
+            window.location.reload();
+        }, 300000); // 5 минут
+    });
+    </script>
+</body>
+</html>

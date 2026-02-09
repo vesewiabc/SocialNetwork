@@ -1,0 +1,4 @@
+Flask
+feedparser
+beautifulsoup4
+requests
