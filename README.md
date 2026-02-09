@@ -48,7 +48,7 @@ LinkA — это web-приложение, написанное на Python,
 🔹 Язык: Python 🐍  
 🔹 Фреймворк: Flask 🌶️  
 🔹 База данных: SQLite3 🗄️  
-🔹 Frontend: HTML (Jinja2 templates)
+🔹 Frontend: HTML (templates)
 
 ---
 
