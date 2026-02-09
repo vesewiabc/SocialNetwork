@@ -38,3 +38,4 @@ git clone https://github.com/your-username/linka.git
 cd linka
 npm install
 npm run dev
+Linka - создаём связи,а не просто ленты.
