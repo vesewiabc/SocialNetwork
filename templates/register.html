@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Регистрация</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link rel="icon" type="image/png" href="{{ url_for('static', filename='uploads/favicon.png') }}">
+</head>
+<body class="auth-page">
+    <div class="auth-container">
+        <div class="auth-card">
+            <div class="auth-header">
+                <div class="auth-logo">
+                    <i class="fas fa-user-plus"></i>
+                </div>
+                <h2 class="text-center">Регистрация</h2>
+                <p class="text-center">Создайте новый аккаунт</p>
+            </div>
+            
+            <div class="auth-body">
+                {% if error %}
+                <div class="alert alert-danger">
+                    <i class="fas fa-exclamation-circle"></i>
+                    {{ error }}
+                </div>
+                {% endif %}
+                
+                <form method="POST" action="/register">
+                    <div class="form-group">
+                        <label class="form-label">
+                            <i class="fas fa-user"></i>
+                            Имя пользователя
+                        </label>
+                        <input type="text" 
+                               class="form-control" 
+                               id="username" 
+                               name="username" 
+                               required
+                               placeholder="Введите имя пользователя">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label">
+                            <i class="fas fa-lock"></i>
+                            Пароль
+                        </label>
+                        <input type="password" 
+                               class="form-control" 
+                               id="password" 
+                               name="password" 
+                               required
+                               placeholder="Введите пароль">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label">
+                            <i class="fas fa-lock"></i>
+                            Подтвердите пароль
+                        </label>
+                        <input type="password" 
+                               class="form-control" 
+                               id="confirm_password" 
+                               name="confirm_password" 
+                               required
+                               placeholder="Повторите пароль">
+                    </div>
+                    
+                    <button type="submit" class="btn btn-primary btn-full">
+                        <i class="fas fa-user-plus"></i>
+                        Зарегистрироваться
+                    </button>
+                </form>
+                
+                <div class="text-center mt-4">
+                    <p>Уже есть аккаунт? <a href="/login">Войдите</a></p>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

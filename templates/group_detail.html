@@ -1,0 +1,968 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ group.name }}</title>
+    <style>
+        /* Основные стили */
+        .group-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 40px 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            position: relative;
+        }
+        .group-avatar-large {
+            width: 120px;
+            height: 120px;
+            border-radius: 15px;
+            border: 4px solid white;
+            object-fit: cover;
+        }
+        .group-actions {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+        }
+        .member-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin: 20px 0;
+        }
+        .member-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+        }
+        .post-form {
+            background: white;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        .tab-content {
+            display: none;
+        }
+        .tab-content.active {
+            display: block;
+        }
+        .tab-btn {
+            padding: 10px 20px;
+            cursor: pointer;
+            border-bottom: 2px solid transparent;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        .tab-btn:hover {
+            background: #f8f9fa;
+        }
+        .tab-btn.active {
+            border-bottom: 2px solid #007bff;
+            color: #007bff;
+            font-weight: bold;
+        }
+        .request-pending {
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            color: #856404;
+            padding: 10px 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        .post-actions {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+        .edit-mode {
+            background: #fff3cd;
+            border: 1px solid #ffc107;
+        }
+        .edit-textarea {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            margin: 10px 0;
+            resize: vertical;
+            font-family: inherit;
+            font-size: 14px;
+        }
+
+        /* Стили для медиа */
+        .media-preview-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin: 15px 0;
+        }
+        .media-preview-item {
+            position: relative;
+            width: 100px;
+            height: 100px;
+            border-radius: 8px;
+            overflow: hidden;
+            border: 2px solid #ddd;
+        }
+        .media-preview-item img,
+        .media-preview-item video {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        .remove-media-btn {
+            position: absolute;
+            top: 5px;
+            right: 5px;
+            background: #dc3545;
+            color: white;
+            border: none;
+            border-radius: 50%;
+            width: 24px;
+            height: 24px;
+            cursor: pointer;
+            font-size: 16px;
+            line-height: 1;
+        }
+
+        /* Стили для отображения медиа в посте */
+        .post-media-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 10px;
+            margin: 15px 0;
+        }
+        .media-item {
+            position: relative;
+            border-radius: 8px;
+            overflow: hidden;
+            cursor: pointer;
+        }
+        .media-item img,
+        .media-item video {
+            width: 100%;
+            height: 200px;
+            object-fit: cover;
+            display: block;
+        }
+        .video-icon {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background: rgba(0,0,0,0.7);
+            color: white;
+            padding: 5px 10px;
+            border-radius: 4px;
+            font-size: 12px;
+        }
+
+        /* Стили для полноэкранного просмотра */
+        .media-viewer {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.9);
+            z-index: 1000;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        .media-viewer img,
+        .media-viewer video {
+            max-width: 90%;
+            max-height: 90%;
+            border-radius: 10px;
+        }
+        .media-viewer-close {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: white;
+            color: black;
+            border: none;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            font-size: 20px;
+            cursor: pointer;
+        }
+
+        /* Стили для заявок */
+        .request-card {
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 15px;
+            background: white;
+        }
+        .request-badge {
+            background: #dc3545;
+            color: white;
+            border-radius: 10px;
+            padding: 2px 6px;
+            font-size: 12px;
+            margin-left: 5px;
+        }
+    </style>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link rel="icon" type="image/png" href="{{ url_for('static', filename='uploads/favicon.png') }}">
+</head>
+<body>
+    <div style="padding: 20px; max-width: 800px; margin: 0 auto;">
+        <div style="margin-bottom: 20px;">
+            <a href="/groups" style="margin-right: 10px;">← Группы</a>
+            <a href="/home">Главная</a>
+        </div>
+
+        <div class="group-header">
+            <div style="display: flex; align-items: center; gap: 20px;">
+                <img src="{{ url_for('static', filename='uploads/groups/' + group.avatar) if group.avatar else 'https://via.placeholder.com/120?text=Group' }}"
+                     class="group-avatar-large"
+                     onerror="this.src='/static/defaults/for_groups.png'">
+
+                <div>
+                    <h1 style="margin: 0 0 10px 0;">{{ group.name }}</h1>
+                    <p style="margin: 0 0 10px 0; opacity: 0.9;">{{ group.description or 'Нет описания' }}</p>
+                    <div style="display: flex; gap: 15px; font-size: 14px;">
+                        <span>👥 {{ group.members_count }} участников</span>
+                        <span>📝 {{ group.posts_count }} постов</span>
+                        <span>📅 Создан {{ group.created_at[:10]|replace('-', '.') }}</span>
+                    </div>
+                    {% if not group.is_public %}
+                    <div style="margin-top: 10px; font-size: 14px; opacity: 0.9;">
+                        🔒 Приватная группа
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <div class="group-actions">
+                {% if role == 'admin' %}
+                <a href="/group/{{ group.id }}/settings"
+                   style="background: white; color: #333; padding: 10px 15px; border-radius: 5px; text-decoration: none; margin-right: 10px;">
+                    Настройки
+                </a>
+                {% endif %}
+
+                {% if is_member %}
+                    <form method="POST"
+                          action="/leave_group/{{ group.id }}"
+                          style="display: inline;"
+                          class="leave-group-form"
+                          data-is-creator="{{ '1' if group.creator_id == session_user_id else '0' }}"
+                          data-group-name="{{ group.name }}">
+                        <button type="submit"
+                            style="background: #dc3545; color: white; border: none; padding: 10px 15px; border-radius: 5px; cursor: pointer;">
+                        Отписаться
+                        </button>
+                    </form>
+                {% else %}
+                    {% if has_pending_request %}
+                    <div class="request-pending">
+                        ⏳ Заявка на вступление отправлена
+                    </div>
+                    {% else %}
+                    <form method="POST" action="/join_group/{{ group.id }}" style="display: inline;">
+                        <button type="submit" style="background: #28a745; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer;">
+                            {% if group.is_public %}Подписаться{% else %}Подать заявку{% endif %}
+                        </button>
+                    </form>
+                    {% endif %}
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Вкладки -->
+        <div style="display: flex; border-bottom: 1px solid #ddd; margin-bottom: 20px;">
+            <div class="tab-btn active" onclick="switchTab('posts')">
+                Посты
+            </div>
+            <div class="tab-btn" onclick="switchTab('members')">
+                Участники
+            </div>
+            <div class="tab-btn" onclick="switchTab('about')">
+                О паблике
+            </div>
+            {% if show_requests_tab %}
+            <div class="tab-btn" onclick="switchTab('requests')">
+                Заявки
+                {% if pending_requests_count > 0 %}
+                <span style="background: #dc3545; color: white; border-radius: 10px; padding: 2px 6px; font-size: 12px;">
+                    {{ pending_requests_count }}
+                </span>
+                {% endif %}
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Контент вкладки "Посты" -->
+        <div id="tab-posts" class="tab-content active">
+            <!-- Форма создания поста -->
+            {% if is_member and can_post %}
+            <div class="post-form">
+                <h3>Создать пост</h3>
+                <form method="POST" action="/group/{{ group.id }}/create_post" enctype="multipart/form-data" id="create-post-form">
+                    <textarea name="content" placeholder="Что нового в группе?"
+                              style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px; height: 100px;"></textarea>
+
+                    <!-- Поле для загрузки файлов -->
+                    <div style="margin-top: 15px; margin-bottom: 15px;">
+                        <label style="display: block; margin-bottom: 5px; font-weight: bold;">
+                            📎 Добавить фото или видео
+                        </label>
+                        <input type="file" name="media_files" id="media-files"
+                               accept="image/*,video/*" multiple
+                               style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                        <p style="margin-top: 5px; color: #666; font-size: 12px;">
+                            Можно загрузить до 10 файлов. Максимальный размер: 50MB на файл
+                        </p>
+
+                        <!-- Превью загружаемых файлов -->
+                        <div id="media-preview" class="media-preview-container">
+                            <!-- Сюда будут добавляться превью файлов -->
+                        </div>
+                    </div>
+
+                    <button type="submit" style="margin-top: 10px; padding: 10px 20px; background: #007bff; color: white; border: none; border-radius: 4px;">
+                        Опубликовать
+                    </button>
+                </form>
+            </div>
+            {% elif is_member and not can_post %}
+            <div style="background: #fff3cd; padding: 15px; border-radius: 5px; margin-bottom: 20px;">
+                <p style="margin: 0; color: #856404;">
+                    <strong>
+                        {% if group.post_permissions == 'admins' %}
+                            Только администраторы могут создавать посты в этой группе.
+                        {% elif group.post_permissions == 'moderators' %}
+                            Только администраторы и модераторы могут создавать посты в этой группе.
+                        {% else %}
+                            У вас нет прав для создания постов в этой группе.
+                        {% endif %}
+                    </strong>
+                </p>
+            </div>
+            {% endif %}
+
+            {% if posts %}
+                {% for post in posts %}
+                <div id="post-{{ post.id }}" class="post-container {% if post.is_editing %}edit-mode{% endif %}" style="border: 1px solid #ddd; border-radius: 8px; padding: 15px; margin-bottom: 15px; background: white;">
+                    <div style="display: flex; align-items: center; margin-bottom: 10px;">
+                        <img src="{{ url_for('static', filename='uploads/avatars/' + post.author_avatar) if post.author_avatar else 'https://via.placeholder.com/30?text=Avatar' }}"
+                             style="width: 30px; height: 30px; border-radius: 50%; margin-right: 10px;"
+                             onerror="this.src='/static/defaults/for_users.png'">
+                        <div style="flex: 1;">
+                            <div>
+                                <strong>{{ post.author_name or post.author_username }}</strong>
+                                {% if post.author_role == 'admin' %}
+                                <span style="font-size: 10px; color: #dc3545; margin-left: 5px;">Администратор</span>
+                                {% elif post.author_role == 'moderator' %}
+                                <span style="font-size: 10px; color: #17a2b8; margin-left: 5px;">Модератор</span>
+                                {% else %}
+                                <span style="font-size: 10px; color: #6c757d; margin-left: 5px;">Участник</span>
+                                {% endif %}
+                                <div style="font-size: 12px; color: #666;">{{ datetime_format(post.created_at) }}</div>
+                            </div>
+                        </div>
+
+                        <!-- Кнопки редактирования/удаления с проверкой прав -->
+                        {% set can_edit_post = false %}
+                        {% set can_delete_post = false %}
+
+                        <!-- Проверка прав на редактирование и удаление -->
+                        {% if post.author_id == session_user_id %}
+                            <!-- Автор может редактировать и удалять свой пост -->
+                            {% set can_edit_post = true %}
+                            {% set can_delete_post = true %}
+                        {% elif role == 'admin' %}
+                            <!-- Админ может редактировать и удалять любые посты -->
+                            {% set can_edit_post = true %}
+                            {% set can_delete_post = true %}
+                        {% elif role == 'moderator' %}
+                            <!-- Модератор может редактировать и удалять только посты обычных пользователей -->
+                            {% if post.author_role == 'member' %}
+                                {% set can_edit_post = true %}
+                                {% set can_delete_post = true %}
+                            {% endif %}
+                        {% endif %}
+
+                        {% if can_edit_post or can_delete_post %}
+                        <div class="post-actions">
+                            {% if can_edit_post %}
+                            <button onclick="editPost(this.dataset.postId)"
+                                    data-post-id="{{ post.id }}"
+                                    style="background: none; border: none; color: #007bff; cursor: pointer; padding: 5px;"
+                                    title="Редактировать">
+                                ✏️
+                            </button>
+                            {% endif %}
+
+                            {% if can_delete_post %}
+                            <button onclick="deleteGroupPost(this.dataset.postId)"
+                                    data-post-id="{{ post.id }}"
+                                    style="background: none; border: none; color: #dc3545; cursor: pointer; padding: 5px;"
+                                    title="Удалить">
+                                🗑️
+                            </button>
+                            {% endif %}
+                        </div>
+                        {% endif %}
+                    </div>
+
+                    {% if post.is_editing %}
+                    <textarea id="edit-content-{{ post.id }}" class="edit-textarea">{{ post.content }}</textarea>
+                    <div style="margin-top: 10px;">
+                        <button onclick="saveEdit(this.dataset.postId)"
+                                data-post-id="{{ post.id }}"
+                                style="padding: 8px 15px; background: #28a745; color: white; border: none; border-radius: 4px; margin-right: 10px;">
+                            Сохранить
+                        </button>
+                        <button onclick="cancelEdit(this.dataset.postId)"
+                                data-post-id="{{ post.id }}"
+                                style="padding: 8px 15px; background: #6c757d; color: white; border: none; border-radius: 4px;">
+                            Отмена
+                        </button>
+                    </div>
+                    {% else %}
+                    <p id="post-content-{{ post.id }}" style="margin: 10px 0; white-space: pre-wrap;">{{ post.content }}</p>
+
+                    <!-- Отображение медиафайлов -->
+                    {% if post.media_files %}
+                    <div class="post-media-grid">
+                        {% for media in post.media_files %}
+                            <div class="media-item"
+                                 data-media-url="{{ url_for('static', filename='uploads/posts/' + media.filename) }}"
+                                 data-media-type="{{ media.file_type }}"
+                                 onclick="openMediaViewer(this.dataset.mediaUrl, this.dataset.mediaType)">
+                                {% if media.file_type == 'image' %}
+                                <img src="{{ url_for('static', filename='uploads/posts/' + media.filename) }}"
+                                     onerror="this.src='/static/defaults/for_groups.png'">
+                                {% elif media.file_type == 'video' %}
+                                <video>
+                                    <source src="{{ url_for('static', filename='uploads/posts/' + media.filename) }}">
+                                </video>
+                                <div class="video-icon">▶️ ВИДЕО</div>
+                                {% endif %}
+                            </div>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+
+                    <div style="margin-top: 10px; padding-top: 10px; border-top: 1px solid #eee;">
+                        <button class="like-post-btn"
+                                onclick="likeGroupPost(this.dataset.postId)"
+                                data-post-id="{{ post.id }}"
+                                style="background: none; border: none; color: #666; cursor: pointer; padding: 5px 10px;">
+                            👍 {{ post.likes_count or 0 }}
+                        </button>
+                        <button onclick="commentOnPost(this.dataset.postId)"
+                                data-post-id="{{ post.id }}"
+                                style="background: none; border: none; color: #666; cursor: pointer; padding: 5px 10px;">
+                            💬 Комментировать
+                        </button>
+                    </div>
+                    {% endif %}
+                </div>
+                {% endfor %}
+            {% else %}
+            <div style="text-align: center; padding: 40px; color: #666;">
+                <h3>Пока нет постов</h3>
+                <p>
+                    {% if is_member %}
+                        {% if can_post %}
+                            Создайте первый пост!
+                        {% else %}
+                            В этой группе пока нет постов.
+                        {% endif %}
+                    {% else %}
+                        Вступите в паблик, чтобы видеть посты
+                    {% endif %}
+                </p>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Контент вкладки "Участники" -->
+        <div id="tab-members" class="tab-content">
+            <h3>Участники ({{ members|length }})</h3>
+            <div class="member-list">
+                {% for member in members %}
+                <div style="text-align: center; min-width: 80px;">
+                    <a href="/profile/{{ member.id }}" style="text-decoration: none; color: inherit;">
+                        <img src="{{ url_for('static', filename='uploads/avatars/' + member.avatar) if member.avatar else 'https://via.placeholder.com/40?text=Avatar' }}"
+                            class="member-avatar"
+                            onerror="this.src='/static/defaults/for_users.png'">
+                        <div style="font-size: 12px; margin-top: 5px; word-break: break-word;">
+                            {{ member.username }}
+                        </div>
+                        {% if member.role == 'admin' %}
+                        <div style="font-size: 10px; color: #dc3545; margin-top: 2px;">Админ</div>
+                        {% elif member.role == 'moderator' %}
+                        <div style="font-size: 10px; color: #17a2b8; margin-top: 2px;">Модератор</div>
+                        {% endif %}
+                    </a>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <!-- Контент вкладки "О паблике" -->
+        <div id="tab-about" class="tab-content">
+            <h3>О паблике</h3>
+            <div style="background: #f8f9fa; padding: 20px; border-radius: 8px;">
+                <p><strong>Создатель:</strong>
+                    <a href="/profile/{{ creator.id }}" style="color: #007bff; text-decoration: none;">
+                        {{ creator.full_name or creator.username }}
+                    </a>
+                </p>
+                <p><strong>Дата создания:</strong> {{ group.created_at[:10]|replace('-', '.') }}</p>
+                <p><strong>Статус:</strong> {{ 'Публичный' if group.is_public else 'Приватный (только по заявке)' }}</p>
+                <p><strong>Публикации:</strong>
+                    {% if group.post_permissions == 'admins' %}
+                        Только администраторы
+                    {% elif group.post_permissions == 'moderators' %}
+                        Администраторы и модераторы
+                    {% else %}
+                        Все участники
+                    {% endif %}
+                </p>
+                {% if group.description %}
+                <p><strong>Описание:</strong><br>{{ group.description }}</p>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Контент вкладки "Заявки" -->
+        {% if show_requests_tab %}
+        <div id="tab-requests" class="tab-content">
+            <h3>Заявки на вступление</h3>
+
+            {% if pending_requests %}
+            <div class="requests-list">
+                {% for request in pending_requests %}
+                <div class="request-card">
+                    <div style="display: flex; align-items: center; margin-bottom: 10px;">
+                        <img src="{{ url_for('static', filename='uploads/avatars/' + request.avatar) if request.avatar else 'https://via.placeholder.com/50?text=Avatar' }}"
+                             style="width: 50px; height: 50px; border-radius: 50%; margin-right: 15px;"
+                             onerror="this.src='/static/defaults/for_users.png'">
+
+                        <div style="flex: 1;">
+                            <h4 style="margin: 0 0 5px 0;">
+                                {{ request.full_name or request.username }}
+                            </h4>
+                            <p style="margin: 0; color: #666;">@{{ request.username }}</p>
+                            <div style="font-size: 12px; color: #999; margin-top: 5px;">
+                                Подал(а) заявку: {{ datetime_format(request.created_at) }}
+                            </div>
+                        </div>
+
+                        <div style="display: flex; gap: 10px;">
+                            <button onclick="approveRequest(this.dataset.requestId, this.dataset.username)"
+                                    data-request-id="{{ request.request_id }}"
+                                    data-username="{{ request.username }}"
+                                    style="padding: 8px 15px; background: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer;">
+                                Принять
+                            </button>
+                            <button onclick="rejectRequest(this.dataset.requestId, this.dataset.username)"
+                                    data-request-id="{{ request.request_id }}"
+                                    data-username="{{ request.username }}"
+                                    style="padding: 8px 15px; background: #dc3545; color: white; border: none; border-radius: 4px; cursor: pointer;">
+                                Отклонить
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div style="text-align: center; padding: 40px; color: #666;">
+                <h4>Нет ожидающих заявок</h4>
+                <p>Все заявки на вступление обработаны</p>
+            </div>
+            {% endif %}
+        </div>
+        {% endif %}
+    </div>
+
+    <script>
+    document.getElementById('create-post-form').addEventListener('submit', function(e) {
+        const content = this.querySelector('textarea[name="content"]').value.trim();
+        const files = this.querySelector('#media-files').files;
+
+        console.log('Содержимое:', content);
+        console.log('Файлы:', files.length);
+
+        for (let i = 0; i < files.length; i++) {
+            console.log(`Файл ${i}:`, files[i].name, files[i].size, files[i].type);
+        }
+
+        // Проверяем, есть ли хоть что-то
+        if (!content && files.length === 0) {
+            e.preventDefault();
+            alert('Пост не может быть пустым. Добавьте текст или файлы.');
+            return false;
+        }
+
+        return true;
+    });
+
+        // Переключение вкладок
+        function switchTab(tabName) {
+            // Убираем активный класс у всех вкладок
+            document.querySelectorAll('.tab-btn').forEach(btn => {
+                btn.classList.remove('active');
+            });
+
+            // Добавляем активный класс к нажатой вкладке
+            if (window.event && window.event.target) {
+                window.event.target.classList.add('active');
+            }
+
+            // Показываем соответствующий контент
+            document.querySelectorAll('.tab-content').forEach(content => {
+                content.classList.remove('active');
+            });
+            document.getElementById(`tab-${tabName}`).classList.add('active');
+        }
+
+        // Подтверждение выхода из группы
+        function confirmLeaveGroup(isCreator, groupName) {
+            if (isCreator) {
+                return confirm(`ВНИМАНИЕ! Вы являетесь создателем группы "${groupName}".\n\nЕсли вы покинете группу, она будет автоматически УДАЛЕНА вместе со всеми постами и участниками!\n\nВы уверены, что хотите удалить группу?`);
+            } else {
+                return confirm(`Вы уверены, что хотите покинуть группу "${groupName}"?`);
+            }
+        }
+
+        // Привязка подтверждения выхода из группы к формам без inline-скриптов
+        document.querySelectorAll('.leave-group-form').forEach(form => {
+            form.addEventListener('submit', function(e) {
+                const isCreator = this.dataset.isCreator === '1';
+                const groupName = this.dataset.groupName || '';
+                if (!confirmLeaveGroup(isCreator, groupName)) {
+                    e.preventDefault();
+                }
+            });
+        });
+
+        // Предпросмотр загружаемых файлов
+        document.getElementById('media-files').addEventListener('change', function(e) {
+            const previewContainer = document.getElementById('media-preview');
+            previewContainer.innerHTML = '';
+
+            const files = Array.from(this.files);
+
+            files.forEach((file, index) => {
+                const fileType = file.type.split('/')[0];
+                const previewItem = document.createElement('div');
+                previewItem.className = 'media-preview-item';
+
+                if (fileType === 'image') {
+                    const img = document.createElement('img');
+                    img.src = URL.createObjectURL(file);
+                    previewItem.appendChild(img);
+                } else if (fileType === 'video') {
+                    const video = document.createElement('video');
+                    video.src = URL.createObjectURL(file);
+                    video.controls = false;
+                    video.muted = true;
+                    previewItem.appendChild(video);
+                }
+
+                // Кнопка удаления файла
+                const removeBtn = document.createElement('button');
+                removeBtn.className = 'remove-media-btn';
+                removeBtn.innerHTML = '×';
+
+                removeBtn.addEventListener('click', function() {
+                    // Удаляем файл из input
+                    const dt = new DataTransfer();
+                    const filesArray = Array.from(document.getElementById('media-files').files);
+                    filesArray.splice(index, 1);
+                    filesArray.forEach(f => dt.items.add(f));
+                    document.getElementById('media-files').files = dt.files;
+
+                    // Удаляем превью
+                    previewItem.remove();
+                });
+
+                previewItem.appendChild(removeBtn);
+                previewContainer.appendChild(previewItem);
+            });
+        });
+
+        // Валидация формы создания поста
+        document.getElementById('create-post-form').addEventListener('submit', function(e) {
+            const content = this.querySelector('textarea[name="content"]').value.trim();
+            const files = this.querySelector('#media-files').files;
+
+            if (!content && files.length === 0) {
+                e.preventDefault();
+                alert('Пост не может быть пустым. Добавьте текст или файлы.');
+                return false;
+            }
+
+            // Проверка размера файлов (максимум 50MB)
+            const maxSize = 50 * 1024 * 1024;
+            for (let file of files) {
+                if (file.size > maxSize) {
+                    e.preventDefault();
+                    alert(`Файл "${file.name}" слишком большой. Максимальный размер: 50MB.`);
+                    return false;
+                }
+            }
+
+            // Проверка количества файлов (максимум 10)
+            if (files.length > 10) {
+                e.preventDefault();
+                alert('Можно загрузить не более 10 файлов за раз.');
+                return false;
+            }
+
+            return true;
+        });
+
+        // Удаление поста из группы
+        function deleteGroupPost(postId) {
+            if (confirm('Удалить этот пост?')) {
+                fetch(`/group_post/delete/${postId}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    }
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        location.reload();
+                    } else {
+                        alert('Ошибка: ' + data.error);
+                    }
+                })
+                .catch(error => {
+                    alert('Ошибка сети: ' + error);
+                });
+            }
+        }
+
+        // Редактирование поста
+        function editPost(postId) {
+            const postContainer = document.getElementById(`post-${postId}`);
+            const postContent = document.getElementById(`post-content-${postId}`);
+
+            // Создаем textarea для редактирования
+            const editTextarea = document.createElement('textarea');
+            editTextarea.id = `edit-content-${postId}`;
+            editTextarea.className = 'edit-textarea';
+            editTextarea.value = postContent.textContent;
+
+            // Создаем кнопки управления
+            const buttonContainer = document.createElement('div');
+            buttonContainer.style.marginTop = '10px';
+
+            const saveButton = document.createElement('button');
+            saveButton.textContent = 'Сохранить';
+            saveButton.style.padding = '8px 15px';
+            saveButton.style.background = '#28a745';
+            saveButton.style.color = 'white';
+            saveButton.style.border = 'none';
+            saveButton.style.borderRadius = '4px';
+            saveButton.style.marginRight = '10px';
+            saveButton.onclick = () => saveEdit(postId);
+
+            const cancelButton = document.createElement('button');
+            cancelButton.textContent = 'Отмена';
+            cancelButton.style.padding = '8px 15px';
+            cancelButton.style.background = '#6c757d';
+            cancelButton.style.color = 'white';
+            cancelButton.style.border = 'none';
+            cancelButton.style.borderRadius = '4px';
+            cancelButton.onclick = () => cancelEdit(postId);
+
+            buttonContainer.appendChild(saveButton);
+            buttonContainer.appendChild(cancelButton);
+
+            // Скрываем оригинальный контент и кнопки лайков
+            postContent.style.display = 'none';
+            const actionsDiv = postContainer.querySelector('div[style*="border-top: 1px solid #eee"]');
+            if (actionsDiv) actionsDiv.style.display = 'none';
+
+            // Скрываем медиафайлы если есть
+            const mediaGrid = postContainer.querySelector('.post-media-grid');
+            if (mediaGrid) mediaGrid.style.display = 'none';
+
+            // Добавляем элементы редактирования
+            postContainer.appendChild(editTextarea);
+            postContainer.appendChild(buttonContainer);
+            postContainer.classList.add('edit-mode');
+        }
+
+        function saveEdit(postId) {
+            const editTextarea = document.getElementById(`edit-content-${postId}`);
+            const newContent = editTextarea.value.trim();
+
+            if (!newContent) {
+                alert('Пост не может быть пустым');
+                return;
+            }
+
+            fetch(`/group_post/edit/${postId}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ content: newContent })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Обновляем содержимое поста
+                    const postContent = document.getElementById(`post-content-${postId}`);
+                    postContent.textContent = newContent;
+
+                    // Возвращаем обычный вид
+                    cancelEdit(postId);
+                    alert('Пост успешно обновлен!');
+                } else {
+                    alert('Ошибка: ' + data.error);
+                }
+            })
+            .catch(error => {
+                alert('Ошибка сети: ' + error);
+            });
+        }
+
+        function cancelEdit(postId) {
+            const postContainer = document.getElementById(`post-${postId}`);
+            const editTextarea = document.getElementById(`edit-content-${postId}`);
+            const buttonContainer = editTextarea.nextElementSibling;
+
+            // Удаляем элементы редактирования
+            editTextarea.remove();
+            buttonContainer.remove();
+
+            // Показываем оригинальный контент и кнопки лайков
+            const postContent = document.getElementById(`post-content-${postId}`);
+            postContent.style.display = 'block';
+            const actionsDiv = postContainer.querySelector('div[style*="border-top: 1px solid #eee"]');
+            if (actionsDiv) actionsDiv.style.display = 'block';
+
+            // Показываем медиафайлы если есть
+            const mediaGrid = postContainer.querySelector('.post-media-grid');
+            if (mediaGrid) mediaGrid.style.display = 'grid';
+
+            postContainer.classList.remove('edit-mode');
+        }
+
+        // Лайк поста
+        function likeGroupPost(postId) {
+            fetch(`/like_post/${postId}?type=group`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Найдем кнопку лайка и обновим счетчик
+                    const buttons = document.querySelectorAll(`button.like-post-btn[data-post-id="${postId}"]`);
+                    buttons.forEach(btn => {
+                        btn.innerHTML = `👍 ${data.likes_count}`;
+                    });
+                }
+            })
+            .catch(error => {
+                console.error('Ошибка:', error);
+            });
+        }
+
+        // Просмотр медиа в полноэкранном режиме
+        function openMediaViewer(src, type) {
+            const viewer = document.createElement('div');
+            viewer.className = 'media-viewer';
+
+            if (type === 'image') {
+                const img = document.createElement('img');
+                img.src = src;
+                viewer.appendChild(img);
+            } else if (type === 'video') {
+                const video = document.createElement('video');
+                video.src = src;
+                video.controls = true;
+                video.autoplay = true;
+                video.style.maxWidth = '90%';
+                video.style.maxHeight = '90%';
+                viewer.appendChild(video);
+            }
+
+            const closeBtn = document.createElement('button');
+            closeBtn.className = 'media-viewer-close';
+            closeBtn.innerHTML = '×';
+            closeBtn.onclick = function() {
+                document.body.removeChild(viewer);
+            };
+
+            viewer.appendChild(closeBtn);
+            viewer.onclick = function(e) {
+                if (e.target === viewer) {
+                    document.body.removeChild(viewer);
+                }
+            };
+
+            document.body.appendChild(viewer);
+        }
+
+        // Функции для обработки заявок
+        function approveRequest(requestId, username) {
+            if (confirm(`Принять пользователя @${username} в группу?`)) {
+                fetch(`/group/{{ group.id }}/request/${requestId}/approve`, {
+                    method: 'GET',
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        location.reload();
+                    } else {
+                        alert('Ошибка: ' + data.error);
+                    }
+                })
+                .catch(error => {
+                    alert('Ошибка сети: ' + error);
+                });
+            }
+        }
+
+        function rejectRequest(requestId, username) {
+            if (confirm(`Отклонить заявку пользователя @${username}?`)) {
+                fetch(`/group/{{ group.id }}/request/${requestId}/reject`, {
+                    method: 'GET',
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        location.reload();
+                    } else {
+                        alert('Ошибка: ' + data.error);
+                    }
+                })
+                .catch(error => {
+                    alert('Ошибка сети: ' + error);
+                });
+            }
+        }
+
+        function commentOnPost(postId) {
+            alert('Функция комментариев будет реализована позже');
+        }
+    </script>
+</body>
+</html>
