@@ -565,7 +565,13 @@ font-size: 12px;
                                         {{ item.username[0].upper() if item.username and item.username|length > 0 else '?' }}
                                     </div>
                                     <div class="post-info">
-                                        <h4>{{ item.username or 'Пользователь' }}</h4>
+                                        <h4>
+                                            <a href="/post/{{ item.id }}" style="text-decoration: none; color: #1877f2">
+
+                                            
+                                            {{ item.username or 'Пользователь' }}
+                                            </a>
+                                        </h4>
                                         <small>
                                             {% if item.created_at %}
                                                 {% if item.created_at is string %}
@@ -582,21 +588,22 @@ font-size: 12px;
                                 <div class="post-content">
                                     {{ item.content or 'Пустой пост' }}
                                 </div>
+                                <!-- В блоке поста в home.html добавьте: -->
                                 <div class="post-actions">
-                                    <button class="action-btn">
+                                    <a href="/post/{{ item.id }}" class="action-btn" style="text-decoration: none; color: inherit;">
+                                        <i class="fas fa-eye"></i> Просмотреть
+                                    </a>
+                                    <button class="action-btn like-btn" onclick="likePost('{{ item.id }}')">
                                         <i class="far fa-thumbs-up"></i> Нравится
                                         {% if item.get('likes_count') %}
                                             <span>({{ item.likes_count }})</span>
                                         {% endif %}
                                     </button>
-                                    <button class="action-btn">
+                                    <button class="action-btn" onclick="showComments('{{ item.id }}')">
                                         <i class="far fa-comment"></i> Комментировать
                                         {% if item.get('comments_count') %}
                                             <span>({{ item.comments_count }})</span>
                                         {% endif %}
-                                    </button>
-                                    <button class="action-btn">
-                                        <i class="fas fa-share"></i> Поделиться
                                     </button>
                                 </div>
                             </div>
@@ -645,5 +652,46 @@ font-size: 12px;
             
         </div>
     </div>
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script>
+    function likePost(postId) {
+        $.ajax({
+            url: `/like_post_action/${postId}`,
+            type: 'POST',
+            contentType: 'application/json',
+            success: function(response) {
+                if (response.success) {
+                    // Обновляем количество лайков
+                    const likeBtn = $(`[onclick="likePost('${postId}')"]`);
+                    const likeCountSpan = likeBtn.find('span');
+                    const likeIcon = likeBtn.find('i');
+                    
+                    if (response.action === 'liked') {
+                        likeIcon.removeClass('far').addClass('fas');
+                        likeBtn.addClass('liked');
+                    } else {
+                        likeIcon.removeClass('fas').addClass('far');
+                        likeBtn.removeClass('liked');
+                    }
+                    
+                    if (likeCountSpan.length) {
+                        likeCountSpan.text(`(${response.likes_count})`);
+                    } else {
+                        likeBtn.append(` (${response.likes_count})`);
+                    }
+                } else {
+                    alert('Ошибка: ' + response.error);
+                }
+            },
+            error: function() {
+                alert('Ошибка сервера');
+            }
+        });
+    }
+    
+    function showComments(postId) {
+        window.location.href = `/post/${postId}`;
+    }
+</script>
 </body>
 </html>

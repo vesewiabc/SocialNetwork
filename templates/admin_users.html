@@ -1,0 +1,238 @@
+{% extends "admin_base.html" %}
+
+{% block title %}Управление пользователями{% endblock %}
+{% block header %}Управление пользователями{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Статистика -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="stats-card bg-primary-light">
+                <h5>Всего пользователей</h5>
+                <h2>{{ total_users }}</h2>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="stats-card bg-success-light">
+                <h5>Администраторы</h5>
+                <h2>{{ admin_users }}</h2>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="stats-card bg-warning-light">
+                <h5>Тех-админы</h5>
+                <h2>{{ techadmin_users }}</h2>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="stats-card bg-danger-light">
+                <h5>Забаненные</h5>
+                <h2>{{ banned_users }}</h2>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Фильтры и поиск -->
+    <div class="card mb-4">
+        <div class="card-body">
+            <form method="get" action="/admin/users" class="row g-3">
+                <div class="col-md-4">
+                    <input type="text" name="search" class="form-control" placeholder="Поиск по имени или никнейму" value="{{ search_query }}">
+                </div>
+                <div class="col-md-3">
+                    <select name="role" class="form-select">
+                        <option value="all" {% if role_filter == 'all' %}selected{% endif %}>Все роли</option>
+                        <option value="admin" {% if role_filter == 'admin' %}selected{% endif %}>Администраторы</option>
+                        <option value="techadmin" {% if role_filter == 'techadmin' %}selected{% endif %}>Тех-админы</option>
+                        <option value="user" {% if role_filter == 'user' %}selected{% endif %}>Пользователи</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <select name="banned" class="form-select">
+                        <option value="all" {% if banned_filter == 'all' %}selected{% endif %}>Все статусы</option>
+                        <option value="active" {% if banned_filter == 'active' %}selected{% endif %}>Активные</option>
+                        <option value="banned" {% if banned_filter == 'banned' %}selected{% endif %}>Забаненные</option>
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <button type="submit" class="btn btn-primary w-100">Применить</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <!-- Таблица пользователей -->
+    <div class="card">
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Никнейм</th>
+                            <th>Имя</th>
+                            <th>Роль</th>
+                            <th>Статус</th>
+                            <th>Посты</th>
+                            <th>Друзья</th>
+                            <th>Дата регистрации</th>
+                            <th>Действия</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for user in users %}
+                        <tr>
+                            <td>{{ user.id }}</td>
+                            <td>
+                                <strong>{{ user.username }}</strong>
+                                {% if user.username == 'admin' %}
+                                    <span class="badge bg-danger">Главный</span>
+                                {% endif %}
+                            </td>
+                            <td>{{ user.full_name or '-' }}</td>
+                            <td>
+                                <span class="badge bg-{{ 'danger' if user.role == 'admin' else 'warning' if user.role == 'techadmin' else 'secondary' }}">
+                                    {{ 'Админ' if user.role == 'admin' else 'Тех-админ' if user.role == 'techadmin' else 'Пользователь' }}
+                                </span>
+                            </td>
+                            <td>
+                                {% if user.is_banned %}
+                                    <span class="badge bg-danger">Забанен</span>
+                                {% else %}
+                                    <span class="badge bg-success">Активен</span>
+                                {% endif %}
+                            </td>
+                            <td>{{ user.posts_count or 0 }}</td>
+                            <td>{{ user.friends_count or 0 }}</td>
+                            <td>{{ user.created_at|format_date }}</td>
+                            <td>
+                                <div class="btn-group btn-group-sm">
+                                    <!-- Изменение роли -->
+                                    <div class="dropdown">
+                                        <button class="btn btn-outline-primary dropdown-toggle" type="button" data-bs-toggle="dropdown">
+                                            Роль
+                                        </button>
+                                        <ul class="dropdown-menu">
+                                            <li><a class="dropdown-item change-role" href="#" data-user-id="{{ user.id }}" data-role="user">Пользователь</a></li>
+                                            <li><a class="dropdown-item change-role" href="#" data-user-id="{{ user.id }}" data-role="techadmin">Тех-админ</a></li>
+                                            {% if user.username != 'admin' %}
+                                            <li><a class="dropdown-item change-role" href="#" data-user-id="{{ user.id }}" data-role="admin">Админ</a></li>
+                                            {% endif %}
+                                        </ul>
+                                    </div>
+                                    
+                                    <!-- Бан/разбан -->
+                                    {% if user.username != 'admin' and user.role != 'techadmin' %}
+                                        {% if user.is_banned %}
+                                            <button class="btn btn-success unban-user" data-user-id="{{ user.id }}" data-username="{{ user.username }}">
+                                                Разбанить
+                                            </button>
+                                        {% else %}
+                                            <button class="btn btn-warning ban-user" data-user-id="{{ user.id }}" data-username="{{ user.username }}">
+                                                Забанить
+                                            </button>
+                                        {% endif %}
+                                    {% endif %}
+                                </div>
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="9" class="text-center">Пользователи не найдены</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+$(document).ready(function() {
+    // Изменение роли пользователя
+    $('.change-role').click(function(e) {
+        e.preventDefault();
+        const userId = $(this).data('user-id');
+        const newRole = $(this).data('role');
+        const roleName = newRole === 'admin' ? 'администратора' : newRole === 'techadmin' ? 'тех-админа' : 'пользователя';
+        
+        if (confirm(`Вы уверены, что хотите назначить пользователя ${roleName}?`)) {
+            $.ajax({
+                url: `/admin/change_role/${userId}`,
+                type: 'POST',
+                contentType: 'application/json',
+                data: JSON.stringify({ role: newRole }),
+                success: function(response) {
+                    if (response.success) {
+                        alert(response.message);
+                        location.reload();
+                    } else {
+                        alert('Ошибка: ' + response.error);
+                    }
+                },
+                error: function() {
+                    alert('Ошибка сервера');
+                }
+            });
+        }
+    });
+    
+    // Бан пользователя
+    $('.ban-user').click(function() {
+        const userId = $(this).data('user-id');
+        const username = $(this).data('username');
+        const reason = prompt(`Укажите причину бана пользователя ${username}:`, 'Нарушение правил');
+        
+        if (reason !== null) {
+            $.ajax({
+                url: `/admin/ban_user/${userId}`,
+                type: 'POST',
+                contentType: 'application/json',
+                data: JSON.stringify({ reason: reason }),
+                success: function(response) {
+                    if (response.success) {
+                        alert(response.message);
+                        location.reload();
+                    } else {
+                        alert('Ошибка: ' + response.error);
+                    }
+                },
+                error: function() {
+                    alert('Ошибка сервера');
+                }
+            });
+        }
+    });
+    
+    // Разбан пользователя
+    $('.unban-user').click(function() {
+        const userId = $(this).data('user-id');
+        const username = $(this).data('username');
+        
+        if (confirm(`Разбанить пользователя ${username}?`)) {
+            $.ajax({
+                url: `/admin/unban_user/${userId}`,
+                type: 'POST',
+                contentType: 'application/json',
+                data: JSON.stringify({}),
+                success: function(response) {
+                    if (response.success) {
+                        alert(response.message);
+                        location.reload();
+                    } else {
+                        alert('Ошибка: ' + response.error);
+                    }
+                },
+                error: function() {
+                    alert('Ошибка сервера');
+                }
+            });
+        }
+    });
+});
+</script>
+{% endblock %}

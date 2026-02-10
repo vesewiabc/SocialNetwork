@@ -475,6 +475,335 @@ def get_post_media(post_id, is_group_post=True):
     conn.close()
     return rows_to_dicts(media)
 
+# ==================== ФУНКЦИИ ДЛЯ КОММЕНТАРИЕВ И ЛАЙКОВ ====================
+
+def get_post_comments(post_id):
+    """Получение комментариев для поста"""
+    conn = get_db_connection()
+    comments = rows_to_dicts(conn.execute('''
+        SELECT c.*, u.username, up.full_name, 
+               COALESCE(up.avatar, 'default_avatar.png') as avatar
+        FROM comments c
+        JOIN users u ON c.user_id = u.id
+        LEFT JOIN user_profiles up ON u.id = up.user_id
+        WHERE c.post_id = ?
+        ORDER BY c.created_at DESC
+    ''', (post_id,)).fetchall())
+    conn.close()
+    return comments
+
+def get_post_likes(post_id):
+    """Получение лайков для поста"""
+    conn = get_db_connection()
+    likes = rows_to_dicts(conn.execute('''
+        SELECT pl.*, u.username
+        FROM post_likes pl
+        JOIN users u ON pl.user_id = u.id
+        WHERE pl.post_id = ?
+    ''', (post_id,)).fetchall())
+    conn.close()
+    return likes
+
+def has_user_liked_post(post_id, user_id):
+    """Проверка, поставил ли пользователь лайк посту"""
+    conn = get_db_connection()
+    result = conn.execute('''
+        SELECT id FROM post_likes 
+        WHERE post_id = ? AND user_id = ?
+    ''', (post_id, user_id)).fetchone()
+    conn.close()
+    return result is not None
+
+# ==================== НОВЫЕ МАРШРУТЫ ====================
+
+@app.route('/edit_post/<int:post_id>', methods=['GET', 'POST'])
+def edit_post(post_id):
+    """Редактирование поста"""
+    if 'user_id' not in session:
+        return redirect('/login')
+    
+    user_id = session['user_id']
+    conn = get_db_connection()
+    
+    # Получаем пост
+    post = conn.execute('SELECT * FROM posts WHERE id = ?', (post_id,)).fetchone()
+    
+    if not post:
+        conn.close()
+        flash('Пост не найден', 'error')
+        return redirect('/my_posts')
+    
+    # Проверяем права доступа
+    if post['user_id'] != user_id:
+        conn.close()
+        flash('Вы не можете редактировать этот пост', 'error')
+        return redirect('/my_posts')
+    
+    if request.method == 'POST':
+        content = request.form.get('content', '').strip()
+        
+        if not content:
+            flash('Пост не может быть пустым', 'error')
+            return redirect(f'/edit_post/{post_id}')
+        
+        # Обновляем пост
+        conn.execute('UPDATE posts SET content = ? WHERE id = ?', (content, post_id))
+        conn.commit()
+        conn.close()
+        
+        flash('Пост успешно обновлен!', 'success')
+        return redirect('/my_posts')
+    
+    # GET запрос - показываем форму редактирования
+    conn.close()
+    return render_template('edit_post.html', post=dict(post))
+
+@app.route('/delete_post_route/<int:post_id>', methods=['POST'])
+def delete_post_route(post_id):
+    """Удаление поста (POST запрос)"""
+    if 'user_id' not in session:
+        return jsonify({'success': False, 'error': 'Требуется авторизация'}), 401
+    
+    user_id = session['user_id']
+    conn = get_db_connection()
+    
+    # Получаем пост
+    post = conn.execute('SELECT * FROM posts WHERE id = ?', (post_id,)).fetchone()
+    
+    if not post:
+        conn.close()
+        return jsonify({'success': False, 'error': 'Пост не найден'})
+    
+    # Проверяем права доступа
+    if post['user_id'] != user_id:
+        conn.close()
+        return jsonify({'success': False, 'error': 'Нет прав на удаление'})
+    
+    try:
+        # Удаляем лайки и комментарии
+        conn.execute('DELETE FROM post_likes WHERE post_id = ?', (post_id,))
+        conn.execute('DELETE FROM comments WHERE post_id = ?', (post_id,))
+        
+        # Удаляем медиафайлы
+        media_files = conn.execute('SELECT filename FROM post_media WHERE post_id = ?', (post_id,)).fetchall()
+        for media in media_files:
+            try:
+                os.remove(os.path.join(app.config['POST_MEDIA_FOLDER'], media['filename']))
+            except:
+                pass
+        
+        # Удаляем записи о медиа
+        conn.execute('DELETE FROM post_media WHERE post_id = ?', (post_id,))
+        
+        # Удаляем сам пост
+        conn.execute('DELETE FROM posts WHERE id = ?', (post_id,))
+        conn.commit()
+        conn.close()
+        
+        return jsonify({'success': True, 'message': 'Пост удален'})
+    
+    except Exception as e:
+        conn.rollback()
+        conn.close()
+        return jsonify({'success': False, 'error': str(e)})
+
+@app.route('/like_post_action/<int:post_id>', methods=['POST'])
+def like_post_action(post_id):
+    """Поставить/убрать лайк посту"""
+    if 'user_id' not in session:
+        return jsonify({'success': False, 'error': 'Требуется авторизация'}), 401
+    
+    user_id = session['user_id']
+    conn = get_db_connection()
+    
+    try:
+        # Проверяем, существует ли пост
+        post = conn.execute('SELECT id FROM posts WHERE id = ?', (post_id,)).fetchone()
+        if not post:
+            conn.close()
+            return jsonify({'success': False, 'error': 'Пост не найден'})
+        
+        # Проверяем, лайкал ли уже пользователь
+        existing_like = conn.execute('''
+            SELECT id FROM post_likes WHERE post_id = ? AND user_id = ?
+        ''', (post_id, user_id)).fetchone()
+        
+        if existing_like:
+            # Убираем лайк
+            conn.execute('DELETE FROM post_likes WHERE id = ?', (existing_like['id'],))
+            action = 'unliked'
+        else:
+            # Ставим лайк
+            conn.execute('INSERT INTO post_likes (post_id, user_id) VALUES (?, ?)', (post_id, user_id))
+            action = 'liked'
+        
+        # Получаем новое количество лайков
+        likes_count = conn.execute('SELECT COUNT(*) as count FROM post_likes WHERE post_id = ?', (post_id,)).fetchone()['count']
+        
+        conn.commit()
+        conn.close()
+        
+        return jsonify({
+            'success': True, 
+            'action': action, 
+            'likes_count': likes_count,
+            'liked': action == 'liked'
+        })
+    
+    except Exception as e:
+        conn.rollback()
+        conn.close()
+        return jsonify({'success': False, 'error': str(e)})
+
+@app.route('/add_comment/<int:post_id>', methods=['POST'])
+def add_comment(post_id):
+    """Добавить комментарий к посту"""
+    if 'user_id' not in session:
+        return jsonify({'success': False, 'error': 'Требуется авторизация'}), 401
+    
+    user_id = session['user_id']
+    data = request.get_json()
+    content = data.get('content', '').strip()
+    
+    if not content:
+        return jsonify({'success': False, 'error': 'Комментарий не может быть пустым'})
+    
+    conn = get_db_connection()
+    
+    try:
+        # Проверяем, существует ли пост
+        post = conn.execute('SELECT id FROM posts WHERE id = ?', (post_id,)).fetchone()
+        if not post:
+            conn.close()
+            return jsonify({'success': False, 'error': 'Пост не найден'})
+        
+        # Добавляем комментарий
+        conn.execute('''
+            INSERT INTO comments (post_id, user_id, content)
+            VALUES (?, ?, ?)
+        ''', (post_id, user_id, content))
+        
+        # Получаем ID нового комментария
+        comment_id = conn.lastrowid
+        
+        # Получаем информацию о комментаторе для ответа
+        comment_data = conn.execute('''
+            SELECT c.*, u.username, up.full_name, 
+                   COALESCE(up.avatar, 'default_avatar.png') as avatar
+            FROM comments c
+            JOIN users u ON c.user_id = u.id
+            LEFT JOIN user_profiles up ON u.id = up.user_id
+            WHERE c.id = ?
+        ''', (comment_id,)).fetchone()
+        
+        # Получаем общее количество комментариев
+        comments_count = conn.execute('SELECT COUNT(*) as count FROM comments WHERE post_id = ?', (post_id,)).fetchone()['count']
+        
+        conn.commit()
+        conn.close()
+        
+        return jsonify({
+            'success': True,
+            'comment': dict(comment_data),
+            'comments_count': comments_count
+        })
+    
+    except Exception as e:
+        conn.rollback()
+        conn.close()
+        return jsonify({'success': False, 'error': str(e)})
+
+@app.route('/delete_comment/<int:comment_id>', methods=['POST'])
+def delete_comment(comment_id):
+    """Удалить комментарий"""
+    if 'user_id' not in session:
+        return jsonify({'success': False, 'error': 'Требуется авторизация'}), 401
+    
+    user_id = session['user_id']
+    conn = get_db_connection()
+    
+    try:
+        # Проверяем, существует ли комментарий
+        comment = conn.execute('SELECT * FROM comments WHERE id = ?', (comment_id,)).fetchone()
+        if not comment:
+            conn.close()
+            return jsonify({'success': False, 'error': 'Комментарий не найден'})
+        
+        # Проверяем права доступа (только автор комментария или автор поста)
+        if comment['user_id'] != user_id:
+            # Проверяем, является ли пользователь автором поста
+            post = conn.execute('SELECT user_id FROM posts WHERE id = ?', (comment['post_id'],)).fetchone()
+            if not post or post['user_id'] != user_id:
+                conn.close()
+                return jsonify({'success': False, 'error': 'Нет прав на удаление'})
+        
+        # Получаем post_id перед удалением
+        post_id = comment['post_id']
+        
+        # Удаляем комментарий
+        conn.execute('DELETE FROM comments WHERE id = ?', (comment_id,))
+        
+        # Получаем новое количество комментариев
+        comments_count = conn.execute('SELECT COUNT(*) as count FROM comments WHERE post_id = ?', (post_id,)).fetchone()['count']
+        
+        conn.commit()
+        conn.close()
+        
+        return jsonify({
+            'success': True,
+            'comments_count': comments_count
+        })
+    
+    except Exception as e:
+        conn.rollback()
+        conn.close()
+        return jsonify({'success': False, 'error': str(e)})
+
+@app.route('/post/<int:post_id>')
+def view_post(post_id):
+    """Просмотр отдельного поста с комментариями"""
+    if 'user_id' not in session:
+        return redirect('/login')
+    
+    user_id = session['user_id']
+    conn = get_db_connection()
+    
+    # Получаем пост
+    post = conn.execute('''
+        SELECT p.*, u.username, up.full_name, 
+               COALESCE(up.avatar, 'default_avatar.png') as avatar
+        FROM posts p
+        JOIN users u ON p.user_id = u.id
+        LEFT JOIN user_profiles up ON u.id = up.user_id
+        WHERE p.id = ?
+    ''', (post_id,)).fetchone()
+    
+    if not post:
+        conn.close()
+        flash('Пост не найден', 'error')
+        return redirect('/home')
+    
+    # Получаем комментарии
+    comments = get_post_comments(post_id)
+    
+    # Получаем лайки
+    likes = get_post_likes(post_id)
+    has_liked = has_user_liked_post(post_id, user_id)
+    
+    # Получаем количество лайков и комментариев
+    likes_count = len(likes)
+    comments_count = len(comments)
+    
+    conn.close()
+    
+    return render_template('view_post.html',
+                          post=dict(post),
+                          comments=comments,
+                          likes=likes,
+                          likes_count=likes_count,
+                          comments_count=comments_count,
+                          has_liked=has_liked,
+                          current_user_id=user_id)
 
 @app.template_filter('format_date')
 def format_date_filter(value):
@@ -934,7 +1263,7 @@ def index():
     if 'user_id' in session:
         username = session.get('username')
         if username == 'admin':
-            return redirect('/admin')
+            return redirect('/admin')  # Изменено с /admin на /admin (перенаправляет в админ-панель)
         elif username == 'techadmin':
             return redirect('/techadmin')
         else:
@@ -2904,8 +3233,12 @@ def my_posts():
     user_id = session['user_id']
     conn = get_db_connection()
 
+    # Получаем посты с количеством лайков и комментариев
     posts_rows = conn.execute('''
-        SELECT * FROM posts 
+        SELECT p.*, 
+               (SELECT COUNT(*) FROM post_likes WHERE post_id = p.id) as likes_count,
+               (SELECT COUNT(*) FROM comments WHERE post_id = p.id) as comments_count
+        FROM posts p 
         WHERE user_id = ? 
         ORDER BY created_at DESC
     ''', (user_id,)).fetchall()
@@ -3152,11 +3485,279 @@ def login():
     return render_template('login.html')
 
 
+# ==================== АДМИН-ПАНЕЛЬ ====================
+
 @app.route('/admin')
-def admin():
-    if 'user_id' not in session or session.get('username') != 'admin':
+def admin_panel():
+    """Главная страница админ-панели"""
+    if 'user_id' not in session:
         return redirect('/login')
-    return "Админ-панель (будет реализована позже)"
+    
+    # Проверяем, является ли пользователь админом
+    conn = get_db_connection()
+    user = conn.execute('SELECT role FROM users WHERE id = ?', (session['user_id'],)).fetchone()
+    conn.close()
+    
+    if not user or user['role'] != 'admin':
+        flash('Доступ запрещен', 'error')
+        return redirect('/home')
+    
+    return redirect('/admin/users')  # По умолчанию переходим к управлению пользователями
+
+
+@app.route('/admin/users')
+def admin_users():
+    """Управление пользователями"""
+    if 'user_id' not in session:
+        return redirect('/login')
+    
+    # Проверяем, является ли пользователь админом
+    conn = get_db_connection()
+    user = conn.execute('SELECT role FROM users WHERE id = ?', (session['user_id'],)).fetchone()
+    
+    if not user or user['role'] != 'admin':
+        conn.close()
+        flash('Доступ запрещен', 'error')
+        return redirect('/home')
+    
+    # Получаем параметры поиска и фильтрации
+    search_query = request.args.get('search', '').strip()
+    role_filter = request.args.get('role', 'all')
+    banned_filter = request.args.get('banned', 'all')
+    
+    # Формируем запрос
+    query = '''
+        SELECT u.*, 
+               up.full_name, 
+               up.avatar,
+               (SELECT COUNT(*) FROM posts WHERE user_id = u.id) as posts_count,
+               (SELECT COUNT(*) FROM friendships WHERE (sender_id = u.id OR receiver_id = u.id) AND status = 'accepted') as friends_count
+        FROM users u
+        LEFT JOIN user_profiles up ON u.id = up.user_id
+        WHERE 1=1
+    '''
+    
+    params = []
+    
+    # Применяем фильтры
+    if search_query:
+        query += ' AND (u.username LIKE ? OR up.full_name LIKE ?)'
+        params.extend([f'%{search_query}%', f'%{search_query}%'])
+    
+    if role_filter != 'all':
+        query += ' AND u.role = ?'
+        params.append(role_filter)
+    
+    if banned_filter != 'all':
+        if banned_filter == 'banned':
+            query += ' AND u.is_banned = 1'
+        elif banned_filter == 'active':
+            query += ' AND u.is_banned = 0'
+    
+    query += ' ORDER BY u.created_at DESC'
+    
+    users = rows_to_dicts(conn.execute(query, params).fetchall())
+    
+    # Получаем статистику
+    total_users = conn.execute('SELECT COUNT(*) as count FROM users').fetchone()['count']
+    admin_users = conn.execute("SELECT COUNT(*) as count FROM users WHERE role = 'admin'").fetchone()['count']
+    techadmin_users = conn.execute("SELECT COUNT(*) as count FROM users WHERE role = 'techadmin'").fetchone()['count']
+    banned_users = conn.execute("SELECT COUNT(*) as count FROM users WHERE is_banned = 1").fetchone()['count']
+    
+    conn.close()
+    
+    return render_template('admin_users.html',
+                          users=users,
+                          search_query=search_query,
+                          role_filter=role_filter,
+                          banned_filter=banned_filter,
+                          total_users=total_users,
+                          admin_users=admin_users,
+                          techadmin_users=techadmin_users,
+                          banned_users=banned_users)
+
+
+@app.route('/admin/banned')
+def admin_banned():
+    """Забаненные пользователи"""
+    if 'user_id' not in session:
+        return redirect('/login')
+    
+    # Проверяем, является ли пользователь админом
+    conn = get_db_connection()
+    user = conn.execute('SELECT role FROM users WHERE id = ?', (session['user_id'],)).fetchone()
+    
+    if not user or user['role'] != 'admin':
+        conn.close()
+        flash('Доступ запрещен', 'error')
+        return redirect('/home')
+    
+    # Получаем список забаненных пользователей
+    users = rows_to_dicts(conn.execute('''
+        SELECT u.*, 
+               up.full_name, 
+               up.avatar,
+               (SELECT COUNT(*) FROM posts WHERE user_id = u.id) as posts_count
+        FROM users u
+        LEFT JOIN user_profiles up ON u.id = up.user_id
+        WHERE u.is_banned = 1
+        ORDER BY u.created_at DESC
+    ''').fetchall())
+    
+    conn.close()
+    
+    return render_template('admin_banned.html', users=users)
+
+
+@app.route('/admin/change_role/<int:user_id>', methods=['POST'])
+def admin_change_role(user_id):
+    """Изменение роли пользователя"""
+    if 'user_id' not in session:
+        return jsonify({'success': False, 'error': 'Требуется авторизация'}), 401
+    
+    # Проверяем, является ли пользователь админом
+    conn = get_db_connection()
+    admin_user = conn.execute('SELECT role FROM users WHERE id = ?', (session['user_id'],)).fetchone()
+    
+    if not admin_user or admin_user['role'] != 'admin':
+        conn.close()
+        return jsonify({'success': False, 'error': 'Доступ запрещен'}), 403
+    
+    data = request.get_json()
+    new_role = data.get('role')
+    
+    if not new_role or new_role not in ['admin', 'techadmin', 'user']:
+        return jsonify({'success': False, 'error': 'Недопустимая роль'})
+    
+    # Получаем информацию о пользователе
+    target_user = conn.execute('SELECT id, username FROM users WHERE id = ?', (user_id,)).fetchone()
+    
+    if not target_user:
+        return jsonify({'success': False, 'error': 'Пользователь не найден'})
+    
+    # Не позволяем менять роль главного админа (username = 'admin')
+    if target_user['username'] == 'admin':
+        return jsonify({'success': False, 'error': 'Нельзя изменить роль главного администратора'})
+    
+    # Не позволяем менять свою собственную роль
+    if user_id == session['user_id']:
+        return jsonify({'success': False, 'error': 'Нельзя изменить свою собственную роль'})
+    
+    # Изменяем роль
+    conn.execute('UPDATE users SET role = ? WHERE id = ?', (new_role, user_id))
+    conn.commit()
+    conn.close()
+    
+    return jsonify({'success': True, 'message': f'Роль пользователя изменена на {new_role}'})
+
+
+@app.route('/admin/ban_user/<int:user_id>', methods=['POST'])
+def admin_ban_user(user_id):
+    """Бан пользователя"""
+    if 'user_id' not in session:
+        return jsonify({'success': False, 'error': 'Требуется авторизация'}), 401
+    
+    # Проверяем, является ли пользователь админом
+    conn = get_db_connection()
+    admin_user = conn.execute('SELECT role FROM users WHERE id = ?', (session['user_id'],)).fetchone()
+    
+    if not admin_user or admin_user['role'] != 'admin':
+        conn.close()
+        return jsonify({'success': False, 'error': 'Доступ запрещен'}), 403
+    
+    data = request.get_json()
+    ban_reason = data.get('reason', '')
+    
+    # Получаем информацию о пользователе
+    target_user = conn.execute('SELECT id, username, role FROM users WHERE id = ?', (user_id,)).fetchone()
+    
+    if not target_user:
+        return jsonify({'success': False, 'error': 'Пользователь не найден'})
+    
+    # Не позволяем забанить другого админа или тех-админа
+    if target_user['role'] in ['admin', 'techadmin']:
+        return jsonify({'success': False, 'error': 'Нельзя забанить администратора или тех-админа'})
+    
+    # Не позволяем забанить себя
+    if user_id == session['user_id']:
+        return jsonify({'success': False, 'error': 'Нельзя забанить себя'})
+    
+    # Баним пользователя
+    conn.execute('UPDATE users SET is_banned = 1 WHERE id = ?', (user_id,))
+    
+    # Добавляем запись в журнал банов (можно создать таблицу ban_history если нужно)
+    conn.commit()
+    conn.close()
+    
+    return jsonify({'success': True, 'message': f'Пользователь {target_user["username"]} забанен'})
+
+
+@app.route('/admin/unban_user/<int:user_id>', methods=['POST'])
+def admin_unban_user(user_id):
+    """Разбан пользователя"""
+    if 'user_id' not in session:
+        return jsonify({'success': False, 'error': 'Требуется авторизация'}), 401
+    
+    # Проверяем, является ли пользователь админом
+    conn = get_db_connection()
+    admin_user = conn.execute('SELECT role FROM users WHERE id = ?', (session['user_id'],)).fetchone()
+    
+    if not admin_user or admin_user['role'] != 'admin':
+        conn.close()
+        return jsonify({'success': False, 'error': 'Доступ запрещен'}), 403
+    
+    # Получаем информацию о пользователе
+    target_user = conn.execute('SELECT id, username FROM users WHERE id = ?', (user_id,)).fetchone()
+    
+    if not target_user:
+        return jsonify({'success': False, 'error': 'Пользователь не найден'})
+    
+    # Разбаниваем пользователя
+    conn.execute('UPDATE users SET is_banned = 0 WHERE id = ?', (user_id,))
+    conn.commit()
+    conn.close()
+    
+    return jsonify({'success': True, 'message': f'Пользователь {target_user["username"]} разбанен'})
+
+
+@app.route('/admin/get_user_stats')
+def admin_get_user_stats():
+    """Получение статистики пользователей для админа"""
+    if 'user_id' not in session:
+        return jsonify({'error': 'Требуется авторизация'}), 401
+    
+    # Проверяем, является ли пользователь админом
+    conn = get_db_connection()
+    user = conn.execute('SELECT role FROM users WHERE id = ?', (session['user_id'],)).fetchone()
+    
+    if not user or user['role'] != 'admin':
+        conn.close()
+        return jsonify({'error': 'Доступ запрещен'}), 403
+    
+    # Получаем статистику
+    today = datetime.now().strftime('%Y-%m-%d')
+    
+    total_users = conn.execute('SELECT COUNT(*) as count FROM users').fetchone()['count']
+    today_users = conn.execute('SELECT COUNT(*) as count FROM users WHERE DATE(created_at) = ?', (today,)).fetchone()['count']
+    banned_users = conn.execute("SELECT COUNT(*) as count FROM users WHERE is_banned = 1").fetchone()['count']
+    active_users = total_users - banned_users
+    
+    # Получаем распределение по ролям
+    roles_stats = rows_to_dicts(conn.execute('''
+        SELECT role, COUNT(*) as count 
+        FROM users 
+        GROUP BY role
+    ''').fetchall())
+    
+    conn.close()
+    
+    return jsonify({
+        'total_users': total_users,
+        'today_users': today_users,
+        'banned_users': banned_users,
+        'active_users': active_users,
+        'roles_stats': roles_stats
+    })
 
 
 @app.route('/user')
