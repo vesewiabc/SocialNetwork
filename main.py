@@ -3418,6 +3418,9 @@ def techadmin_stats():
 @app.route('/register', methods=['GET', 'POST'])
 def register():
     if request.method == 'POST':
+        agree_terms = request.form.get('agree_terms')
+        if not agree_terms:
+            return render_template('register.html', error="Вы должны принять услвоия пользовательского соглашения")
         username = request.form['username']
         password = request.form['password']
         confirm_password = request.form.get('confirm_password', '')
@@ -3484,7 +3487,9 @@ def login():
 
     return render_template('login.html')
 
-
+@app.route('/terms')
+def terms():
+    return render_template('terms.html')
 # ==================== АДМИН-ПАНЕЛЬ ====================
 
 @app.route('/admin')
