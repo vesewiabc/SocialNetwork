@@ -1275,12 +1275,7 @@ def import_news_to_db():
 def index():
     if 'user_id' in session:
         username = session.get('username')
-        if username == 'admin':
-            return redirect('/admin')  # Изменено с /admin на /admin (перенаправляет в админ-панель)
-        elif username == 'techadmin':
-            return redirect('/techadmin')
-        else:
-            return redirect('/home')
+        return redirect_based_on_role(username)
     return redirect('/login')
 
 
@@ -3082,6 +3077,121 @@ def delete_group_post(post_id):
     finally:
         conn.close()
 
+# Добавьте в main.py после импортов
+
+@app.route('/friends/list')
+def friends_list():
+    """Получение списка друзей пользователя"""
+    if 'user_id' not in session:
+        return jsonify({'success': False, 'error': 'Требуется авторизация'}), 401
+    
+    user_id = session['user_id']
+    conn = get_db_connection()
+    
+    friends = rows_to_dicts(conn.execute('''
+        SELECT u.id, u.username, up.full_name, up.avatar
+        FROM users u
+        LEFT JOIN user_profiles up ON u.id = up.user_id
+        WHERE u.id IN (
+            SELECT CASE 
+                WHEN sender_id = ? THEN receiver_id 
+                ELSE sender_id 
+            END as friend_id
+            FROM friendships 
+            WHERE (sender_id = ? OR receiver_id = ?) AND status = 'accepted'
+        )
+        ORDER BY up.full_name, u.username
+    ''', (user_id, user_id, user_id)).fetchall())
+    
+    conn.close()
+    
+    return jsonify({'success': True, 'friends': friends})
+
+@app.route('/group/<int:group_id>/members')
+def group_members_list(group_id):
+    """Получение списка ID участников группы"""
+    if 'user_id' not in session:
+        return jsonify({'success': False, 'error': 'Требуется авторизация'}), 401
+    
+    conn = get_db_connection()
+    members = conn.execute('''
+        SELECT user_id FROM group_members WHERE group_id = ?
+    ''', (group_id,)).fetchall()
+    
+    member_ids = [m['user_id'] for m in members]
+    conn.close()
+    
+    return jsonify({'success': True, 'member_ids': member_ids})
+
+@app.route('/group/<int:group_id>/invite', methods=['POST'])
+def invite_to_group(group_id):
+    """Приглашение друзей в группу"""
+    if 'user_id' not in session:
+        return jsonify({'success': False, 'error': 'Требуется авторизация'}), 401
+    
+    user_id = session['user_id']
+    data = request.get_json()
+    user_ids = data.get('user_ids', [])
+    
+    if not user_ids:
+        return jsonify({'success': False, 'error': 'Нет пользователей для приглашения'})
+    
+    conn = get_db_connection()
+    
+    # Проверяем, является ли пользователь администратором группы
+    role = conn.execute('''
+        SELECT role FROM group_members 
+        WHERE group_id = ? AND user_id = ?
+    ''', (group_id, user_id)).fetchone()
+    
+    if not role or role['role'] != 'admin':
+        conn.close()
+        return jsonify({'success': False, 'error': 'Только администраторы могут приглашать'})
+    
+    sent_count = 0
+    sent_ids = []
+    
+    for invited_id in user_ids:
+        # Проверяем, не состоит ли уже пользователь в группе
+        existing = conn.execute('''
+            SELECT id FROM group_members 
+            WHERE group_id = ? AND user_id = ?
+        ''', (group_id, invited_id)).fetchone()
+        
+        if existing:
+            continue
+        
+        # Проверяем, есть ли уже заявка
+        existing_request = conn.execute('''
+            SELECT id FROM group_requests 
+            WHERE group_id = ? AND user_id = ? AND status = 'pending'
+        ''', (group_id, invited_id)).fetchone()
+        
+        if existing_request:
+            continue
+        
+        # Добавляем приглашение (создаем запись в group_requests)
+        conn.execute('''
+            INSERT INTO group_requests (group_id, user_id, status, created_at)
+            VALUES (?, ?, 'pending', ?)
+        ''', (group_id, invited_id, get_current_datetime()))
+        
+        sent_count += 1
+        sent_ids.append(invited_id)
+    
+    conn.commit()
+    conn.close()
+    
+    if sent_count > 0:
+        return jsonify({
+            'success': True, 
+            'message': f'Приглашения отправлены {sent_count} пользователям',
+            'sent_count': sent_count,
+            'sent_ids': sent_ids
+        })
+    else:
+        return jsonify({'success': False, 'error': 'Все выбранные пользователи уже в группе или имеют активные заявки'})
+    
 @app.route('/feed')
 def feed():
     if 'user_id' not in session:
@@ -3536,22 +3646,17 @@ def login():
             connection.close()
 
             if user_row:
-                # Преобразуем Row в словарь
                 user = dict(user_row)
 
-                # Проверяем, не забанен ли пользователь (для обычных пользователей)
+                # Проверяем, не забанен ли пользователь
                 if user.get('role') == 'user' and user.get('is_banned', 0) == 1:
                     return render_template('login.html', error="Ваш аккаунт заблокирован")
 
                 session['user_id'] = user['id']
                 session['username'] = user['username']
-
-                if username == 'admin':
-                    return redirect('/admin')
-                elif username == 'techadmin':
-                    return redirect('/techadmin')
-                else:
-                    return redirect('/home')
+                
+                # Используем функцию перенаправления
+                return redirect_based_on_role(user['username'])
             else:
                 return render_template('login.html', error="Неверное имя пользователя или пароль")
         except Exception as e:
@@ -3708,12 +3813,12 @@ def admin_change_role(user_id):
         return jsonify({'success': False, 'error': 'Недопустимая роль'})
     
     # Получаем информацию о пользователе
-    target_user = conn.execute('SELECT id, username FROM users WHERE id = ?', (user_id,)).fetchone()
+    target_user = conn.execute('SELECT id, username, role FROM users WHERE id = ?', (user_id,)).fetchone()
     
     if not target_user:
         return jsonify({'success': False, 'error': 'Пользователь не найден'})
     
-    # Не позволяем менять роль главного админа (username = 'admin')
+    # Не позволяем менять роль главного админа
     if target_user['username'] == 'admin':
         return jsonify({'success': False, 'error': 'Нельзя изменить роль главного администратора'})
     
@@ -3721,13 +3826,29 @@ def admin_change_role(user_id):
     if user_id == session['user_id']:
         return jsonify({'success': False, 'error': 'Нельзя изменить свою собственную роль'})
     
+    old_role = target_user['role']
+    
     # Изменяем роль
     conn.execute('UPDATE users SET role = ? WHERE id = ?', (new_role, user_id))
     conn.commit()
     conn.close()
     
-    return jsonify({'success': True, 'message': f'Роль пользователя изменена на {new_role}'})
-
+    # Определяем название роли для сообщения
+    role_names = {
+        'admin': 'администратора',
+        'techadmin': 'технического администратора',
+        'user': 'обычного пользователя'
+    }
+    
+    role_name = role_names.get(new_role, new_role)
+    old_role_name = role_names.get(old_role, old_role)
+    
+    return jsonify({
+        'success': True, 
+        'message': f'Роль пользователя изменена с {old_role_name} на {role_name}',
+        'new_role': new_role,
+        'old_role': old_role
+    })
 
 @app.route('/admin/ban_user/<int:user_id>', methods=['POST'])
 def admin_ban_user(user_id):
@@ -3837,6 +3958,25 @@ def admin_get_user_stats():
         'roles_stats': roles_stats
     })
 
+def redirect_based_on_role(username):
+    """Перенаправляет пользователя на соответствующую страницу в зависимости от роли"""
+    if username == 'admin':
+        return redirect('/admin')
+    elif username == 'techadmin':
+        return redirect('/techadmin')
+    else:
+        # Проверяем роль в базе данных
+        conn = get_db_connection()
+        user = conn.execute('SELECT role FROM users WHERE username = ?', (username,)).fetchone()
+        conn.close()
+        
+        if user:
+            if user['role'] == 'admin':
+                return redirect('/admin')
+            elif user['role'] == 'techadmin':
+                return redirect('/techadmin')
+    
+    return redirect('/home')
 
 @app.route('/user')
 def user_page():

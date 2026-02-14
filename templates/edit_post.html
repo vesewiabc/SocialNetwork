@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Редактировать пост</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css">
+    <style>
+        body {
+            background-color: #f0f2f5;
+            padding: 20px;
+        }
+        .edit-post-container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 10px;
+            padding: 30px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .back-link {
+            margin-bottom: 20px;
+            display: inline-block;
+        }
+        .post-form textarea {
+            min-height: 200px;
+            font-size: 16px;
+            line-height: 1.6;
+        }
+        .original-post {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+            border-left: 4px solid #007bff;
+        }
+    </style>
+</head>
+<body>
+    <div class="edit-post-container">
+        <a href="/my_posts" class="back-link">
+            <i class="fas fa-arrow-left"></i> Назад к моим постам
+        </a>
+        
+        <h2 class="mb-4">Редактировать пост</h2>
+        
+        <div class="original-post mb-4">
+            <small class="text-muted">Оригинальный пост:</small>
+            <p>{{ post.content }}</p>
+            <small class="text-muted">Создан: {{ post.created_at }}</small>
+        </div>
+        
+        <form method="POST" class="post-form">
+            <div class="mb-3">
+                <label for="content" class="form-label">Содержание поста:</label>
+                <textarea name="content" id="content" class="form-control" required>{{ post.content }}</textarea>
+            </div>
+            
+            <div class="d-flex gap-2">
+                <button type="submit" class="btn btn-primary">
+                    <i class="fas fa-save"></i> Сохранить изменения
+                </button>
+                <a href="/my_posts" class="btn btn-secondary">Отмена</a>
+            </div>
+        </form>
+    </div>
+    
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

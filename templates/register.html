@@ -14,8 +14,8 @@
                 <div class="auth-logo">
                     <i class="fas fa-user-plus"></i>
                 </div>
-                <h2 class="text-center">Регистрация</h2>
-                <p class="text-center">Создайте новый аккаунт</p>
+                <h2>Регистрация</h2>
+                <p>Создайте новый аккаунт</p>
             </div>
             
             <div class="auth-body">
@@ -26,7 +26,7 @@
                 </div>
                 {% endif %}
                 
-                <form method="POST" action="/register">
+                <form method="POST" action="/register" id="registerForm">
                     <div class="form-group">
                         <label class="form-label">
                             <i class="fas fa-user"></i>
@@ -34,7 +34,6 @@
                         </label>
                         <input type="text" 
                                class="form-control" 
-                               id="username" 
                                name="username" 
                                required
                                placeholder="Введите имя пользователя">
@@ -47,10 +46,10 @@
                         </label>
                         <input type="password" 
                                class="form-control" 
-                               id="password" 
                                name="password" 
                                required
-                               placeholder="Введите пароль">
+                               placeholder="Введите пароль"
+                               minlength="6">
                     </div>
                     
                     <div class="form-group">
@@ -60,10 +59,25 @@
                         </label>
                         <input type="password" 
                                class="form-control" 
-                               id="confirm_password" 
                                name="confirm_password" 
                                required
                                placeholder="Повторите пароль">
+                    </div>
+                    
+                    <!-- Чекбокс над кнопкой регистрации -->
+                    <div class="terms-checkbox">
+                        <label>
+                            <input type="checkbox" name="agree_terms" id="agreeTerms" required>
+                            <span>
+                                Я принимаю условия 
+                                <a href="/terms" target="_blank" class="terms-link">
+                                    пользовательского соглашения
+                                </a>
+                            </span>
+                        </label>
+                        <div id="termsError" class="terms-error" style="display: none;">
+                            Необходимо принять условия пользовательского соглашения
+                        </div>
                     </div>
                     
                     <button type="submit" class="btn btn-primary btn-full">
@@ -78,5 +92,53 @@
             </div>
         </div>
     </div>
+    
+    <script>
+        // Валидация формы перед отправкой
+        document.getElementById('registerForm').addEventListener('submit', function(e) {
+            const agreeTerms = document.getElementById('agreeTerms');
+            const termsError = document.getElementById('termsError');
+            
+            // Проверка согласия с условиями
+            if (!agreeTerms.checked) {
+                e.preventDefault();
+                termsError.style.display = 'block';
+                agreeTerms.parentElement.parentElement.style.border = '2px solid #dc3545';
+                termsError.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                return false;
+            }
+            
+            // Проверка совпадения паролей
+            const password = document.querySelector('input[name="password"]').value;
+            const confirmPassword = document.querySelector('input[name="confirm_password"]').value;
+            
+            if (password !== confirmPassword) {
+                e.preventDefault();
+                alert('Пароли не совпадают!');
+                return false;
+            }
+            
+            if (password.length < 6) {
+                e.preventDefault();
+                alert('Пароль должен содержать минимум 6 символов!');
+                return false;
+            }
+            
+            return true;
+        });
+        
+        // Снимаем ошибку при отметке чекбокса
+        document.getElementById('agreeTerms').addEventListener('change', function() {
+            if (this.checked) {
+                document.getElementById('termsError').style.display = 'none';
+                this.parentElement.parentElement.style.border = 'none';
+            }
+        });
+        
+        // Автофокус на чекбоксе при ошибке
+        if (document.getElementById('termsError').style.display === 'block') {
+            document.getElementById('agreeTerms').focus();
+        }
+    </script>
 </body>
 </html>

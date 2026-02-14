@@ -51,6 +51,7 @@
             </div>
             {% else %}
             <div class="alert alert-info">
+                <i class="bi bi-info-circle"></i>
                 Нет забаненных пользователей.
             </div>
             {% endif %}
@@ -68,6 +69,9 @@ $(document).ready(function() {
         const username = $(this).data('username');
         
         if (confirm(`Разбанить пользователя ${username}?`)) {
+            const btn = $(this);
+            btn.prop('disabled', true).html('<i class="bi bi-hourglass"></i> Разбан...');
+            
             $.ajax({
                 url: `/admin/unban_user/${userId}`,
                 type: 'POST',
@@ -79,10 +83,12 @@ $(document).ready(function() {
                         location.reload();
                     } else {
                         alert('Ошибка: ' + response.error);
+                        btn.prop('disabled', false).html('<i class="bi bi-check-circle"></i> Разбанить');
                     }
                 },
                 error: function() {
                     alert('Ошибка сервера');
+                    btn.prop('disabled', false).html('<i class="bi bi-check-circle"></i> Разбанить');
                 }
             });
         }

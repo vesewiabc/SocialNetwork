@@ -114,10 +114,10 @@
                                             Роль
                                         </button>
                                         <ul class="dropdown-menu">
-                                            <li><a class="dropdown-item change-role" href="#" data-user-id="{{ user.id }}" data-role="user">Пользователь</a></li>
-                                            <li><a class="dropdown-item change-role" href="#" data-user-id="{{ user.id }}" data-role="techadmin">Тех-админ</a></li>
+                                            <li><a class="dropdown-item change-role" href="#" data-user-id="{{ user.id }}" data-role="user" data-username="{{ user.username }}">Пользователь</a></li>
+                                            <li><a class="dropdown-item change-role" href="#" data-user-id="{{ user.id }}" data-role="techadmin" data-username="{{ user.username }}">Тех-админ</a></li>
                                             {% if user.username != 'admin' %}
-                                            <li><a class="dropdown-item change-role" href="#" data-user-id="{{ user.id }}" data-role="admin">Админ</a></li>
+                                            <li><a class="dropdown-item change-role" href="#" data-user-id="{{ user.id }}" data-role="admin" data-username="{{ user.username }}">Админ</a></li>
                                             {% endif %}
                                         </ul>
                                     </div>
@@ -148,37 +148,102 @@
         </div>
     </div>
 </div>
+
+<!-- Модальное окно для подтверждения смены роли -->
+<div class="modal fade" id="roleChangeModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title">Изменение роли пользователя</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p id="roleChangeMessage"></p>
+                <div class="alert alert-info">
+                    <i class="bi bi-info-circle"></i>
+                    <strong>Важно:</strong> При следующем входе пользователь будет автоматически перенаправлен на соответствующую его новой роли страницу.
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Закрыть</button>
+                <button type="button" class="btn btn-primary" id="confirmRoleChange">Подтвердить</button>
+            </div>
+        </div>
+    </div>
+</div>
 {% endblock %}
 
 {% block scripts %}
 <script>
 $(document).ready(function() {
+    let pendingChange = null;
+    
     // Изменение роли пользователя
     $('.change-role').click(function(e) {
         e.preventDefault();
+        
         const userId = $(this).data('user-id');
         const newRole = $(this).data('role');
-        const roleName = newRole === 'admin' ? 'администратора' : newRole === 'techadmin' ? 'тех-админа' : 'пользователя';
+        const username = $(this).data('username');
         
-        if (confirm(`Вы уверены, что хотите назначить пользователя ${roleName}?`)) {
-            $.ajax({
-                url: `/admin/change_role/${userId}`,
-                type: 'POST',
-                contentType: 'application/json',
-                data: JSON.stringify({ role: newRole }),
-                success: function(response) {
-                    if (response.success) {
-                        alert(response.message);
-                        location.reload();
-                    } else {
-                        alert('Ошибка: ' + response.error);
-                    }
-                },
-                error: function() {
-                    alert('Ошибка сервера');
+        const roleNames = {
+            'admin': 'администратора',
+            'techadmin': 'технического администратора',
+            'user': 'обычного пользователя'
+        };
+        
+        const roleName = roleNames[newRole] || newRole;
+        
+        // Сохраняем данные для подтверждения
+        pendingChange = {
+            userId: userId,
+            newRole: newRole,
+            username: username
+        };
+        
+        // Показываем модальное окно
+        $('#roleChangeMessage').html(`
+            Вы уверены, что хотите назначить пользователя <strong>${username}</strong> 
+            <span class="badge bg-primary">${roleName}</span>?
+        `);
+        
+        $('#roleChangeModal').modal('show');
+    });
+    
+    // Подтверждение изменения роли
+    $('#confirmRoleChange').click(function() {
+        if (!pendingChange) return;
+        
+        const btn = $(this);
+        btn.prop('disabled', true).html('<i class="bi bi-hourglass"></i> Обработка...');
+        
+        $.ajax({
+            url: `/admin/change_role/${pendingChange.userId}`,
+            type: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify({ role: pendingChange.newRole }),
+            success: function(response) {
+                if (response.success) {
+                    // Закрываем модальное окно
+                    $('#roleChangeModal').modal('hide');
+                    
+                    // Показываем успешное сообщение
+                    alert(response.message);
+                    
+                    // Обновляем страницу
+                    location.reload();
+                } else {
+                    alert('Ошибка: ' + response.error);
                 }
-            });
-        }
+            },
+            error: function(xhr, status, error) {
+                alert('Ошибка сервера: ' + error);
+            },
+            complete: function() {
+                btn.prop('disabled', false).html('Подтвердить');
+                pendingChange = null;
+            }
+        });
     });
     
     // Бан пользователя

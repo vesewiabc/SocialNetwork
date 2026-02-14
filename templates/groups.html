@@ -94,6 +94,10 @@
             border-radius: 4px;
             cursor: pointer;
             font-size: 14px;
+            transition: all 0.3s;
+        }
+        .subscribe-btn:hover {
+            background: #218838;
         }
         .unsubscribe-btn {
             padding: 8px 16px;
@@ -103,6 +107,44 @@
             border-radius: 4px;
             cursor: pointer;
             font-size: 14px;
+            transition: all 0.3s;
+        }
+        .unsubscribe-btn:hover {
+            background: #c82333;
+        }
+        .invite-btn {
+            padding: 8px 16px;
+            background: #17a2b8;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 5px;
+        }
+        .invite-btn:hover {
+            background: #138496;
+        }
+        .invite-link-btn {
+            padding: 8px 16px;
+            background: #ffc107;
+            color: #856404;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 5px;
+        }
+        .invite-link-btn:hover {
+            background: #e0a800;
         }
         .group-name {
             color: #007bff;
@@ -125,9 +167,337 @@
             background: #dc3545;
             color: white;
         }
+        .role-moderator {
+            background: #17a2b8;
+            color: white;
+        }
         .role-member {
             background: #6c757d;
             color: white;
+        }
+        
+        /* Стили для модального окна приглашения */
+        .invite-modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            z-index: 1000;
+            overflow-y: auto;
+        }
+        .invite-modal.show {
+            display: block;
+        }
+        .invite-modal-content {
+            position: relative;
+            background: white;
+            margin: 50px auto;
+            padding: 30px;
+            width: 90%;
+            max-width: 600px;
+            border-radius: 10px;
+            box-shadow: 0 5px 30px rgba(0,0,0,0.3);
+            animation: slideDown 0.3s ease;
+        }
+        @keyframes slideDown {
+            from {
+                transform: translateY(-50px);
+                opacity: 0;
+            }
+            to {
+                transform: translateY(0);
+                opacity: 1;
+            }
+        }
+        .invite-modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid #f0f0f0;
+        }
+        .invite-modal-header h3 {
+            margin: 0;
+            color: #333;
+            font-size: 22px;
+        }
+        .invite-modal-close {
+            background: none;
+            border: none;
+            font-size: 28px;
+            cursor: pointer;
+            color: #666;
+            transition: color 0.3s;
+        }
+        .invite-modal-close:hover {
+            color: #dc3545;
+        }
+        .invite-tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            border-bottom: 1px solid #dee2e6;
+            padding-bottom: 10px;
+        }
+        .invite-tab {
+            padding: 8px 16px;
+            background: none;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+            color: #666;
+            transition: all 0.3s;
+        }
+        .invite-tab:hover {
+            background: #e9ecef;
+        }
+        .invite-tab.active {
+            background: #007bff;
+            color: white;
+        }
+        .invite-section {
+            display: none;
+        }
+        .invite-section.active {
+            display: block;
+        }
+        .invite-search {
+            width: 100%;
+            padding: 12px 15px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 16px;
+            margin-bottom: 20px;
+            transition: border-color 0.3s;
+            box-sizing: border-box;
+        }
+        .invite-search:focus {
+            outline: none;
+            border-color: #007bff;
+        }
+        .friends-list {
+            max-height: 400px;
+            overflow-y: auto;
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            padding: 10px;
+            margin-bottom: 20px;
+        }
+        .friend-item {
+            display: flex;
+            align-items: center;
+            padding: 12px;
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            margin-bottom: 8px;
+            transition: all 0.3s;
+        }
+        .friend-item:hover {
+            background: #f8f9fa;
+            border-color: #007bff;
+        }
+        .friend-item.disabled {
+            opacity: 0.6;
+            background: #f8f9fa;
+        }
+        .friend-avatar {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            margin-right: 15px;
+            object-fit: cover;
+            border: 2px solid #e0e0e0;
+        }
+        .friend-info {
+            flex: 1;
+        }
+        .friend-name {
+            font-weight: bold;
+            margin-bottom: 3px;
+            color: #333;
+        }
+        .friend-username {
+            color: #666;
+            font-size: 13px;
+        }
+        .member-badge {
+            background: #6c757d;
+            color: white;
+            border-radius: 4px;
+            padding: 2px 8px;
+            font-size: 11px;
+            margin-left: 8px;
+        }
+        .friend-select {
+            width: 20px;
+            height: 20px;
+            cursor: pointer;
+            accent-color: #007bff;
+        }
+        .friend-select:disabled {
+            cursor: not-allowed;
+            opacity: 0.5;
+        }
+        .invite-actions {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 20px;
+            padding-top: 15px;
+            border-top: 1px solid #e0e0e0;
+        }
+        .invite-counter {
+            color: #666;
+            font-size: 15px;
+            font-weight: 500;
+        }
+        .invite-counter span {
+            color: #007bff;
+            font-weight: bold;
+            font-size: 18px;
+        }
+        .invite-action-buttons {
+            display: flex;
+            gap: 10px;
+        }
+        .send-invite-btn {
+            padding: 10px 20px;
+            background: #28a745;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        .send-invite-btn:hover:not(:disabled) {
+            background: #218838;
+            transform: translateY(-2px);
+        }
+        .send-invite-btn:disabled {
+            background: #6c757d;
+            cursor: not-allowed;
+            opacity: 0.5;
+        }
+        .cancel-btn {
+            padding: 10px 20px;
+            background: #6c757d;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.3s;
+        }
+        .cancel-btn:hover {
+            background: #5a6268;
+        }
+        .loading-spinner {
+            text-align: center;
+            padding: 30px;
+            color: #666;
+        }
+        .loading-spinner i {
+            font-size: 40px;
+            margin-bottom: 10px;
+            color: #007bff;
+        }
+        .empty-friends {
+            text-align: center;
+            padding: 40px;
+            color: #666;
+        }
+        .empty-friends i {
+            font-size: 50px;
+            color: #dee2e6;
+            margin-bottom: 15px;
+        }
+        .success-message {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: #28a745;
+            color: white;
+            padding: 15px 25px;
+            border-radius: 8px;
+            box-shadow: 0 3px 10px rgba(0,0,0,0.2);
+            z-index: 1100;
+            animation: slideIn 0.3s ease;
+        }
+        @keyframes slideIn {
+            from {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+        
+        /* Стили для секции ссылки-приглашения */
+        .invite-link-section {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        .invite-link-label {
+            font-weight: bold;
+            margin-bottom: 10px;
+            color: #333;
+        }
+        .invite-link-input-group {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+        .invite-link-input {
+            flex: 1;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 5px;
+            font-size: 14px;
+            background: white;
+            color: #333;
+        }
+        .invite-link-input:focus {
+            outline: none;
+            border-color: #007bff;
+        }
+        .copy-link-btn {
+            padding: 12px 20px;
+            background: #007bff;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        .copy-link-btn:hover {
+            background: #0056b3;
+        }
+        .invite-link-note {
+            color: #666;
+            font-size: 12px;
+            margin-top: 10px;
+        }
+        .invite-link-note i {
+            color: #ffc107;
+            margin-right: 5px;
         }
     </style>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
@@ -153,7 +523,7 @@
             </form>
         </div>
 
-        <!-- Измененный порядок вкладок: сначала Все группы, потом Мои группы -->
+        <!-- Вкладки -->
         <div class="tabs">
             <a href="/groups?tab=all" class="tab {% if current_tab == 'all' %}active{% endif %}">Все группы</a>
             <a href="/groups?tab=my" class="tab {% if current_tab == 'my' %}active{% endif %}">Мои группы</a>
@@ -205,17 +575,29 @@
                               data-is-creator="{{ '1' if group.creator_id == session_user_id else '0' }}"
                               data-group-name="{{ group.name }}">
                             <button type="submit" class="unsubscribe-btn">
-                                Отписаться
+                                <i class="fas fa-sign-out-alt"></i> Отписаться
                             </button>
                         </form>
+                        
+                        <!-- Кнопки для администраторов -->
+                        {% if group.role == 'admin' %}
+                        <button class="invite-btn" onclick="openInviteModal('{{ group.id }}', '{{ group.name|replace("'", "\\'")|replace('"', '&quot;')|safe }}')">
+                            <i class="fas fa-user-plus"></i> Пригласить
+                        </button>
+                        <button class="invite-link-btn" onclick="openInviteLinkModal('{{ group.id }}', '{{ group.name|replace("'", "\\'")|replace('"', '&quot;')|safe }}')">
+                            <i class="fas fa-link"></i> Ссылка
+                        </button>
+                        {% endif %}
+                        
                     {% else %}
                         {% if group.has_pending_request %}
                         <div style="padding: 8px 16px; background: #fff3cd; color: #856404; border-radius: 4px; font-size: 14px; text-align: center;">
-                            ⏳ Заявка отправлена
+                            <i class="fas fa-hourglass-half"></i> Заявка отправлена
                         </div>
                         {% else %}
                         <form method="POST" action="/join_group/{{ group.id }}">
                             <button type="submit" class="subscribe-btn">
+                                <i class="fas fa-plus-circle"></i>
                                 {% if group.is_public %}Подписаться{% else %}Подать заявку{% endif %}
                             </button>
                         </form>
@@ -284,7 +666,393 @@
         </div>
     </div>
 
+    <!-- Модальное окно приглашения в группу -->
+    <div id="inviteModal" class="invite-modal">
+        <div class="invite-modal-content">
+            <div class="invite-modal-header">
+                <h3><i class="fas fa-user-plus" style="margin-right: 10px; color: #17a2b8;"></i>Пригласить в группу <span id="inviteGroupName" style="color: #007bff;"></span></h3>
+                <button class="invite-modal-close" onclick="closeInviteModal()">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            
+            <!-- Вкладки внутри модального окна -->
+            <div class="invite-tabs">
+                <button class="invite-tab active" onclick="switchInviteTab('friends')">Друзья</button>
+                <button class="invite-tab" onclick="switchInviteTab('link')">Ссылка-приглашение</button>
+            </div>
+            
+            <!-- Секция "Друзья" -->
+            <div id="inviteFriendsSection" class="invite-section active">
+                <input type="text" 
+                       class="invite-search" 
+                       id="inviteSearch" 
+                       placeholder="🔍 Поиск друзей по имени или логину..."
+                       onkeyup="filterFriends()">
+                
+                <div id="inviteFriendsList" class="friends-list">
+                    <div class="loading-spinner">
+                        <i class="fas fa-spinner fa-spin"></i>
+                        <p>Загрузка списка друзей...</p>
+                    </div>
+                </div>
+                
+                <div class="invite-actions">
+                    <div class="invite-counter">
+                        Выбрано: <span id="inviteCounter">0</span>
+                    </div>
+                    <div class="invite-action-buttons">
+                        <button class="send-invite-btn" onclick="sendInvitations()" id="sendInviteBtn" disabled>
+                            <i class="fas fa-paper-plane"></i> Отправить приглашения
+                        </button>
+                        <button class="cancel-btn" onclick="closeInviteModal()">
+                            <i class="fas fa-times"></i> Закрыть
+                        </button>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Секция "Ссылка-приглашение" -->
+            <div id="inviteLinkSection" class="invite-section">
+                <div class="invite-link-section">
+                    <div class="invite-link-label">
+                        <i class="fas fa-link" style="color: #007bff; margin-right: 5px;"></i>
+                        Ссылка для вступления в группу
+                    </div>
+                    
+                    <div class="invite-link-input-group">
+                        <input type="text" 
+                               id="inviteLinkInput" 
+                               class="invite-link-input" 
+                               readonly
+                               value="Загрузка...">
+                        <button class="copy-link-btn" onclick="copyInviteLink()">
+                            <i class="fas fa-copy"></i> Копировать
+                        </button>
+                    </div>
+                    
+                    <div class="invite-link-note">
+                        <i class="fas fa-info-circle"></i>
+                        Отправьте эту ссылку друзьям. По ней они смогут вступить в группу (требуется авторизация).
+                    </div>
+                    
+                    <div class="invite-link-note" style="margin-top: 15px; color: #856404; background: #fff3cd; padding: 10px; border-radius: 5px;">
+                        <i class="fas fa-shield-alt"></i>
+                        <strong>Для приватных групп:</strong> ссылка работает как заявка — администратор должен будет подтвердить вступление.
+                    </div>
+                </div>
+                
+                <div class="invite-actions" style="justify-content: flex-end;">
+                    <button class="cancel-btn" onclick="closeInviteModal()">
+                        <i class="fas fa-times"></i> Закрыть
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <script>
+        // Переменные для хранения данных приглашения
+        let currentGroupId = null;
+        let friendsList = [];
+        let groupMemberIds = [];
+
+        // Функция открытия модального окна приглашения (вкладка "Друзья")
+        function openInviteModal(groupId, groupName) {
+            currentGroupId = groupId;
+            document.getElementById('inviteGroupName').textContent = `"${groupName}"`;
+            document.getElementById('inviteModal').classList.add('show');
+            document.body.style.overflow = 'hidden';
+            
+            // Переключаемся на вкладку "Друзья"
+            switchInviteTab('friends');
+            
+            // Загружаем список друзей
+            loadFriends(groupId);
+        }
+        
+        // Функция открытия модального окна приглашения (вкладка "Ссылка")
+        function openInviteLinkModal(groupId, groupName) {
+            currentGroupId = groupId;
+            document.getElementById('inviteGroupName').textContent = `"${groupName}"`;
+            document.getElementById('inviteModal').classList.add('show');
+            document.body.style.overflow = 'hidden';
+            
+            // Переключаемся на вкладку "Ссылка"
+            switchInviteTab('link');
+            
+            // Загружаем ссылку-приглашение
+            loadInviteLink(groupId);
+        }
+
+        function closeInviteModal() {
+            document.getElementById('inviteModal').classList.remove('show');
+            document.body.style.overflow = 'auto';
+            currentGroupId = null;
+            friendsList = [];
+            groupMemberIds = [];
+            document.getElementById('inviteSearch').value = '';
+        }
+        
+        // Переключение между вкладками
+        function switchInviteTab(tabName) {
+            // Обновляем классы вкладок
+            document.querySelectorAll('.invite-tab').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            event.target.classList.add('active');
+            
+            // Обновляем классы секций
+            document.querySelectorAll('.invite-section').forEach(section => {
+                section.classList.remove('active');
+            });
+            
+            if (tabName === 'friends') {
+                document.getElementById('inviteFriendsSection').classList.add('active');
+            } else {
+                document.getElementById('inviteLinkSection').classList.add('active');
+            }
+        }
+
+        // Загрузка списка друзей
+        function loadFriends(groupId) {
+            const friendsListDiv = document.getElementById('inviteFriendsList');
+            friendsListDiv.innerHTML = '<div class="loading-spinner"><i class="fas fa-spinner fa-spin"></i><p>Загрузка списка друзей...</p></div>';
+            
+            fetch('/friends/list')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        // Загружаем список участников группы
+                        return fetch(`/group/${groupId}/members`)
+                            .then(response => response.json())
+                            .then(membersData => {
+                                if (membersData.success) {
+                                    groupMemberIds = membersData.member_ids;
+                                }
+                                return data;
+                            });
+                    }
+                    return data;
+                })
+                .then(data => {
+                    if (data.success) {
+                        friendsList = data.friends;
+                        displayFriends(friendsList);
+                    } else {
+                        friendsListDiv.innerHTML = '<div class="empty-friends"><i class="fas fa-exclamation-circle"></i><p>Ошибка загрузки списка друзей</p></div>';
+                    }
+                })
+                .catch(error => {
+                    console.error('Ошибка загрузки друзей:', error);
+                    friendsListDiv.innerHTML = '<div class="empty-friends"><i class="fas fa-exclamation-circle"></i><p>Ошибка загрузки списка друзей</p></div>';
+                });
+        }
+        
+        // Загрузка ссылки-приглашения
+        function loadInviteLink(groupId) {
+            const linkInput = document.getElementById('inviteLinkInput');
+            linkInput.value = 'Генерация ссылки...';
+            
+            // Генерируем ссылку (в реальности здесь должен быть запрос к серверу)
+            // Пока используем текущий URL
+            const baseUrl = window.location.origin;
+            const inviteLink = `${baseUrl}/group/${groupId}`;
+            linkInput.value = inviteLink;
+        }
+
+        // Отображение списка друзей
+        function displayFriends(friends) {
+            const container = document.getElementById('inviteFriendsList');
+            const searchTerm = document.getElementById('inviteSearch').value.toLowerCase();
+
+            if (friends.length === 0) {
+                container.innerHTML = '<div class="empty-friends"><i class="fas fa-user-friends"></i><p>У вас пока нет друзей для приглашения</p><p style="font-size: 12px;">Добавьте друзей в разделе "Поиск друзей"</p></div>';
+                return;
+            }
+
+            // Фильтруем по поиску
+            let filteredFriends = friends;
+            if (searchTerm) {
+                filteredFriends = friends.filter(friend => {
+                    const username = friend.username.toLowerCase();
+                    const fullName = (friend.full_name || '').toLowerCase();
+                    return username.includes(searchTerm) || fullName.includes(searchTerm);
+                });
+            }
+
+            if (filteredFriends.length === 0) {
+                container.innerHTML = '<div class="empty-friends"><i class="fas fa-search"></i><p>Ничего не найдено</p></div>';
+                return;
+            }
+
+            container.innerHTML = '';
+
+            filteredFriends.forEach(friend => {
+                const isMember = groupMemberIds.includes(friend.id);
+                const friendItem = document.createElement('div');
+                friendItem.className = `friend-item ${isMember ? 'disabled' : ''}`;
+                friendItem.dataset.username = friend.username;
+                friendItem.dataset.fullname = friend.full_name || '';
+
+                const avatarUrl = friend.avatar ? 
+                    (friend.avatar.startsWith('http') ? friend.avatar : `/static/uploads/avatars/${friend.avatar}`) : 
+                    '/static/defaults/for_users.png';
+
+                friendItem.innerHTML = `
+                    <img src="${avatarUrl}" 
+                         class="friend-avatar"
+                         onerror="this.src='/static/defaults/for_users.png'">
+                    <div class="friend-info">
+                        <div class="friend-name">
+                            ${friend.full_name || friend.username}
+                            ${isMember ? '<span class="member-badge">уже в группе</span>' : ''}
+                        </div>
+                        <div class="friend-username">@${friend.username}</div>
+                    </div>
+                    ${!isMember ? 
+                        `<input type="checkbox" class="friend-select" value="${friend.id}" onchange="updateInviteCounter()">` : 
+                        '<span style="color:#999; font-size:12px; min-width:20px;"></span>'}
+                `;
+
+                container.appendChild(friendItem);
+            });
+
+            updateInviteCounter();
+        }
+
+        // Фильтрация списка друзей
+        function filterFriends() {
+            displayFriends(friendsList);
+        }
+
+        // Обновление счетчика выбранных друзей
+        function updateInviteCounter() {
+            const selected = document.querySelectorAll('.friend-select:checked').length;
+            document.getElementById('inviteCounter').textContent = selected;
+            
+            const sendBtn = document.getElementById('sendInviteBtn');
+            if (selected > 0) {
+                sendBtn.disabled = false;
+                sendBtn.innerHTML = `<i class="fas fa-paper-plane"></i> Отправить приглашения (${selected})`;
+            } else {
+                sendBtn.disabled = true;
+                sendBtn.innerHTML = '<i class="fas fa-paper-plane"></i> Отправить приглашения';
+            }
+        }
+
+        // Отправка приглашений
+        function sendInvitations() {
+            const selectedFriends = Array.from(document.querySelectorAll('.friend-select:checked'))
+                .map(cb => parseInt(cb.value));
+
+            if (selectedFriends.length === 0) {
+                alert('Выберите друзей для приглашения');
+                return;
+            }
+
+            if (!confirm(`Отправить приглашения ${selectedFriends.length} друг(у/зьям) в группу?`)) {
+                return;
+            }
+
+            const sendBtn = document.getElementById('sendInviteBtn');
+            const originalText = sendBtn.innerHTML;
+            sendBtn.disabled = true;
+            sendBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Отправка...';
+
+            fetch(`/group/${currentGroupId}/invite`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ user_ids: selectedFriends })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showSuccessMessage(`Приглашения отправлены ${data.sent_count} пользователям`);
+                    
+                    if (data.sent_ids) {
+                        groupMemberIds = [...groupMemberIds, ...data.sent_ids];
+                    }
+                    
+                    displayFriends(friendsList);
+                    updateInviteCounter();
+                } else {
+                    alert('Ошибка: ' + (data.error || 'Неизвестная ошибка'));
+                }
+            })
+            .catch(error => {
+                alert('Ошибка сети: ' + error);
+            })
+            .finally(() => {
+                sendBtn.disabled = selectedFriends.length > 0;
+                sendBtn.innerHTML = originalText;
+            });
+        }
+        
+        // Копирование ссылки-приглашения
+        function copyInviteLink() {
+            const linkInput = document.getElementById('inviteLinkInput');
+            linkInput.select();
+            linkInput.setSelectionRange(0, 99999);
+            
+            try {
+                document.execCommand('copy');
+                showSuccessMessage('Ссылка скопирована в буфер обмена!');
+            } catch (err) {
+                alert('Не удалось скопировать ссылку');
+            }
+        }
+
+        // Показ сообщения об успехе
+        function showSuccessMessage(message) {
+            const msgDiv = document.createElement('div');
+            msgDiv.className = 'success-message';
+            msgDiv.innerHTML = `<i class="fas fa-check-circle"></i> ${message}`;
+            document.body.appendChild(msgDiv);
+            
+            setTimeout(() => {
+                msgDiv.remove();
+            }, 3000);
+        }
+
+        // Функции для модального окна создания группы
+        function openCreateGroupModal() {
+            document.getElementById('createGroupModal').style.display = 'block';
+        }
+
+        function closeCreateGroupModal() {
+            document.getElementById('createGroupModal').style.display = 'none';
+        }
+
+        // Закрытие модального окна при клике вне его
+        document.getElementById('createGroupModal').addEventListener('click', function(e) {
+            if (e.target === this) {
+                closeCreateGroupModal();
+            }
+        });
+
+        // Закрытие модального окна приглашения при клике на фон
+        document.getElementById('inviteModal').addEventListener('click', function(e) {
+            if (e.target === this) {
+                closeInviteModal();
+            }
+        });
+
+        // Закрытие по нажатию ESC
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') {
+                if (document.getElementById('inviteModal').classList.contains('show')) {
+                    closeInviteModal();
+                }
+                if (document.getElementById('createGroupModal').style.display === 'block') {
+                    closeCreateGroupModal();
+                }
+            }
+        });
+
+        // Подтверждение выхода из группы
         function confirmUnsubscribe(isCreator, groupName) {
             if (isCreator) {
                 return confirm(`ВНИМАНИЕ! Вы являетесь создателем группы "${groupName}".\n\nЕсли вы покинете группу, она будет полностью УДАЛЕНА вместе со всеми постами, участниками и данными!\n\nВы уверены, что хотите удалить группу?`);
@@ -304,26 +1072,12 @@
             });
         });
 
-        function openCreateGroupModal() {
-            document.getElementById('createGroupModal').style.display = 'block';
-        }
-
-        function closeCreateGroupModal() {
-            document.getElementById('createGroupModal').style.display = 'none';
-        }
-
-        // Закрытие модального окна при клике вне его
-        document.getElementById('createGroupModal').addEventListener('click', function(e) {
-            if (e.target === this) {
-                closeCreateGroupModal();
-            }
-        });
-
         // Автофокус в поле поиска при нажатии /
         document.addEventListener('keydown', function(e) {
             if (e.key === '/' && document.activeElement.tagName !== 'INPUT' && document.activeElement.tagName !== 'TEXTAREA') {
                 e.preventDefault();
-                document.querySelector('input[name="search"]').focus();
+                const searchInput = document.querySelector('input[name="search"]');
+                if (searchInput) searchInput.focus();
             }
         });
     </script>
