@@ -677,14 +677,15 @@ def add_comment(post_id):
             conn.close()
             return jsonify({'success': False, 'error': 'Пост не найден'})
         
-        # Добавляем комментарий
-        conn.execute('''
+        # Добавляем комментарий - ИСПОЛЬЗУЕМ CURSOR
+        cursor = conn.cursor()
+        cursor.execute('''
             INSERT INTO comments (post_id, user_id, content)
             VALUES (?, ?, ?)
         ''', (post_id, user_id, content))
         
-        # Получаем ID нового комментария
-        comment_id = conn.lastrowid
+        # Получаем ID нового комментария через cursor.lastrowid
+        comment_id = cursor.lastrowid
         
         # Получаем информацию о комментаторе для ответа
         comment_data = conn.execute('''
@@ -878,12 +879,13 @@ def get_news_feed(user_id=None, limit=20):
     imported_news = []
 
     try:
-        # Получаем посты пользователей (свои и друзей)
+        # Получаем посты пользователей с количеством лайков, комментариев и медиа
         if user_id:
             try:
-                # Получаем посты всех пользователей для упрощения
                 user_posts_rows = conn.execute('''
-                    SELECT p.*, u.username 
+                    SELECT p.*, u.username,
+                           (SELECT COUNT(*) FROM post_likes WHERE post_id = p.id) as likes_count,
+                           (SELECT COUNT(*) FROM comments WHERE post_id = p.id) as comments_count
                     FROM posts p
                     JOIN users u ON p.user_id = u.id
                     ORDER BY p.created_at DESC
@@ -892,6 +894,16 @@ def get_news_feed(user_id=None, limit=20):
 
                 if user_posts_rows:
                     user_posts = rows_to_dicts(user_posts_rows)
+                    
+                    # Добавляем медиафайлы к каждому посту
+                    for post in user_posts:
+                        media_files = conn.execute('''
+                            SELECT filename, file_type FROM post_media 
+                            WHERE post_id = ?
+                            ORDER BY id
+                        ''', (post['id'],)).fetchall()
+                        post['media_files'] = rows_to_dicts(media_files) if media_files else []
+                        
             except Exception as e:
                 print(f"Ошибка при получении постов: {e}")
                 import traceback
@@ -921,17 +933,19 @@ def get_news_feed(user_id=None, limit=20):
     # Добавляем посты
     for post in user_posts:
         post['type'] = 'post'
+        if 'likes_count' not in post:
+            post['likes_count'] = 0
+        if 'comments_count' not in post:
+            post['comments_count'] = 0
         all_feed.append(post)
 
-
-# Добавляем новости
+    # Добавляем новости
     for news in imported_news:
         news['type'] = 'news'
         all_feed.append(news)
 
-    # Простая сортировка - сначала новые посты, потом новости
+    # Сортировка
     try:
-        # Приводим даты к строковому формату для сравнения
         def get_sort_key(item):
             if item['type'] == 'post':
                 return item.get('created_at', '') if isinstance(item.get('created_at'), str) else ''
@@ -941,7 +955,6 @@ def get_news_feed(user_id=None, limit=20):
         all_feed.sort(key=lambda x: get_sort_key(x), reverse=True)
     except Exception as e:
         print(f"Ошибка сортировки: {e}")
-        # Если сортировка не работает, просто оставляем как есть
 
     return all_feed[:limit]
 
@@ -1281,24 +1294,85 @@ def home():
     if request.method == 'POST':
         # Создание нового поста
         content = request.form.get('content', '').strip()
+        files = request.files.getlist('media_files')
 
-        if content:
-            conn = get_db_connection()
-            try:
-                conn.execute('''
-                    INSERT INTO posts (user_id, content)
-                    VALUES (?, ?)
-                ''', (user_id, content))
-                conn.commit()
+        # Проверяем, есть ли хоть что-то для публикации
+        has_content = bool(content)
+        has_files = any(f and f.filename for f in files)
+
+        if not has_content and not has_files:
+            flash('Пост не может быть пустым. Добавьте текст или файлы.', 'error')
+            return redirect('/home')
+
+        conn = get_db_connection()
+        try:
+            current_datetime = get_current_datetime()
+            
+            # Создаем пост
+            cursor = conn.cursor()
+            cursor.execute('''
+                INSERT INTO posts (user_id, content, created_at)
+                VALUES (?, ?, ?)
+            ''', (user_id, content, current_datetime))
+
+            post_id = cursor.lastrowid
+            print(f"Создан пост ID: {post_id}")
+
+            # Обработка загруженных файлов
+            uploaded_files = 0
+            if files:
+                for file in files:
+                    if file and file.filename and file.filename.strip() != '':
+                        filename = secure_filename(file.filename)
+
+                        if '.' not in filename:
+                            continue
+
+                        file_ext = filename.rsplit('.', 1)[1].lower()
+
+                        # Определяем тип файла
+                        if file_ext in ALLOWED_IMAGE_EXTENSIONS:
+                            file_type = 'image'
+                        elif file_ext in ALLOWED_VIDEO_EXTENSIONS:
+                            file_type = 'video'
+                        else:
+                            continue
+
+                        # Генерируем уникальное имя файла
+                        import time
+                        unique_filename = f"post_{post_id}_{int(time.time())}_{hashlib.md5(filename.encode()).hexdigest()[:8]}.{file_ext}"
+                        file_path = os.path.join(app.config['POST_MEDIA_FOLDER'], unique_filename)
+
+                        try:
+                            # Сохраняем файл
+                            file.save(file_path)
+
+                            # Сохраняем в БД
+                            cursor.execute('''
+                                INSERT INTO post_media (post_id, filename, file_type)
+                                VALUES (?, ?, ?)
+                            ''', (post_id, unique_filename, file_type))
+
+                            uploaded_files += 1
+                            print(f"Сохранен файл {uploaded_files}: {unique_filename}")
+
+                        except Exception as file_error:
+                            print(f"Ошибка при сохранении файла: {str(file_error)}")
+                            continue
+
+            conn.commit()
+            
+            if uploaded_files > 0:
+                flash(f'Пост опубликован! Загружено {uploaded_files} файл(ов)', 'success')
+            else:
                 flash('Пост опубликован!', 'success')
-                print(f"Пользователь {user_id} опубликовал пост: {content[:50]}...")
-            except Exception as e:
-                flash(f'Ошибка при публикации поста: {str(e)[:50]}', 'error')
-                print(f"Ошибка при публикации поста: {e}")
-            finally:
-                conn.close()
-        else:
-            flash('Пост не может быть пустым', 'error')
+                
+        except Exception as e:
+            conn.rollback()
+            print(f"Ошибка при создании поста: {e}")
+            flash(f'Ошибка при публикации поста: {str(e)[:50]}', 'error')
+        finally:
+            conn.close()
 
         return redirect('/home')
 
@@ -1314,7 +1388,6 @@ def home():
         if import_counter % 5 == 0:
             print(f"Попытка импорта новостей (запрос #{import_counter})...")
             import_news_to_db()
-            # Сбрасываем счетчик, чтобы не импортировать слишком часто
             if import_counter > 100:
                 session['import_counter'] = 0
 
@@ -3822,7 +3895,5 @@ def check_table_structure():
 if __name__ == '__main__':
     create_tables()
 
-if __name__ == '__main__':
-    create_tables()
 
     app.run(debug=True, host='0.0.0.0', port=5555)

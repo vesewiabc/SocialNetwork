@@ -129,10 +129,7 @@
             </div>
             
             <div class="post-stats">
-                <div>
-                    <i class="fas fa-thumbs-up"></i>
-                    <span id="likes-count">{{ likes_count }}</span> лайков
-                </div>
+ 
                 <div>
                     <i class="fas fa-comment"></i>
                     <span id="comments-count">{{ comments_count }}</span> комментариев
@@ -140,11 +137,7 @@
             </div>
             
             <div class="post-actions">
-                <button class="btn btn-outline-primary like-btn {% if has_liked %}liked{% endif %}" 
-                        onclick="likePost({{ post.id }})" id="like-btn">
-                    <i class="fas fa-thumbs-up"></i>
-                    <span id="like-text">{% if has_liked %}Понравилось{% else %}Нравится{% endif %}</span>
-                </button>
+                
                 
                 {% if post.user_id == current_user_id %}
                 <div class="btn-group">
@@ -342,5 +335,6 @@
             }
         });
     </script>
+    
 </body>
 </html>
