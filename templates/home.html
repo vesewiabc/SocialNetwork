@@ -6,9 +6,64 @@
     <title>Главная - Социальная сеть</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <link rel="stylesheet" href="{{ url_for('static', filename='defaults/style.css') }}">
-    
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <link rel="icon" type="image/png" href="{{ url_for('static', filename='uploads/favicon.png') }}">
+    <style>
+        /* Стили для отображения медиафайлов */
+        .post-media {
+            margin: 15px 0;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        
+        .media-item {
+            max-width: 100%;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        
+        .media-item img {
+            max-width: 100%;
+            max-height: 400px;
+            object-fit: contain;
+            border-radius: 8px;
+        }
+        
+        .media-item video {
+            max-width: 100%;
+            max-height: 400px;
+            border-radius: 8px;
+        }
+        
+        /* Стили для галереи из нескольких фото */
+        .post-media.grid-2 {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+        }
+        
+        .post-media.grid-3 {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+        }
+        
+        .post-media.grid-4 {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+        }
+        
+        .post-content {
+            margin-bottom: 15px;
+            word-wrap: break-word;
+        }
+        
+        .empty-feed {
+            text-align: center;
+            padding: 50px;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+    </style>
 </head>
 <body>
     <header>
@@ -35,7 +90,7 @@
                 <ul>
                     <li>
                         <a href="/profile">
-<i class="fas fa-user-circle"></i> Мой профиль
+                            <i class="fas fa-user-circle"></i> Мой профиль
                         </a>
                     </li>
                     <li>
@@ -105,26 +160,26 @@
             <!-- Основная лента -->
             <div class="feed">
                 <!-- Форма создания поста -->
-<div class="create-post">
-    <h3>Что у вас нового?</h3>
-    <form method="POST" action="/home" enctype="multipart/form-data">
-        <textarea name="content" placeholder="Поделитесь своими мыслями..."></textarea>
-        
-        <!-- Блок для загрузки медиафайлов -->
-        <div class="media-upload">
-            <label for="media-files" class="upload-btn">
-                <i class="fas fa-camera"></i> Фото/видео
-            </label>
-            <input type="file" id="media-files" name="media_files" multiple accept="image/*,video/*" style="display: none;">
-            <div id="file-preview" class="file-preview"></div>
-            <small class="upload-info">Максимум 50 МБ. Поддерживаются: JPG, PNG, GIF, MP4, AVI, MOV</small>
-        </div>
-        
-        <button type="submit" class="submit-post">
-            <i class="fas fa-paper-plane"></i> Опубликовать
-        </button>
-    </form>
-</div>
+                <div class="create-post">
+                    <h3>Что у вас нового?</h3>
+                    <form method="POST" action="/home" enctype="multipart/form-data">
+                        <textarea name="content" placeholder="Поделитесь своими мыслями..."></textarea>
+                        
+                        <!-- Блок для загрузки медиафайлов -->
+                        <div class="media-upload">
+                            <label for="media-files" class="upload-btn">
+                                <i class="fas fa-camera"></i> Фото/видео
+                            </label>
+                            <input type="file" id="media-files" name="media_files" multiple accept="image/*,video/*" style="display: none;">
+                            <div id="file-preview" class="file-preview"></div>
+                            <small class="upload-info">Максимум 50 МБ. Поддерживаются: JPG, PNG, GIF, MP4, AVI, MOV</small>
+                        </div>
+                        
+                        <button type="submit" class="submit-post">
+                            <i class="fas fa-paper-plane"></i> Опубликовать
+                        </button>
+                    </form>
+                </div>
 
                 <!-- Управление лентой -->
                 <div class="feed-controls">
@@ -150,47 +205,72 @@
                 <!-- Лента постов и новостей -->
                 {% if feed_items and feed_items|length > 0 %}
                     {% for item in feed_items %}
-{% if item.type == 'post' %}
+                        {% if item.type == 'post' %}
                             <!-- Пост пользователя -->
                             <div class="post" id="post-{{ item.id }}">
-    <div class="post-header">
-        <div class="avatar">
-            {{ item.username[0].upper() if item.username and item.username|length > 0 else '?' }}
-        </div>
-        <div class="post-info">
-            <h4>
-                <a href="/post/{{ item.id }}" style="text-decoration: none; color: #1877f2">
-                    {{ item.username or 'Пользователь' }}
-                </a>
-            </h4>
-            <small>
-                {% if item.created_at %}
-                    {% if item.created_at is string %}
-                        {{ item.created_at[:16] }}
-                    {% else %}
-                        {{ item.created_at.strftime('%d.%m.%Y %H:%M') }}
-                    {% endif %}
-                {% else %}
-                    Дата неизвестна
-                {% endif %}
-            </small>
-        </div>
-    </div>
-    <div class="post-content">
-        {{ item.content or 'Пустой пост' }}
-    </div>
-    <div class="post-actions">
- 
-        <button class="action-btn like-btn" onclick="likePost({{ item.id }}, this)">
-            <i class="far fa-thumbs-up"></i> Нравится
-            <span class="likes-count" id="likes-{{ item.id }}">({{ item.likes_count|default(0) }})</span>
-        </button>
-        <a href="/post/{{ item.id }}#comments" class="action-btn" style="text-decoration: none; color: inherit;">
-            <i class="far fa-comment"></i> Комментировать
-            <span class="comments-count" id="comments-{{ item.id }}">({{ item.comments_count|default(0) }})</span>
-        </a>
-    </div>
-</div>
+                                <div class="post-header">
+                                    <div class="avatar">
+                                        {{ item.username[0].upper() if item.username and item.username|length > 0 else '?' }}
+                                    </div>
+                                    <div class="post-info">
+                                        <h4>
+                                            <a href="/post/{{ item.id }}" style="text-decoration: none; color: #1877f2">
+                                                {{ item.username or 'Пользователь' }}
+                                            </a>
+                                        </h4>
+                                        <small>
+                                            {% if item.created_at %}
+                                                {% if item.created_at is string %}
+                                                    {{ item.created_at[:16] }}
+                                                {% else %}
+                                                    {{ item.created_at.strftime('%d.%m.%Y %H:%M') }}
+                                                {% endif %}
+                                            {% else %}
+                                                Дата неизвестна
+                                            {% endif %}
+                                        </small>
+                                    </div>
+                                </div>
+                                
+                                <!-- Текст поста -->
+                                {% if item.content %}
+                                <div class="post-content">
+                                    {{ item.content }}
+                                </div>
+                                {% endif %}
+                                
+                                <!-- Медиафайлы (ФОТО И ВИДЕО) -->
+                                {% if item.media_files and item.media_files|length > 0 %}
+                                <div class="post-media {% if item.media_files|length == 2 %}grid-2{% elif item.media_files|length == 3 %}grid-3{% elif item.media_files|length >= 4 %}grid-4{% endif %}">
+                                    {% for media in item.media_files %}
+                                        <div class="media-item">
+                                            {% if media.file_type == 'image' %}
+                                                <img src="{{ url_for('static', filename='uploads/posts/' + media.filename) }}" 
+                                                     alt="Изображение поста"
+                                                     onclick="window.open(this.src, '_blank')"
+                                                     style="cursor: pointer;">
+                                            {% elif media.file_type == 'video' %}
+                                                <video controls preload="metadata">
+                                                    <source src="{{ url_for('static', filename='uploads/posts/' + media.filename) }}" type="video/mp4">
+                                                    Ваш браузер не поддерживает видео.
+                                                </video>
+                                            {% endif %}
+                                        </div>
+                                    {% endfor %}
+                                </div>
+                                {% endif %}
+                                
+                                <div class="post-actions">
+                                    <button class="action-btn like-btn" onclick="likePost({{ item.id }}, this)">
+                                        <i class="far fa-thumbs-up"></i> Нравится
+                                        <span class="likes-count" id="likes-{{ item.id }}">({{ item.likes_count|default(0) }})</span>
+                                    </button>
+                                    <a href="/post/{{ item.id }}#comments" class="action-btn" style="text-decoration: none; color: inherit;">
+                                        <i class="far fa-comment"></i> Комментировать
+                                        <span class="comments-count" id="comments-{{ item.id }}">({{ item.comments_count|default(0) }})</span>
+                                    </a>
+                                </div>
+                            </div>
                             
                         {% elif item.type == 'news' %}
                             <!-- Новость -->
@@ -206,10 +286,9 @@
                                     </div>
                                 </div>
                                 <div class="news-content">
-                            
                                     {% if item.link %}
                                         <a href="{{ item.link }}" target="_blank">
-<i class="fas fa-external-link-alt"></i> Читать полностью
+                                            <i class="fas fa-external-link-alt"></i> Читать полностью
                                         </a>
                                     {% endif %}
                                 </div>
@@ -226,108 +305,100 @@
                 {% else %}
                     <div class="empty-feed">
                         <i class="fas fa-newspaper fa-3x" style="color: #ddd; margin-bottom: 20px;"></i>
-                        
-<h3>Лента пуста</h3>
+                        <h3>Лента пуста</h3>
                         <p>Начните с публикации первого поста или подождите, пока появятся новости</p>
                     </div>
                 {% endif %}
             </div>
-
-            <!-- Правая панель - только статистика -->
-            
         </div>
     </div>
-<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-<script>
 
-function likePost(postId, buttonElement) {
-    $.ajax({
-        url: `/like_post_action/${postId}`,
-        type: 'POST',
-        contentType: 'application/json',
-        success: function(response) {
-            if (response.success) {
-                // Находим элементы внутри конкретной кнопки
-                const $button = $(buttonElement);
-                const $likeIcon = $button.find('i');
-                const $likesCount = $button.find('.likes-count');
-                
-                // Меняем иконку
-                if (response.action === 'liked') {
-                    $likeIcon.removeClass('far').addClass('fas');
-                    $button.addClass('liked');
-                } else {
-                    $likeIcon.removeClass('fas').addClass('far');
-                    $button.removeClass('liked');
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script>
+        function likePost(postId, buttonElement) {
+            $.ajax({
+                url: `/like_post_action/${postId}`,
+                type: 'POST',
+                contentType: 'application/json',
+                success: function(response) {
+                    if (response.success) {
+                        const $button = $(buttonElement);
+                        const $likeIcon = $button.find('i');
+                        const $likesCount = $button.find('.likes-count');
+                        
+                        if (response.action === 'liked') {
+                            $likeIcon.removeClass('far').addClass('fas');
+                            $button.addClass('liked');
+                        } else {
+                            $likeIcon.removeClass('fas').addClass('far');
+                            $button.removeClass('liked');
+                        }
+                        
+                        $likesCount.text(`(${response.likes_count})`);
+                    } else {
+                        alert('Ошибка: ' + response.error);
+                    }
+                },
+                error: function() {
+                    alert('Ошибка сервера');
                 }
-                
-                // Обновляем счетчик
-                $likesCount.text(`(${response.likes_count})`);
-            } else {
-                alert('Ошибка: ' + response.error);
-            }
-        },
-        error: function() {
-            alert('Ошибка сервера');
+            });
         }
-    });
-}
 
-function showComments(postId) {
-    window.location.href = `/post/${postId}`;
-}
+        document.getElementById('media-files').addEventListener('change', function(e) {
+            const preview = document.getElementById('file-preview');
+            preview.innerHTML = '';
+            
+            const files = Array.from(e.target.files);
+            
+            files.forEach((file, index) => {
+                const reader = new FileReader();
+                const previewItem = document.createElement('div');
+                previewItem.className = 'preview-item';
+                
+                reader.onload = function(e) {
+                    if (file.type.startsWith('image/')) {
+                        const img = document.createElement('img');
+                        img.src = e.target.result;
+                        previewItem.appendChild(img);
+                    } else if (file.type.startsWith('video/')) {
+                        const video = document.createElement('video');
+                        video.src = e.target.result;
+                        video.controls = true;
+                        previewItem.appendChild(video);
+                    } else {
+                        const icon = document.createElement('div');
+                        icon.className = 'file-icon';
+                        icon.innerHTML = '<i class="fas fa-file"></i> ' + file.name.split('.').pop();
+                        previewItem.appendChild(icon);
+                    }
+                };
+                
+                reader.readAsDataURL(file);
+                
+                const removeBtn = document.createElement('button');
+                removeBtn.className = 'remove-file';
+                removeBtn.innerHTML = '<i class="fas fa-times"></i>';
+                removeBtn.onclick = function() {
+                    const dt = new DataTransfer();
+                    const input = document.getElementById('media-files');
+                    const files = Array.from(input.files);
+                    files.splice(index, 1);
+                    files.forEach(file => dt.items.add(file));
+                    input.files = dt.files;
+                    previewItem.remove();
+                };
+                
+                previewItem.appendChild(removeBtn);
+                preview.appendChild(previewItem);
+            });
+        });
 
-document.getElementById('media-files').addEventListener('change', function(e) {
-    const preview = document.getElementById('file-preview');
-    preview.innerHTML = '';
-    
-    const files = Array.from(e.target.files);
-    
-    files.forEach((file, index) => {
-        const reader = new FileReader();
-        const previewItem = document.createElement('div');
-        previewItem.className = 'preview-item';
-        
-        reader.onload = function(e) {
-            if (file.type.startsWith('image/')) {
-                const img = document.createElement('img');
-                img.src = e.target.result;
-                previewItem.appendChild(img);
-            } else if (file.type.startsWith('video/')) {
-                const video = document.createElement('video');
-                video.src = e.target.result;
-                video.controls = true;
-                previewItem.appendChild(video);
-            } else {
-                const icon = document.createElement('div');
-                icon.className = 'file-icon';
-                icon.innerHTML = '<i class="fas fa-file"></i> ' + file.name.split('.').pop();
-                previewItem.appendChild(icon);
-            }
-        };
-        
-        reader.readAsDataURL(file);
-        
-        const removeBtn = document.createElement('button');
-        removeBtn.className = 'remove-file';
-        removeBtn.innerHTML = '<i class="fas fa-times"></i>';
-        removeBtn.onclick = function() {
-            const dt = new DataTransfer();
-            const input = document.getElementById('media-files');
-            const files = Array.from(input.files);
-            files.splice(index, 1);
-            files.forEach(file => dt.items.add(file));
-            input.files = dt.files;
-            previewItem.remove();
-        };
-        
-        previewItem.appendChild(removeBtn);
-        preview.appendChild(previewItem);
-    });
-});
-</script>
-
-</script>
-</script>
+        // Загрузка статистики
+        $.get('/get_user_stats', function(data) {
+            $('#posts-count').text(data.posts_count);
+            $('#friends-count').text(data.friends_count);
+        });
+    </script>
 </body>
 </html>

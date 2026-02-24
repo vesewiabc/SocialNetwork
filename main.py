@@ -1311,7 +1311,7 @@ def home():
             ''', (user_id, content, current_datetime))
 
             post_id = cursor.lastrowid
-            print(f"Создан пост ID: {post_id}")
+            print(f"Создан пост ID: {post_id} с текстом: {content}")
 
             # Обработка загруженных файлов
             uploaded_files = 0
@@ -1341,6 +1341,7 @@ def home():
                         try:
                             # Сохраняем файл
                             file.save(file_path)
+                            print(f"Файл сохранен: {file_path}")
 
                             # Сохраняем в БД
                             cursor.execute('''
@@ -1349,7 +1350,7 @@ def home():
                             ''', (post_id, unique_filename, file_type))
 
                             uploaded_files += 1
-                            print(f"Сохранен файл {uploaded_files}: {unique_filename}")
+                            print(f"Сохранен файл {uploaded_files}: {unique_filename} (тип: {file_type})")
 
                         except Exception as file_error:
                             print(f"Ошибка при сохранении файла: {str(file_error)}")
@@ -1358,13 +1359,15 @@ def home():
             conn.commit()
             
             if uploaded_files > 0:
-                flash(f'Пост опубликован! Загружено {uploaded_files} файл(ов)', 'success')
+                flash(f'Пост опубликован с {uploaded_files} файл(ов)!', 'success')
             else:
                 flash('Пост опубликован!', 'success')
                 
         except Exception as e:
             conn.rollback()
             print(f"Ошибка при создании поста: {e}")
+            import traceback
+            traceback.print_exc()
             flash(f'Ошибка при публикации поста: {str(e)[:50]}', 'error')
         finally:
             conn.close()
@@ -1386,12 +1389,20 @@ def home():
             if import_counter > 100:
                 session['import_counter'] = 0
 
-        # Получаем ленту новостей
-        feed_items = get_news_feed(user_id, limit=20)
+        # Получаем ленту новостей с МЕДИАФАЙЛАМИ
+        feed_items = get_news_feed_with_media(user_id, limit=20)
         print(f"Получено {len(feed_items)} элементов в ленте")
+        
+        # Отладка: проверим первые несколько постов на наличие медиа
+        for i, item in enumerate(feed_items[:3]):
+            if item.get('type') == 'post':
+                media_count = len(item.get('media_files', []))
+                print(f"Пост {i+1}: ID={item.get('id')}, текст='{item.get('content', '')[:30]}...', медиафайлов: {media_count}")
 
     except Exception as e:
         print(f"Ошибка при подготовке ленты: {e}")
+        import traceback
+        traceback.print_exc()
         flash('Не удалось загрузить все новости', 'info')
 
     # Получаем количество заявок в друзья
@@ -4015,6 +4026,285 @@ def get_user_stats():
         'friends_count': friends_count
     })
 
+def get_news_feed_with_media(user_id=None, limit=20):
+    """Получение ленты новостей с медиафайлами"""
+    conn = get_db_connection()
+
+    user_posts = []
+    imported_news = []
+
+    try:
+        # Получаем посты пользователей
+        if user_id:
+            try:
+                user_posts_rows = conn.execute('''
+                    SELECT p.*, u.username,
+                           (SELECT COUNT(*) FROM post_likes WHERE post_id = p.id) as likes_count,
+                           (SELECT COUNT(*) FROM comments WHERE post_id = p.id) as comments_count
+                    FROM posts p
+                    JOIN users u ON p.user_id = u.id
+                    ORDER BY p.created_at DESC
+                    LIMIT 20
+                ''').fetchall()
+
+                if user_posts_rows:
+                    user_posts = rows_to_dicts(user_posts_rows)
+                    
+                    # Добавляем медиафайлы к каждому посту
+                    for post in user_posts:
+                        # Получаем медиафайлы для поста
+                        media_files = conn.execute('''
+                            SELECT filename, file_type FROM post_media 
+                            WHERE post_id = ?
+                            ORDER BY id
+                        ''', (post['id'],)).fetchall()
+                        
+                        # Преобразуем в список словарей
+                        media_list = []
+                        for media in media_files:
+                            media_dict = dict(media)
+                            
+                            # Если file_type не указан, определяем по расширению
+                            if not media_dict.get('file_type'):
+                                ext = media_dict['filename'].split('.')[-1].lower()
+                                if ext in ALLOWED_IMAGE_EXTENSIONS:
+                                    media_dict['file_type'] = 'image'
+                                elif ext in ALLOWED_VIDEO_EXTENSIONS:
+                                    media_dict['file_type'] = 'video'
+                                else:
+                                    media_dict['file_type'] = 'unknown'
+                            
+                            # Убеждаемся, что файл физически существует
+                            file_path = os.path.join(app.config['POST_MEDIA_FOLDER'], media_dict['filename'])
+                            if os.path.exists(file_path):
+                                media_dict['exists'] = True
+                                media_dict['file_size'] = os.path.getsize(file_path)
+                            else:
+                                media_dict['exists'] = False
+                                print(f"Файл не найден: {file_path}")
+                            
+                            media_list.append(media_dict)
+                        
+                        post['media_files'] = media_list
+                        print(f"Пост {post['id']}: найдено {len(media_list)} медиафайлов")
+                        
+            except Exception as e:
+                print(f"Ошибка при получении постов: {e}")
+                import traceback
+                traceback.print_exc()
+
+        # Получаем импортированные новости
+        try:
+            news_rows = conn.execute('''
+                SELECT *, 'news' as type FROM imported_news
+                ORDER BY published DESC
+                LIMIT 10
+            ''').fetchall()
+
+            if news_rows:
+                imported_news = rows_to_dicts(news_rows)
+                for news in imported_news:
+                    news['media_files'] = []
+        except Exception as e:
+            print(f"Ошибка при получении новостей: {e}")
+
+    except Exception as e:
+        print(f"Общая ошибка при получении ленты: {e}")
+        import traceback
+        traceback.print_exc()
+    finally:
+        conn.close()
+
+    # Объединяем
+    all_feed = []
+
+    # Добавляем посты
+    for post in user_posts:
+        post['type'] = 'post'
+        if 'likes_count' not in post:
+            post['likes_count'] = 0
+        if 'comments_count' not in post:
+            post['comments_count'] = 0
+        if 'media_files' not in post:
+            post['media_files'] = []
+        all_feed.append(post)
+
+    # Добавляем новости
+    for news in imported_news:
+        news['type'] = 'news'
+        if 'media_files' not in news:
+            news['media_files'] = []
+        all_feed.append(news)
+
+    # Сортировка
+    try:
+        def get_sort_key(item):
+            if item['type'] == 'post':
+                return item.get('created_at', '')
+            else:
+                return item.get('published', '')
+
+        all_feed.sort(key=lambda x: get_sort_key(x), reverse=True)
+    except Exception as e:
+        print(f"Ошибка сортировки: {e}")
+
+    return all_feed[:limit]
+
+@app.route('/debug_video')
+def debug_video():
+    if 'user_id' not in session:
+        return redirect('/login')
+    
+    conn = get_db_connection()
+    
+    # Получаем все видео из БД
+    videos = conn.execute('''
+        SELECT pm.*, p.content, p.user_id, u.username
+        FROM post_media pm
+        JOIN posts p ON pm.post_id = p.id
+        JOIN users u ON p.user_id = u.id
+        WHERE pm.file_type = 'video'
+        ORDER BY pm.id DESC
+    ''').fetchall()
+    
+    # Проверяем физическое существование файлов
+    import os
+    video_files = []
+    missing_files = []
+    
+    for video in videos:
+        file_path = os.path.join(app.config['POST_MEDIA_FOLDER'], video['filename'])
+        if os.path.exists(file_path):
+            file_size = os.path.getsize(file_path)
+            video_files.append({
+                'id': video['id'],
+                'filename': video['filename'],
+                'post_id': video['post_id'],
+                'username': video['username'],
+                'size': file_size,
+                'exists': True
+            })
+        else:
+            missing_files.append({
+                'id': video['id'],
+                'filename': video['filename'],
+                'post_id': video['post_id']
+            })
+    
+    # Получаем все физические видеофайлы в папке
+    all_files = os.listdir(app.config['POST_MEDIA_FOLDER'])
+    video_extensions = {'.mp4', '.avi', '.mov', '.wmv', '.flv', '.webm'}
+    physical_videos = [f for f in all_files if os.path.splitext(f)[1].lower() in video_extensions]
+    
+    conn.close()
+    
+    return f"""
+    <h2>Диагностика видео</h2>
+    
+    <h3>Видео в БД: {len(videos)}</h3>
+    <table border="1" cellpadding="5">
+        <tr>
+            <th>ID</th>
+            <th>Пост</th>
+            <th>Автор</th>
+            <th>Файл</th>
+            <th>Статус</th>
+            <th>Размер</th>
+        </tr>
+        {"".join([f"""
+        <tr>
+            <td>{v['id']}</td>
+            <td>{v['post_id']}</td>
+            <td>{v['username']}</td>
+            <td>{v['filename']}</td>
+            <td style="color:green">✅ Существует</td>
+            <td>{v['size']} байт</td>
+        </tr>
+        """ for v in video_files])}
+        {"".join([f"""
+        <tr>
+            <td>{m['id']}</td>
+            <td>{m['post_id']}</td>
+            <td>-</td>
+            <td>{m['filename']}</td>
+            <td style="color:red">❌ Файл отсутствует</td>
+            <td>-</td>
+        </tr>
+        """ for m in missing_files])}
+    </table>
+    
+    <h3>Физические видеофайлы в папке: {len(physical_videos)}</h3>
+    <ul>
+    {"".join([f"<li>{f}</li>" for f in physical_videos[:20]])}
+    </ul>
+    
+    <h3>MIME-типы видео</h3>
+    <p>Убедитесь, что сервер правильно отдает видеофайлы:</p>
+    <ul>
+        <li>.mp4 - video/mp4</li>
+        <li>.avi - video/x-msvideo</li>
+        <li>.mov - video/quicktime</li>
+        <li>.wmv - video/x-ms-wmv</li>
+    </ul>
+    
+    <p><a href="/home">На главную</a></p>
+    """
+
+def get_video_mime_type(filename):
+    """Определяет MIME-тип видео по расширению"""
+    ext = filename.split('.')[-1].lower()
+    mime_types = {
+        'mp4': 'video/mp4',
+        'avi': 'video/x-msvideo',
+        'mov': 'video/quicktime',
+        'wmv': 'video/x-ms-wmv',
+        'flv': 'video/x-flv',
+        'webm': 'video/webm',
+        'mkv': 'video/x-matroska',
+        'm4v': 'video/x-m4v',
+        'mpg': 'video/mpeg',
+        'mpeg': 'video/mpeg'
+    }
+    return mime_types.get(ext, 'video/mp4')
+
+@app.route('/fix_video_types')
+def fix_video_types():
+    if 'user_id' not in session:
+        return redirect('/login')
+    
+    conn = get_db_connection()
+    
+    # Получаем все медиафайлы с неправильным или отсутствующим типом
+    media_files = conn.execute('''
+        SELECT id, filename, file_type, post_id
+        FROM post_media
+        WHERE file_type IS NULL OR file_type = '' OR file_type = 'unknown'
+    ''').fetchall()
+    
+    fixed_count = 0
+    for media in media_files:
+        ext = media['filename'].split('.')[-1].lower()
+        if ext in ALLOWED_IMAGE_EXTENSIONS:
+            new_type = 'image'
+        elif ext in ALLOWED_VIDEO_EXTENSIONS:
+            new_type = 'video'
+        else:
+            new_type = 'unknown'
+        
+        if new_type != 'unknown':
+            conn.execute('''
+                UPDATE post_media 
+                SET file_type = ? 
+                WHERE id = ?
+            ''', (new_type, media['id']))
+            fixed_count += 1
+            print(f"Исправлен файл {media['filename']}: {media['file_type']} -> {new_type}")
+    
+    conn.commit()
+    conn.close()
+    
+    return f"<h2>Исправлено {fixed_count} записей</h2><p><a href='/debug_video'>Проверить</a></p>"
+
 @app.route('/check_table_structure')
 def check_table_structure():
     conn = get_db_connection()
@@ -4031,6 +4321,52 @@ def check_table_structure():
     conn.close()
     return result
 
+@app.route('/test_video/<int:post_id>')
+def test_video(post_id):
+    """Прямая проверка видео для конкретного поста"""
+    conn = get_db_connection()
+    
+    # Получаем медиафайлы поста
+    media = conn.execute('''
+        SELECT * FROM post_media WHERE post_id = ?
+    ''', (post_id,)).fetchall()
+    
+    # Получаем сам пост
+    post = conn.execute('''
+        SELECT p.*, u.username 
+        FROM posts p
+        JOIN users u ON p.user_id = u.id
+        WHERE p.id = ?
+    ''', (post_id,)).fetchone()
+    
+    conn.close()
+    
+    html = f"<h2>Пост #{post_id}</h2>"
+    html += f"<p>Автор: {post['username']}</p>"
+    html += f"<p>Текст: {post['content']}</p>"
+    html += f"<p>Медиафайлов в БД: {len(media)}</p>"
+    
+    for m in media:
+        m_dict = dict(m)
+        file_path = os.path.join(app.config['POST_MEDIA_FOLDER'], m_dict['filename'])
+        file_exists = os.path.exists(file_path)
+        
+        html += f"<hr>"
+        html += f"<p>ID: {m_dict['id']}</p>"
+        html += f"<p>Файл: {m_dict['filename']}</p>"
+        html += f"<p>Тип: {m_dict['file_type']}</p>"
+        html += f"<p>Физически существует: {'✅' if file_exists else '❌'}</p>"
+        
+        if file_exists and m_dict['file_type'] == 'video':
+            html += f"""
+            <video width="400" controls>
+                <source src="/static/uploads/posts/{m_dict['filename']}" type="video/mp4">
+                Ваш браузер не поддерживает видео.
+            </video>
+            """
+    
+    html += f'<p><a href="/home">На главную</a></p>'
+    return html
 
 if __name__ == '__main__':
     create_tables()
