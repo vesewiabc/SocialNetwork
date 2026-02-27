@@ -1178,27 +1178,61 @@ def fetch_news_simple():
 
 
 def create_test_news():
-    """Создание тестовых новостей"""
+    """Создание тестовых новостей с уникальными заголовками"""
+    import random
+    import time
+
     topics = [
-        ("Технологии", "Новые технологии меняют нашу жизнь"),
-        ("Наука", "Ученые совершили важное открытие"),
-        ("Образование", "Онлайн-обучение становится популярнее"),
-        ("ИТ", "Развитие программирования и ИИ"),
-        ("Соцсети", "Новые возможности в социальных сетях"),
-        ("Киберспорт", "Турниры по киберспорту набирают популярность"),
-        ("Игры", "Выход новых игровых проектов"),
-        ("Бизнес", "Стартапы привлекают инвестиции")
+        ("Технологии", [
+            "Новый процессор установил мировой рекорд производительности",
+            "Учёные создали батарею с зарядкой за 5 минут",
+            "Квантовый компьютер решил задачу за секунды вместо тысяч лет",
+            "Выпущен открытый ИИ-ассистент для разработчиков",
+        ]),
+        ("Наука", [
+            "Обнаружена новая форма жизни в глубинах океана",
+            "Физики зафиксировали новую элементарную частицу",
+            "Учёные расшифровали геном вымершего животного",
+            "Открыта экзопланета с признаками атмосферы",
+        ]),
+        ("Экономика", [
+            "Центробанк изменил ключевую ставку",
+            "Мировые рынки показали рост второй день подряд",
+            "Инфляция в еврозоне достигла трёхлетнего минимума",
+            "Нефть подорожала на фоне сокращения добычи",
+        ]),
+        ("Спорт", [
+            "Российский спортсмен завоевал золото чемпионата мира",
+            "Футбольный клуб объявил о трансфере звёздного игрока",
+            "Установлен новый мировой рекорд в лёгкой атлетике",
+            "Чемпионат прошёл при рекордной посещаемости",
+        ]),
+        ("Общество", [
+            "В столице открылся новый культурный центр",
+            "Число волонтёров в стране выросло на 20%",
+            "Запущена программа поддержки молодых учёных",
+            "Принят закон об охране окружающей среды",
+        ]),
+        ("Игры", [
+            "Анонсировано продолжение культовой ролевой игры",
+            "Инди-студия выпустила хит за первые сутки продаж",
+            "Турнир по киберспорту собрал миллион зрителей онлайн",
+            "Классическая игра переиздана с обновлённой графикой",
+        ]),
     ]
 
-    import random
+    ts = int(time.time())
     news_items = []
+    random.shuffle(topics)
 
-    for i, (topic, desc) in enumerate(topics):
+    for idx, (topic, headlines) in enumerate(topics):
+        headline = random.choice(headlines)
+        unique_ts = ts - idx * 300  # каждые 5 минут назад
         news_items.append({
-            'title': f'{topic}: Новости дня',
-            'description': f'{desc}. Подробнее читайте в полной версии статьи.',
-            'link': f'https://example.com/news_{i + 1}',
-            'published': datetime.now().strftime('%d.%m.%Y %H:%M'),
+            'title': f'[{topic}] {headline}',
+            'description': f'{headline}. Подробности и комментарии экспертов читайте в полной версии материала.',
+            'link': f'https://example.com/news/{unique_ts}_{idx}',
+            'published': datetime.fromtimestamp(unique_ts).strftime('%d.%m.%Y %H:%M'),
             'source': 'Новостной портал'
         })
 
@@ -1224,10 +1258,10 @@ def import_news_to_db():
         imported_count = 0
         for i, news in enumerate(news_items, 1):
             try:
-                # Проверяем, не существует ли уже такая новость
+                # Проверяем, не существует ли уже такая новость (только по ссылке)
                 existing = conn.execute(
-                    'SELECT id FROM imported_news WHERE link = ? OR title = ?',
-                    (news['link'], news['title'])
+                    'SELECT id FROM imported_news WHERE link = ?',
+                    (news['link'],)
                 ).fetchone()
 
 
@@ -1378,26 +1412,18 @@ def home():
     feed_items = []
 
     try:
-        # Пробуем импортировать новости (только раз в 5 запросов)
-        import_counter = session.get('import_counter', 0)
-        import_counter += 1
-        session['import_counter'] = import_counter
-
-        if import_counter % 5 == 0:
-            print(f"Попытка импорта новостей (запрос #{import_counter})...")
+        # Принудительный импорт при нажатии "Обновить ленту"
+        if request.args.get('refresh') == '1':
             import_news_to_db()
-            if import_counter > 100:
-                session['import_counter'] = 0
+        else:
+            # Фоновый импорт раз в 5 запросов
+            import_counter = session.get('import_counter', 0) + 1
+            session['import_counter'] = import_counter % 100
+            if import_counter % 5 == 0:
+                import_news_to_db()
 
-        # Получаем ленту новостей с МЕДИАФАЙЛАМИ
         feed_items = get_news_feed_with_media(user_id, limit=20)
         print(f"Получено {len(feed_items)} элементов в ленте")
-        
-        # Отладка: проверим первые несколько постов на наличие медиа
-        for i, item in enumerate(feed_items[:3]):
-            if item.get('type') == 'post':
-                media_count = len(item.get('media_files', []))
-                print(f"Пост {i+1}: ID={item.get('id')}, текст='{item.get('content', '')[:30]}...', медиафайлов: {media_count}")
 
     except Exception as e:
         print(f"Ошибка при подготовке ленты: {e}")
@@ -3203,80 +3229,49 @@ def invite_to_group(group_id):
     else:
         return jsonify({'success': False, 'error': 'Все выбранные пользователи уже в группе или имеют активные заявки'})
     
-@app.route('/feed')
+@app.route('/feed', methods=['GET', 'POST'])
 def feed():
     if 'user_id' not in session:
         return redirect('/login')
 
     user_id = session['user_id']
+
+    # Создание поста через форму в ленте
+    if request.method == 'POST':
+        content = request.form.get('content', '').strip()
+        visibility = request.form.get('visibility', 'public')
+        if content:
+            conn = get_db_connection()
+            current_datetime = get_current_datetime()
+            conn.execute(
+                'INSERT INTO posts (user_id, content, visibility, created_at) VALUES (?, ?, ?, ?)',
+                (user_id, content, visibility, current_datetime)
+            )
+            conn.commit()
+            conn.close()
+            flash('Пост опубликован!', 'success')
+        return redirect('/feed')
+
+    # При нажатии "Обновить ленту" — импортируем свежие новости
+    if request.args.get('refresh') == '1':
+        try:
+            import_news_to_db()
+        except Exception as e:
+            print(f"Ошибка импорта при обновлении ленты: {e}")
+        return redirect('/feed')
+
     conn = get_db_connection()
 
-    posts_rows = conn.execute('''
-        SELECT p.*,
-               u.id as author_id, 
-               u.username as author_username,
-               up.full_name as author_name,
-               COALESCE(up.avatar, 'default_avatar.png') as author_avatar,
-               (SELECT COUNT(*) FROM post_likes WHERE post_id = p.id) as likes_count,
-               (SELECT COUNT(*) FROM comments WHERE post_id = p.id) as comments_count
-        FROM posts p
-        JOIN users u ON p.user_id = u.id
-        LEFT JOIN user_profiles up ON u.id = up.user_id
-        WHERE (p.visibility = 'public' 
-               OR (p.visibility = 'friends' AND p.user_id IN (
-                   SELECT CASE 
-                       WHEN sender_id = ? THEN receiver_id 
-                       ELSE sender_id 
-                   END as friend_id
-                   FROM friendships 
-                   WHERE (sender_id = ? OR receiver_id = ?) AND status = 'accepted'
-               ))
-               OR p.user_id = ?)
-        AND (p.user_id IN (
-            SELECT CASE 
-                WHEN sender_id = ? THEN receiver_id 
-                ELSE sender_id 
-            END as friend_id
-            FROM friendships 
-            WHERE (sender_id = ? OR receiver_id = ?) AND status = 'accepted'
-        ) OR p.user_id = ?)
-        ORDER BY p.created_at DESC
-        LIMIT 50
-    ''', (user_id, user_id, user_id, user_id, user_id, user_id, user_id, user_id)).fetchall()
+    user = conn.execute('SELECT username FROM users WHERE id = ?', (user_id,)).fetchone()
+    username = user['username'] if user else ''
 
-    group_posts_rows = conn.execute('''
-        SELECT gp.*,
-               g.id as group_id,
-               g.name as group_name,
-               COALESCE(g.avatar, 'default_group.png') as group_avatar,
-               u.id as author_id,
-               u.username as author_username,
-               up.full_name as author_name,
-               COALESCE(up.avatar, 'default_avatar.png') as author_avatar,
-               (SELECT COUNT(*) FROM group_post_likes WHERE post_id = gp.id) as likes_count
-        FROM group_posts gp
-        JOIN groups g ON gp.group_id = g.id
-        JOIN users u ON gp.author_id = u.id
-        LEFT JOIN user_profiles up ON u.id = up.user_id
-        WHERE g.id IN (
-            SELECT group_id FROM group_members WHERE user_id = ?
-        )
-        ORDER BY gp.created_at DESC
-        LIMIT 50
-    ''', (user_id,)).fetchall()
-
-    all_posts = []
-    for post in posts_rows:
-        post_dict = dict(post)
-        post_dict['type'] = 'personal'
-        all_posts.append(post_dict)
-
-    for post in group_posts_rows:
-        post_dict = dict(post)
-        post_dict['type'] = 'group'
-        all_posts.append(post_dict)
-
-    all_posts.sort(key=lambda x: x['created_at'], reverse=True)
+    try:
+        friend_requests_count = conn.execute(
+            "SELECT COUNT(*) as cnt FROM friendships WHERE receiver_id = ? AND status = 'pending'",
+            (user_id,)
+        ).fetchone()['cnt']
+    except Exception:
+        friend_requests_count = 0
 
     my_groups = rows_to_dicts(conn.execute('''
         SELECT g.*, COUNT(DISTINCT gm.user_id) as members_count
@@ -3290,7 +3285,13 @@ def feed():
 
     conn.close()
 
-    return render_template('feed.html', posts=all_posts, my_groups=my_groups)
+    feed_items = get_news_feed(user_id=user_id, limit=50)
+
+    return render_template('feed.html',
+                           feed_items=feed_items,
+                           username=username,
+                           friend_requests_count=friend_requests_count,
+                           my_groups=my_groups)
 
 
 @app.route('/create_post', methods=['POST'])

@@ -4,381 +4,22 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Лента новостей - Социальная сеть</title>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            margin: 0;
-            padding: 0;
-            background: #f0f2f5;
-        }
-        .header {
-            background: white;
-            padding: 15px 20px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-            position: fixed;
-            top: 0;
-            width: 100%;
-            z-index: 1000;
-        }
-        .container {
-            max-width: 800px;
-            margin: 80px auto 20px;
-            padding: 0 15px;
-        }
-        .create-post {
-            background: white;
-            padding: 20px;
-            border-radius: 10px;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-            margin-bottom: 20px;
-        }
-        .post-textarea {
-            width: 100%;
-            min-height: 100px;
-            padding: 15px;
-            border: 1px solid #ddd;
-            border-radius: 8px;
-            resize: vertical;
-            font-family: inherit;
-            font-size: 16px;
-            margin-bottom: 10px;
-        }
-        .post-button {
-            background: #1877f2;
-            color: white;
-            border: none;
-            padding: 10px 30px;
-            border-radius: 5px;
-            cursor: pointer;
-            font-weight: bold;
-            font-size: 16px;
-        }
-        .post-button:hover {
-            background: #166fe5;
-        }
-        .feed-item {
-            background: white;
-            border-radius: 10px;
-            padding: 20px;
-            margin-bottom: 20px;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-        }
-        .post-header {
-            display: flex;
-            align-items: center;
-            margin-bottom: 15px;
-        }
-        .avatar {
-            width: 50px;
-            height: 50px;
-            border-radius: 50%;
-            margin-right: 15px;
-            object-fit: cover;
-        }
-        .user-info {
-            flex-grow: 1;
-        }
-        .username {
-            font-weight: bold;
-            color: #333;
-            text-decoration: none;
-            font-size: 18px;
-        }
-        .post-time {
-            color: #65676b;
-            font-size: 14px;
-            margin-top: 3px;
-        }
-        .post-content {
-            margin: 15px 0;
-            line-height: 1.6;
-            font-size: 16px;
-            color: #333;
-        }
-        .news-header {
-            background: #f8f9fa;
-            padding: 12px 15px;
-            border-radius: 8px;
-            margin-bottom: 15px;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-        }
-        .news-source {
-            color: #dc3545;
-            font-weight: bold;
-            font-size: 14px;
-        }
-        .news-time {
-            color: #6c757d;
-            font-size: 13px;
-        }
-        .news-title {
-            font-size: 20px;
-            font-weight: bold;
-            margin-bottom: 12px;
-            color: #333;
-        }
-        .news-description {
-            color: #555;
-            margin-bottom: 15px;
-            line-height: 1.5;
-            font-size: 15px;
-        }
-        .news-image {
-            width: 100%;
-            max-height: 400px;
-            object-fit: cover;
-            border-radius: 8px;
-            margin-bottom: 15px;
-        }
-        .external-link {
-            display: inline-block;
-            background: #1877f2;
-            color: white;
-            text-decoration: none;
-            padding: 8px 20px;
-            border-radius: 5px;
-            font-weight: bold;
-            margin-top: 10px;
-        }
-        .external-link:hover {
-            background: #166fe5;
-        }
-        .post-actions {
-            display: flex;
-            align-items: center;
-            padding-top: 15px;
-            border-top: 1px solid #eee;
-            margin-top: 15px;
-        }
-        .action-button {
-            background: none;
-            border: none;
-            padding: 8px 20px;
-            cursor: pointer;
-            color: #65676b;
-            display: flex;
-            align-items: center;
-            font-size: 14px;
-            margin-right: 10px;
-        }
-        .action-button:hover {
-            background: #f0f2f5;
-            border-radius: 5px;
-        }
-        .action-button i {
-            margin-right: 8px;
-            font-size: 18px;
-        }
-        .likes-count {
-            margin-left: 5px;
-            font-weight: bold;
-        }
-        .nav-links {
-            display: flex;
-            gap: 25px;
-            margin-left: 30px;
-        }
-        .nav-link {
-            text-decoration: none;
-            color: #333;
-            font-weight: bold;
-            font-size: 16px;
-            padding: 8px 0;
-            position: relative;
-        }
-        .nav-link:hover {
-            color: #1877f2;
-        }
-        .nav-link.active {
-            color: #1877f2;
-        }
-        .nav-link.active:after {
-            content: '';
-            position: absolute;
-            bottom: 0;
-            left: 0;
-            width: 100%;
-            height: 3px;
-            background: #1877f2;
-            border-radius: 3px;
-        }
-        .notification-badge {
-            background: #dc3545;
-            color: white;
-            border-radius: 50%;
-            width: 20px;
-            height: 20px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 12px;
-            margin-left: 5px;
-            position: absolute;
-            top: -5px;
-            right: -10px;
-        }
-        .header-content {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            max-width: 1200px;
-            margin: 0 auto;
-        }
-        .logo {
-            font-size: 28px;
-            font-weight: bold;
-            color: #1877f2;
-            text-decoration: none;
-        }
-        .nav-section {
-            display: flex;
-            align-items: center;
-        }
-        .user-menu {
-            margin-left: 30px;
-            display: flex;
-            align-items: center;
-            gap: 20px;
-        }
-        .icon-link {
-            text-decoration: none;
-            color: #333;
-            font-size: 20px;
-            position: relative;
-        }
-        .logout-link {
-            color: #dc3545;
-        }
-        .comments-section {
-            margin-top: 20px;
-            padding-top: 20px;
-            border-top: 1px solid #eee;
-        }
-        .comments-list {
-            max-height: 300px;
-            overflow-y: auto;
-            margin-bottom: 15px;
-        }
-        .comment-item {
-            background: #f8f9fa;
-            padding: 10px;
-            border-radius: 5px;
-            margin-bottom: 10px;
-        }
-        .comment-author {
-            font-weight: bold;
-            color: #333;
-            margin-bottom: 5px;
-        }
-        .comment-content {
-            color: #555;
-            margin-bottom: 5px;
-        }
-        .comment-time {
-            font-size: 12px;
-            color: #999;
-        }
-        .comment-form textarea {
-            width: 100%;
-            min-height: 80px;
-            padding: 10px;
-            border: 1px solid #ddd;
-            border-radius: 5px;
-            resize: vertical;
-            margin-bottom: 10px;
-        }
-        .comment-submit {
-            background: #1877f2;
-            color: white;
-            border: none;
-            padding: 8px 20px;
-            border-radius: 5px;
-            cursor: pointer;
-        }
-        .comment-submit:hover {
-            background: #166fe5;
-        }
-        .empty-feed {
-            text-align: center;
-            padding: 40px;
-            color: #666;
-            background: white;
-            border-radius: 10px;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-        }
-        .empty-feed i {
-            font-size: 48px;
-            color: #ddd;
-            margin-bottom: 15px;
-        }
-        .refresh-button {
-            background: #28a745;
-            color: white;
-            border: none;
-            padding: 8px 20px;
-            border-radius: 5px;
-            cursor: pointer;
-            margin-left: 10px;
-        }
-        .refresh-button:hover {
-            background: #218838;
-        }
-        .import-status {
-            background: #d4edda;
-            color: #155724;
-            padding: 10px;
-            border-radius: 5px;
-            margin-bottom: 15px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-        .tabs {
-            display: flex;
-            border-bottom: 1px solid #ddd;
-            margin-bottom: 20px;
-            background: white;
-            padding: 0 20px;
-            border-radius: 10px 10px 0 0;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-        }
-        .tab {
-            padding: 15px 25px;
-            cursor: pointer;
-            border-bottom: 3px solid transparent;
-            font-weight: bold;
-        }
-        .tab:hover {
-            background: #f8f9fa;
-        }
-        .tab.active {
-            border-bottom: 3px solid #1877f2;
-            color: #1877f2;
-        }
-        .groups-sidebar {
-            position: fixed;
-            right: 20px;
-            top: 100px;
-            width: 300px;
-            background: white;
-            border: 1px solid #ddd;
-            border-radius: 8px;
-            padding: 15px;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-        }
-        .group-tag {
-            display: inline-block;
-            background: #e9f7fe;
-            padding: 2px 8px;
-            border-radius: 12px;
-            font-size: 12px;
-            margin-left: 5px;
-        }
-    </style>
+    
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <link rel="stylesheet" href="{{ url_for('static', filename='defaults/style.css') }}">
+    <style>
+        .read-more-btn {
+            margin-top: 8px;
+            background: none;
+            border: none;
+            color: #1877f2;
+            cursor: pointer;
+            font-size: 14px;
+            padding: 4px 0;
+            font-weight: 500;
+        }
+        .read-more-btn:hover { text-decoration: underline; }
+    </style>
     <link rel="icon" type="image/png" href="{{ url_for('static', filename='uploads/favicon.png') }}">
 </head>
 <body>
@@ -475,8 +116,21 @@
                             </div>
                         </div>
                     </div>
-                    <div class="post-content">
-                        {{ item.content|safe }}
+                    <div class="post-content" id="post-content-{{ item.id }}">
+                        {% set paragraphs = item.content.split('\n\n') %}
+                        {% if paragraphs|length > 2 or item.content|length > 400 %}
+                            <div class="post-preview" id="preview-{{ item.id }}">
+                                {{ (item.content[:400] + '...')|safe if item.content|length > 400 else (paragraphs[:2]|join('\n\n'))|safe }}
+                            </div>
+                            <div class="post-full" id="full-{{ item.id }}" style="display:none;">
+                                {{ item.content|safe }}
+                            </div>
+                            <button class="read-more-btn" id="btn-{{ item.id }}" onclick="togglePost({{ item.id }})">
+                                <i class="fas fa-chevron-down"></i> Читать полностью
+                            </button>
+                        {% else %}
+                            {{ item.content|safe }}
+                        {% endif %}
                     </div>
                     <div class="post-actions">
                         <button class="action-button like-button" data-post-id="{{ item.id }}">
@@ -569,6 +223,20 @@
     </div>
 
     <script>
+    function togglePost(postId) {
+        const preview = document.getElementById('preview-' + postId);
+        const full = document.getElementById('full-' + postId);
+        const btn = document.getElementById('btn-' + postId);
+        if (full.style.display === 'none') {
+            preview.style.display = 'none';
+            full.style.display = 'block';
+            btn.innerHTML = '<i class="fas fa-chevron-up"></i> Свернуть';
+        } else {
+            preview.style.display = 'block';
+            full.style.display = 'none';
+            btn.innerHTML = '<i class="fas fa-chevron-down"></i> Читать полностью';
+        }
+    }
     document.addEventListener('DOMContentLoaded', function() {
         // Лайки постов
         document.querySelectorAll('.like-button').forEach(button => {
