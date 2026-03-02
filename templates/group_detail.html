@@ -316,19 +316,25 @@
 
                     <!-- Поле для загрузки файлов -->
                     <div style="margin-top: 15px; margin-bottom: 15px;">
-                        <label style="display: block; margin-bottom: 5px; font-weight: bold;">
-                            📎 Добавить фото или видео
+                        <label style="display: block; margin-bottom: 8px; font-weight: bold;">
+                            📎 Добавить файлы
                         </label>
-                        <input type="file" name="media_files" id="media-files"
-                               accept="image/*,video/*" multiple
-                               style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
-                        <p style="margin-top: 5px; color: #666; font-size: 12px;">
-                            Можно загрузить до 10 файлов. Максимальный размер: 50MB на файл
+                        <input type="file" id="media-files" name="media_files"
+                               accept="image/*,video/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.zip,.rar,.7z"
+                               multiple style="display:none;">
+                        <button type="button" onclick="document.getElementById('media-files').click()"
+                                style="padding: 8px 18px; background: #f0f0f0; border: 1px solid #ccc;
+                                       border-radius: 5px; cursor: pointer; font-size: 14px;">
+                            📂 Выбрать файлы
+                        </button>
+                        <span id="files-count" style="margin-left:10px;font-size:13px;color:#666;"></span>
+                        <p style="margin-top: 6px; color: #888; font-size: 12px;">
+                            Фото, видео, документы (PDF, Word, Excel и др.) · До 10 файлов · Макс. 50MB каждый<br>
+                            Нажимайте кнопку несколько раз — файлы будут добавляться к уже выбранным.
                         </p>
 
                         <!-- Превью загружаемых файлов -->
                         <div id="media-preview" class="media-preview-container">
-                            <!-- Сюда будут добавляться превью файлов -->
                         </div>
                     </div>
 
@@ -439,20 +445,52 @@
                     {% if post.media_files %}
                     <div class="post-media-grid">
                         {% for media in post.media_files %}
-                            <div class="media-item"
-                                 data-media-url="{{ url_for('static', filename='uploads/posts/' + media.filename) }}"
-                                 data-media-type="{{ media.file_type }}"
-                                 onclick="openMediaViewer(this.dataset.mediaUrl, this.dataset.mediaType)">
-                                {% if media.file_type == 'image' %}
-                                <img src="{{ url_for('static', filename='uploads/posts/' + media.filename) }}"
-                                     onerror="this.src='/static/defaults/for_groups.png'">
-                                {% elif media.file_type == 'video' %}
-                                <video>
-                                    <source src="{{ url_for('static', filename='uploads/posts/' + media.filename) }}">
-                                </video>
-                                <div class="video-icon">▶️ ВИДЕО</div>
-                                {% endif %}
-                            </div>
+                            {% if media.file_type == 'document' %}
+                                {% set doc_ext = media.filename.rsplit('.', 1)[-1].lower() %}
+                                {% set doc_name = media.original_filename if media.original_filename else media.filename %}
+                                <div class="media-item doc-item"
+                                     onclick="openDocViewer('{{ media.id }}', '{{ doc_ext }}', '{{ doc_name }}')"
+                                     style="cursor:pointer;">
+                                    <div style="display:flex;flex-direction:column;align-items:center;
+                                                justify-content:center;height:100%;min-height:110px;
+                                                padding:14px;background:#f8f9fa;border-radius:8px;
+                                                border:1px solid #ddd;transition:background 0.15s;"
+                                         onmouseover="this.style.background='#e9ecef'"
+                                         onmouseout="this.style.background='#f8f9fa'">
+                                        <span style="font-size:40px;line-height:1;">
+                                            {% if doc_ext == 'pdf' %}📄
+                                            {% elif doc_ext in ['doc','docx'] %}📝
+                                            {% elif doc_ext in ['xls','xlsx'] %}📊
+                                            {% elif doc_ext in ['ppt','pptx'] %}📑
+                                            {% elif doc_ext == 'txt' %}📃
+                                            {% elif doc_ext in ['zip','rar','7z'] %}🗜️
+                                            {% else %}📎{% endif %}
+                                        </span>
+                                        <span style="margin-top:8px;word-break:break-all;font-weight:500;
+                                                     max-width:170px;text-align:center;font-size:12px;color:#333;">
+                                            {{ doc_name }}
+                                        </span>
+                                        <span style="margin-top:5px;font-size:11px;color:#007bff;">
+                                            {% if doc_ext in ['zip','rar','7z'] %}Скачать{% else %}Открыть{% endif %}
+                                        </span>
+                                    </div>
+                                </div>
+                            {% else %}
+                                <div class="media-item"
+                                     data-media-url="{{ url_for('static', filename='uploads/posts/' + media.filename) }}"
+                                     data-media-type="{{ media.file_type }}"
+                                     onclick="openMediaViewer(this.dataset.mediaUrl, this.dataset.mediaType)">
+                                    {% if media.file_type == 'image' %}
+                                    <img src="{{ url_for('static', filename='uploads/posts/' + media.filename) }}"
+                                         onerror="this.src='/static/defaults/for_groups.png'">
+                                    {% elif media.file_type == 'video' %}
+                                    <video>
+                                        <source src="{{ url_for('static', filename='uploads/posts/' + media.filename) }}">
+                                    </video>
+                                    <div class="video-icon">▶️ ВИДЕО</div>
+                                    {% endif %}
+                                </div>
+                            {% endif %}
                         {% endfor %}
                     </div>
                     {% endif %}
@@ -594,299 +632,246 @@
     </div>
 
     <script>
-    document.getElementById('create-post-form').addEventListener('submit', function(e) {
-        const content = this.querySelector('textarea[name="content"]').value.trim();
-        const files = this.querySelector('#media-files').files;
+        // ================================================================
+        // НАКОПИТЕЛЬНЫЙ ВЫБОР ФАЙЛОВ + ОТПРАВКА ЧЕРЕЗ FETCH
+        // ================================================================
+        let selectedFiles = [];
 
-        console.log('Содержимое:', content);
-        console.log('Файлы:', files.length);
+        const FILE_ICONS = {
+            pdf:'📄', doc:'📝', docx:'📝',
+            xls:'📊', xlsx:'📊', ppt:'📑', pptx:'📑',
+            txt:'📃', zip:'🗜️', rar:'🗜️', '7z':'🗜️'
+        };
 
-        for (let i = 0; i < files.length; i++) {
-            console.log(`Файл ${i}:`, files[i].name, files[i].size, files[i].type);
+        function getFileIcon(file) {
+            const ext = file.name.split('.').pop().toLowerCase();
+            return FILE_ICONS[ext] || '📎';
         }
 
-        // Проверяем, есть ли хоть что-то
-        if (!content && files.length === 0) {
-            e.preventDefault();
-            alert('Пост не может быть пустым. Добавьте текст или файлы.');
-            return false;
-        }
+        function renderPreviews() {
+            const container = document.getElementById('media-preview');
+            const counter  = document.getElementById('files-count');
+            container.innerHTML = '';
+            counter.textContent  = selectedFiles.length ? `Выбрано: ${selectedFiles.length}` : '';
 
-        return true;
-    });
+            selectedFiles.forEach((file, index) => {
+                const type = file.type.split('/')[0]; // image | video | application | ...
+                const item = document.createElement('div');
+                item.className = 'media-preview-item';
+                item.style.cssText = 'display:flex;flex-direction:column;align-items:center;justify-content:center;padding:6px;box-sizing:border-box;';
 
-        // Переключение вкладок
-        function switchTab(tabName) {
-            // Убираем активный класс у всех вкладок
-            document.querySelectorAll('.tab-btn').forEach(btn => {
-                btn.classList.remove('active');
+                if (type === 'image') {
+                    const img = document.createElement('img');
+                    img.src = URL.createObjectURL(file);
+                    img.style.cssText = 'width:100%;height:70px;object-fit:cover;border-radius:4px;';
+                    item.appendChild(img);
+                } else if (type === 'video') {
+                    const vid = document.createElement('video');
+                    vid.src = URL.createObjectURL(file);
+                    vid.muted = true;
+                    vid.style.cssText = 'width:100%;height:70px;object-fit:cover;border-radius:4px;';
+                    item.appendChild(vid);
+                } else {
+                    // документ
+                    const icon = document.createElement('div');
+                    icon.style.cssText = 'font-size:32px;line-height:1;margin-top:6px;';
+                    icon.textContent = getFileIcon(file);
+                    item.appendChild(icon);
+                }
+
+                const name = document.createElement('div');
+                name.style.cssText = 'font-size:10px;color:#555;margin-top:4px;word-break:break-all;text-align:center;max-width:92px;';
+                name.textContent = file.name.length > 14 ? file.name.slice(0,12)+'…' : file.name;
+                item.appendChild(name);
+
+                const removeBtn = document.createElement('button');
+                removeBtn.type = 'button';
+                removeBtn.className = 'remove-media-btn';
+                removeBtn.innerHTML = '×';
+                removeBtn.addEventListener('click', () => {
+                    selectedFiles.splice(index, 1);
+                    renderPreviews();
+                });
+                item.appendChild(removeBtn);
+                container.appendChild(item);
             });
+        }
 
-            // Добавляем активный класс к нажатой вкладке
-            if (window.event && window.event.target) {
-                window.event.target.classList.add('active');
+        document.getElementById('media-files').addEventListener('change', function() {
+            Array.from(this.files).forEach(f => {
+                const dup = selectedFiles.some(s => s.name === f.name && s.size === f.size);
+                if (!dup) {
+                    if (selectedFiles.length < 10) selectedFiles.push(f);
+                    else alert('Максимум 10 файлов.');
+                }
+            });
+            renderPreviews();
+            this.value = ''; // сброс, чтобы можно было выбрать те же файлы снова
+        });
+
+        // Отправка через fetch, чтобы файлы из selectedFiles попали в запрос
+        document.getElementById('create-post-form').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const content = this.querySelector('textarea[name="content"]').value.trim();
+
+            if (!content && selectedFiles.length === 0) {
+                alert('Пост не может быть пустым. Добавьте текст или файлы.');
+                return;
             }
 
-            // Показываем соответствующий контент
-            document.querySelectorAll('.tab-content').forEach(content => {
-                content.classList.remove('active');
-            });
+            const maxSize = 50 * 1024 * 1024;
+            for (const f of selectedFiles) {
+                if (f.size > maxSize) {
+                    alert(`Файл "${f.name}" слишком большой. Максимум 50MB.`);
+                    return;
+                }
+            }
+
+            const fd = new FormData();
+            fd.append('content', content);
+            selectedFiles.forEach(f => fd.append('media_files', f));
+
+            const btn = this.querySelector('button[type="submit"]');
+            btn.disabled = true;
+            btn.textContent = 'Публикация...';
+
+            fetch(this.action, { method: 'POST', body: fd })
+                .then(r => { window.location.href = r.url; })
+                .catch(err => {
+                    alert('Ошибка: ' + err);
+                    btn.disabled = false;
+                    btn.textContent = 'Опубликовать';
+                });
+        });
+
+        // ================================================================
+        // ВКЛАДКИ
+        // ================================================================
+        function switchTab(tabName) {
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            if (window.event && window.event.target) window.event.target.classList.add('active');
+            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
             document.getElementById(`tab-${tabName}`).classList.add('active');
         }
 
-        // Подтверждение выхода из группы
+        // ================================================================
+        // ВЫХОД ИЗ ГРУППЫ
+        // ================================================================
         function confirmLeaveGroup(isCreator, groupName) {
             if (isCreator) {
-                return confirm(`ВНИМАНИЕ! Вы являетесь создателем группы "${groupName}".\n\nЕсли вы покинете группу, она будет автоматически УДАЛЕНА вместе со всеми постами и участниками!\n\nВы уверены, что хотите удалить группу?`);
-            } else {
-                return confirm(`Вы уверены, что хотите покинуть группу "${groupName}"?`);
+                return confirm(`ВНИМАНИЕ! Вы являетесь создателем группы "${groupName}".\n\nЕсли вы покинете группу, она будет автоматически УДАЛЕНА вместе со всеми постами и участниками!\n\nВы уверены?`);
             }
+            return confirm(`Вы уверены, что хотите покинуть группу "${groupName}"?`);
         }
 
-        // Привязка подтверждения выхода из группы к формам без inline-скриптов
         document.querySelectorAll('.leave-group-form').forEach(form => {
             form.addEventListener('submit', function(e) {
-                const isCreator = this.dataset.isCreator === '1';
-                const groupName = this.dataset.groupName || '';
-                if (!confirmLeaveGroup(isCreator, groupName)) {
+                if (!confirmLeaveGroup(this.dataset.isCreator === '1', this.dataset.groupName || ''))
                     e.preventDefault();
-                }
             });
         });
 
-        // Предпросмотр загружаемых файлов
-        document.getElementById('media-files').addEventListener('change', function(e) {
-            const previewContainer = document.getElementById('media-preview');
-            previewContainer.innerHTML = '';
-
-            const files = Array.from(this.files);
-
-            files.forEach((file, index) => {
-                const fileType = file.type.split('/')[0];
-                const previewItem = document.createElement('div');
-                previewItem.className = 'media-preview-item';
-
-                if (fileType === 'image') {
-                    const img = document.createElement('img');
-                    img.src = URL.createObjectURL(file);
-                    previewItem.appendChild(img);
-                } else if (fileType === 'video') {
-                    const video = document.createElement('video');
-                    video.src = URL.createObjectURL(file);
-                    video.controls = false;
-                    video.muted = true;
-                    previewItem.appendChild(video);
-                }
-
-                // Кнопка удаления файла
-                const removeBtn = document.createElement('button');
-                removeBtn.className = 'remove-media-btn';
-                removeBtn.innerHTML = '×';
-
-                removeBtn.addEventListener('click', function() {
-                    // Удаляем файл из input
-                    const dt = new DataTransfer();
-                    const filesArray = Array.from(document.getElementById('media-files').files);
-                    filesArray.splice(index, 1);
-                    filesArray.forEach(f => dt.items.add(f));
-                    document.getElementById('media-files').files = dt.files;
-
-                    // Удаляем превью
-                    previewItem.remove();
-                });
-
-                previewItem.appendChild(removeBtn);
-                previewContainer.appendChild(previewItem);
-            });
-        });
-
-        // Валидация формы создания поста
-        document.getElementById('create-post-form').addEventListener('submit', function(e) {
-            const content = this.querySelector('textarea[name="content"]').value.trim();
-            const files = this.querySelector('#media-files').files;
-
-            if (!content && files.length === 0) {
-                e.preventDefault();
-                alert('Пост не может быть пустым. Добавьте текст или файлы.');
-                return false;
-            }
-
-            // Проверка размера файлов (максимум 50MB)
-            const maxSize = 50 * 1024 * 1024;
-            for (let file of files) {
-                if (file.size > maxSize) {
-                    e.preventDefault();
-                    alert(`Файл "${file.name}" слишком большой. Максимальный размер: 50MB.`);
-                    return false;
-                }
-            }
-
-            // Проверка количества файлов (максимум 10)
-            if (files.length > 10) {
-                e.preventDefault();
-                alert('Можно загрузить не более 10 файлов за раз.');
-                return false;
-            }
-
-            return true;
-        });
-
-        // Удаление поста из группы
+        // ================================================================
+        // УДАЛЕНИЕ ПОСТА
+        // ================================================================
         function deleteGroupPost(postId) {
             if (confirm('Удалить этот пост?')) {
-                fetch(`/group_post/delete/${postId}`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    }
-                })
-                .then(response => response.json())
-                .then(data => {
-                    if (data.success) {
-                        location.reload();
-                    } else {
-                        alert('Ошибка: ' + data.error);
-                    }
-                })
-                .catch(error => {
-                    alert('Ошибка сети: ' + error);
-                });
+                fetch(`/group_post/delete/${postId}`, { method:'POST', headers:{'Content-Type':'application/json'} })
+                .then(r => r.json())
+                .then(d => { if (d.success) location.reload(); else alert('Ошибка: '+d.error); })
+                .catch(err => alert('Ошибка сети: '+err));
             }
         }
 
-        // Редактирование поста
+        // ================================================================
+        // РЕДАКТИРОВАНИЕ ПОСТА
+        // ================================================================
         function editPost(postId) {
             const postContainer = document.getElementById(`post-${postId}`);
-            const postContent = document.getElementById(`post-content-${postId}`);
+            const postContent   = document.getElementById(`post-content-${postId}`);
 
-            // Создаем textarea для редактирования
-            const editTextarea = document.createElement('textarea');
-            editTextarea.id = `edit-content-${postId}`;
-            editTextarea.className = 'edit-textarea';
-            editTextarea.value = postContent.textContent;
+            const ta = document.createElement('textarea');
+            ta.id = `edit-content-${postId}`;
+            ta.className = 'edit-textarea';
+            ta.value = postContent.textContent;
 
-            // Создаем кнопки управления
-            const buttonContainer = document.createElement('div');
-            buttonContainer.style.marginTop = '10px';
+            const btnWrap = document.createElement('div');
+            btnWrap.style.marginTop = '10px';
 
-            const saveButton = document.createElement('button');
-            saveButton.textContent = 'Сохранить';
-            saveButton.style.padding = '8px 15px';
-            saveButton.style.background = '#28a745';
-            saveButton.style.color = 'white';
-            saveButton.style.border = 'none';
-            saveButton.style.borderRadius = '4px';
-            saveButton.style.marginRight = '10px';
-            saveButton.onclick = () => saveEdit(postId);
+            const saveBtn = document.createElement('button');
+            saveBtn.textContent = 'Сохранить';
+            Object.assign(saveBtn.style, {padding:'8px 15px',background:'#28a745',color:'white',border:'none',borderRadius:'4px',marginRight:'10px'});
+            saveBtn.onclick = () => saveEdit(postId);
 
-            const cancelButton = document.createElement('button');
-            cancelButton.textContent = 'Отмена';
-            cancelButton.style.padding = '8px 15px';
-            cancelButton.style.background = '#6c757d';
-            cancelButton.style.color = 'white';
-            cancelButton.style.border = 'none';
-            cancelButton.style.borderRadius = '4px';
-            cancelButton.onclick = () => cancelEdit(postId);
+            const cancelBtn = document.createElement('button');
+            cancelBtn.textContent = 'Отмена';
+            Object.assign(cancelBtn.style, {padding:'8px 15px',background:'#6c757d',color:'white',border:'none',borderRadius:'4px'});
+            cancelBtn.onclick = () => cancelEdit(postId);
 
-            buttonContainer.appendChild(saveButton);
-            buttonContainer.appendChild(cancelButton);
+            btnWrap.appendChild(saveBtn);
+            btnWrap.appendChild(cancelBtn);
 
-            // Скрываем оригинальный контент и кнопки лайков
             postContent.style.display = 'none';
-            const actionsDiv = postContainer.querySelector('div[style*="border-top: 1px solid #eee"]');
-            if (actionsDiv) actionsDiv.style.display = 'none';
+            const actDiv = postContainer.querySelector('div[style*="border-top: 1px solid #eee"]');
+            if (actDiv) actDiv.style.display = 'none';
+            const grid = postContainer.querySelector('.post-media-grid');
+            if (grid) grid.style.display = 'none';
 
-            // Скрываем медиафайлы если есть
-            const mediaGrid = postContainer.querySelector('.post-media-grid');
-            if (mediaGrid) mediaGrid.style.display = 'none';
-
-            // Добавляем элементы редактирования
-            postContainer.appendChild(editTextarea);
-            postContainer.appendChild(buttonContainer);
+            postContainer.appendChild(ta);
+            postContainer.appendChild(btnWrap);
             postContainer.classList.add('edit-mode');
         }
 
         function saveEdit(postId) {
-            const editTextarea = document.getElementById(`edit-content-${postId}`);
-            const newContent = editTextarea.value.trim();
-
-            if (!newContent) {
-                alert('Пост не может быть пустым');
-                return;
-            }
+            const newContent = document.getElementById(`edit-content-${postId}`).value.trim();
+            if (!newContent) { alert('Пост не может быть пустым'); return; }
 
             fetch(`/group_post/edit/${postId}`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({ content: newContent })
+                method:'POST', headers:{'Content-Type':'application/json'},
+                body: JSON.stringify({content: newContent})
             })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    // Обновляем содержимое поста
-                    const postContent = document.getElementById(`post-content-${postId}`);
-                    postContent.textContent = newContent;
-
-                    // Возвращаем обычный вид
+            .then(r => r.json())
+            .then(d => {
+                if (d.success) {
+                    document.getElementById(`post-content-${postId}`).textContent = newContent;
                     cancelEdit(postId);
-                    alert('Пост успешно обновлен!');
-                } else {
-                    alert('Ошибка: ' + data.error);
-                }
+                    alert('Пост успешно обновлён!');
+                } else alert('Ошибка: '+d.error);
             })
-            .catch(error => {
-                alert('Ошибка сети: ' + error);
-            });
+            .catch(err => alert('Ошибка сети: '+err));
         }
 
         function cancelEdit(postId) {
             const postContainer = document.getElementById(`post-${postId}`);
-            const editTextarea = document.getElementById(`edit-content-${postId}`);
-            const buttonContainer = editTextarea.nextElementSibling;
+            const ta  = document.getElementById(`edit-content-${postId}`);
+            const btnWrap = ta.nextElementSibling;
+            ta.remove(); btnWrap.remove();
 
-            // Удаляем элементы редактирования
-            editTextarea.remove();
-            buttonContainer.remove();
-
-            // Показываем оригинальный контент и кнопки лайков
-            const postContent = document.getElementById(`post-content-${postId}`);
-            postContent.style.display = 'block';
-            const actionsDiv = postContainer.querySelector('div[style*="border-top: 1px solid #eee"]');
-            if (actionsDiv) actionsDiv.style.display = 'block';
-
-            // Показываем медиафайлы если есть
-            const mediaGrid = postContainer.querySelector('.post-media-grid');
-            if (mediaGrid) mediaGrid.style.display = 'grid';
-
+            document.getElementById(`post-content-${postId}`).style.display = 'block';
+            const actDiv = postContainer.querySelector('div[style*="border-top: 1px solid #eee"]');
+            if (actDiv) actDiv.style.display = 'block';
+            const grid = postContainer.querySelector('.post-media-grid');
+            if (grid) grid.style.display = 'grid';
             postContainer.classList.remove('edit-mode');
         }
 
-        // Лайк поста
+        // ================================================================
+        // ЛАЙК
+        // ================================================================
         function likeGroupPost(postId) {
-            fetch(`/like_post/${postId}?type=group`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                }
+            fetch(`/like_post/${postId}?type=group`, { method:'POST', headers:{'Content-Type':'application/json'} })
+            .then(r => r.json())
+            .then(d => {
+                if (d.success)
+                    document.querySelectorAll(`button.like-post-btn[data-post-id="${postId}"]`)
+                             .forEach(b => b.innerHTML = `👍 ${d.likes_count}`);
             })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    // Найдем кнопку лайка и обновим счетчик
-                    const buttons = document.querySelectorAll(`button.like-post-btn[data-post-id="${postId}"]`);
-                    buttons.forEach(btn => {
-                        btn.innerHTML = `👍 ${data.likes_count}`;
-                    });
-                }
-            })
-            .catch(error => {
-                console.error('Ошибка:', error);
-            });
+            .catch(err => console.error('Ошибка:', err));
         }
 
-        // Просмотр медиа в полноэкранном режиме
+        // ================================================================
+        // ПРОСМОТР КАРТИНОК / ВИДЕО — модальное окно поверх страницы
+        // ================================================================
         function openMediaViewer(src, type) {
             const viewer = document.createElement('div');
             viewer.className = 'media-viewer';
@@ -896,68 +881,85 @@
                 img.src = src;
                 viewer.appendChild(img);
             } else if (type === 'video') {
-                const video = document.createElement('video');
-                video.src = src;
-                video.controls = true;
-                video.autoplay = true;
-                video.style.maxWidth = '90%';
-                video.style.maxHeight = '90%';
-                viewer.appendChild(video);
+                const vid = document.createElement('video');
+                vid.src = src; vid.controls = true; vid.autoplay = true;
+                vid.style.cssText = 'max-width:90%;max-height:90%;';
+                viewer.appendChild(vid);
             }
 
-            const closeBtn = document.createElement('button');
-            closeBtn.className = 'media-viewer-close';
-            closeBtn.innerHTML = '×';
-            closeBtn.onclick = function() {
-                document.body.removeChild(viewer);
-            };
-
-            viewer.appendChild(closeBtn);
-            viewer.onclick = function(e) {
-                if (e.target === viewer) {
-                    document.body.removeChild(viewer);
-                }
-            };
-
+            const close = document.createElement('button');
+            close.className = 'media-viewer-close';
+            close.innerHTML = '×';
+            close.onclick = () => document.body.removeChild(viewer);
+            viewer.appendChild(close);
+            viewer.onclick = e => { if (e.target === viewer) document.body.removeChild(viewer); };
             document.body.appendChild(viewer);
         }
 
-        // Функции для обработки заявок
+        // ================================================================
+        // ПРОСМОТР ДОКУМЕНТОВ — модальное окно с iframe поверх страницы
+        // ================================================================
+        function openDocViewer(mediaId, ext, filename) {
+            if (['zip','rar','7z'].includes(ext)) {
+                var a = document.createElement('a');
+                a.href = '/view_document/' + mediaId;
+                a.download = filename;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                return;
+            }
+
+            var old = document.getElementById('doc-overlay');
+            if (old) old.remove();
+
+            var overlay = document.createElement('div');
+            overlay.id = 'doc-overlay';
+            overlay.className = 'media-viewer';
+
+            var closeBtn = document.createElement('button');
+            closeBtn.className = 'media-viewer-close';
+            closeBtn.innerHTML = '&times;';
+            closeBtn.onclick = function() { overlay.remove(); };
+
+            var container = document.createElement('div');
+            container.style.cssText = 'background:white;border-radius:10px;width:90%;max-width:860px;min-height:60vh;height:80vh;overflow-y:auto;padding:30px;box-sizing:border-box;';
+            container.innerHTML = '<div style="text-align:center;padding:20px;color:#666;">Загрузка...</div>';
+
+            overlay.appendChild(container);
+            overlay.appendChild(closeBtn);
+            overlay.onclick = function(e) { if (e.target === overlay) overlay.remove(); };
+            document.body.appendChild(overlay);
+
+            document.addEventListener('keydown', function escClose(e) {
+                if (e.key === 'Escape') { overlay.remove(); document.removeEventListener('keydown', escClose); }
+            });
+
+            fetch('/view_document_content/' + mediaId)
+                .then(function(r) { return r.text(); })
+                .then(function(html) { container.innerHTML = html; })
+                .catch(function(err) { container.innerHTML = '<div style="padding:24px;color:red;">Ошибка: ' + err + '</div>'; });
+        }
+
+
+        // ================================================================
+        // ЗАЯВКИ
+        // ================================================================
         function approveRequest(requestId, username) {
             if (confirm(`Принять пользователя @${username} в группу?`)) {
-                fetch(`/group/{{ group.id }}/request/${requestId}/approve`, {
-                    method: 'GET',
-                })
-                .then(response => response.json())
-                .then(data => {
-                    if (data.success) {
-                        location.reload();
-                    } else {
-                        alert('Ошибка: ' + data.error);
-                    }
-                })
-                .catch(error => {
-                    alert('Ошибка сети: ' + error);
-                });
+                fetch(`/group/{{ group.id }}/request/${requestId}/approve`, { method:'GET' })
+                .then(r => r.json())
+                .then(d => { if (d.success) location.reload(); else alert('Ошибка: '+d.error); })
+                .catch(err => alert('Ошибка сети: '+err));
             }
         }
 
         function rejectRequest(requestId, username) {
             if (confirm(`Отклонить заявку пользователя @${username}?`)) {
-                fetch(`/group/{{ group.id }}/request/${requestId}/reject`, {
-                    method: 'GET',
-                })
-                .then(response => response.json())
-                .then(data => {
-                    if (data.success) {
-                        location.reload();
-                    } else {
-                        alert('Ошибка: ' + data.error);
-                    }
-                })
-                .catch(error => {
-                    alert('Ошибка сети: ' + error);
-                });
+                fetch(`/group/{{ group.id }}/request/${requestId}/reject`, { method:'GET' })
+                .then(r => r.json())
+                .then(d => { if (d.success) location.reload(); else alert('Ошибка: '+d.error); })
+                .catch(err => alert('Ошибка сети: '+err));
             }
         }
 
