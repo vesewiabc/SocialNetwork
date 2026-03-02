@@ -1,0 +1,817 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FAQ — Часто задаваемые вопросы</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='defaults/style.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <style>
+        .faq-container {
+            max-width: 800px;
+            margin: 40px auto;
+            padding: 0 16px;
+        }
+        .faq-header {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+        .faq-header h1 {
+            font-family: var(--font-display);
+            font-size: 36px;
+            background: var(--accent-gradient);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 10px;
+        }
+        .faq-header p {
+            color: var(--text-secondary);
+            font-size: 16px;
+        }
+        .faq-search {
+            margin-bottom: 30px;
+            position: relative;
+        }
+        .faq-search input {
+            width: 100%;
+            padding: 15px 20px 15px 50px;
+            border: 2px solid var(--border-light);
+            border-radius: var(--radius-full);
+            font-family: var(--font-body);
+            font-size: 16px;
+            transition: all var(--transition);
+            background: var(--bg-card);
+        }
+        .faq-search input:focus {
+            border-color: var(--amber-400);
+            box-shadow: 0 0 0 3px rgba(251,191,36,0.2);
+            outline: none;
+        }
+        .faq-search i {
+            position: absolute;
+            left: 20px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--text-muted);
+            font-size: 18px;
+        }
+        .faq-categories {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin-bottom: 30px;
+            justify-content: center;
+        }
+        .category-btn {
+            padding: 8px 20px;
+            border-radius: var(--radius-full);
+            background: var(--gray-100);
+            border: 1px solid var(--border-light);
+            color: var(--text-secondary);
+            font-weight: 600;
+            font-size: 14px;
+            cursor: pointer;
+            transition: all var(--transition);
+        }
+        .category-btn:hover {
+            background: var(--amber-50);
+            border-color: var(--amber-300);
+            color: var(--amber-700);
+        }
+        .category-btn.active {
+            background: var(--accent-gradient);
+            color: #111;
+            border-color: transparent;
+        }
+        .faq-section {
+            background: var(--bg-card);
+            border-radius: var(--radius-lg);
+            overflow: hidden;
+            box-shadow: var(--shadow-sm);
+            border: 1px solid var(--border-light);
+            margin-bottom: 20px;
+        }
+        .faq-section h2 {
+            padding: 20px 24px;
+            margin: 0;
+            font-family: var(--font-display);
+            font-size: 18px;
+            background: var(--gray-50);
+            border-bottom: 1px solid var(--border-light);
+            color: var(--text-primary);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .faq-section h2 i {
+            color: var(--amber-500);
+            font-size: 20px;
+        }
+        .faq-item {
+            border-bottom: 1px solid var(--border-light);
+        }
+        .faq-item:last-child {
+            border-bottom: none;
+        }
+        .faq-question {
+            padding: 18px 24px;
+            cursor: pointer;
+            display: flex;
+        align-items: center;
+            justify-content: space-between;
+            transition: background var(--transition);
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+        .faq-question:hover {
+            background: var(--amber-50);
+        }
+        .faq-question i {
+            transition: transform var(--transition);
+            color: var(--amber-500);
+        }
+        .faq-question.active i {
+            transform: rotate(180deg);
+        }
+        .faq-answer {
+            padding: 0 24px;
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.3s ease-out;
+            background: var(--gray-50);
+        }
+        .faq-answer.show {
+            padding: 18px 24px;
+            max-height: 500px;
+        }
+        .faq-answer-content {
+            color: var(--text-secondary);
+            line-height: 1.7;
+        }
+        .faq-answer-content p {
+            margin-bottom: 12px;
+        }
+        .faq-answer-content ul, .faq-answer-content ol {
+            margin-left: 20px;
+            margin-bottom: 12px;
+        }
+        .faq-answer-content li {
+            margin-bottom: 6px;
+        }
+        .faq-answer-content code {
+            background: var(--gray-200);
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 13px;
+        }
+        .faq-empty {
+            text-align: center;
+            padding: 60px 20px;
+            color: var(--text-muted);
+            background: var(--bg-card);
+            border-radius: var(--radius-lg);
+            border: 1px solid var(--border-light);
+        }
+        .faq-empty i {
+            font-size: 48px;
+            color: var(--gray-300);
+            margin-bottom: 16px;
+        }
+        .contact-support {
+            margin-top: 40px;
+            text-align: center;
+            padding: 30px;
+            background: var(--amber-50);
+            border-radius: var(--radius-lg);
+            border: 1px solid var(--amber-200);
+        }
+        .contact-support h3 {
+            font-family: var(--font-display);
+            font-size: 18px;
+            color: var(--amber-700);
+            margin-bottom: 10px;
+        }
+        .contact-support p {
+            color: var(--text-secondary);
+            margin-bottom: 20px;
+        }
+        .support-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 12px 30px;
+            border-radius: var(--radius-full);
+            background: var(--accent-gradient);
+            color: #111;
+            font-weight: 700;
+            text-decoration: none;
+            transition: all var(--transition);
+        }
+        .support-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(245,158,11,0.45);
+            color: #000;
+        }
+        .back-to-home {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 20px;
+            color: var(--text-secondary);
+            text-decoration: none;
+            font-weight: 600;
+            transition: color var(--transition);
+        }
+        .back-to-home:hover {
+            color: var(--amber-600);
+        }
+    </style>
+</head>
+<body>
+    <!-- Шапка -->
+    <header class="header">
+        <div class="header-content">
+            <div class="logo">
+            </div>
+            <div class="user-info">
+                <span class="user-welcome">
+                    <i class="fas fa-user-circle"></i>
+                    {{ username }}
+                </span>
+                <a href="/logout" class="logout-link">
+                    <i class="fas fa-sign-out-alt"></i> Выйти
+                </a>
+            </div>
+        </div>
+    </header>
+    <div class="faq-container">
+        <a href="/home" class="back-to-home">
+            <i class="fas fa-arrow-left"></i> На главную
+        </a>
+
+        <div class="faq-header">
+            <h1>Часто задаваемые вопросы</h1>
+            <p>Найдите ответы на популярные вопросы о социальной сети</p>
+        </div>
+
+        <div class="faq-search">
+            <i class="fas fa-search"></i>
+            <input type="text" id="faqSearch" placeholder="Поиск по вопросам..." onkeyup="searchFAQ()">
+        </div>
+
+        <div class="faq-categories">
+            <button class="category-btn active" onclick="filterCategory('all')">Все</button>
+            <button class="category-btn" onclick="filterCategory('account')">Аккаунт</button>
+            <button class="category-btn" onclick="filterCategory('friends')">Друзья</button>
+            <button class="category-btn" onclick="filterCategory('groups')">Группы</button>
+            <button class="category-btn" onclick="filterCategory('posts')">Посты</button>
+            <button class="category-btn" onclick="filterCategory('security')">Безопасность</button>
+        </div>
+
+        <!-- Аккаунт -->
+        <div class="faq-section" data-category="account">
+            <h2><i class="fas fa-user-circle"></i> Аккаунт и профиль</h2>
+
+            <div class="faq-item">
+                <div class="faq-question" onclick="toggleAnswer(this)">
+                    Как зарегистрироваться в социальной сети?
+                    <i class="fas fa-chevron-down"></i>
+                </div>
+                <div class="faq-answer">
+                    <div class="faq-answer-content">
+                        <p>Для регистрации выполните следующие шаги:</p>
+                        <ol>
+                            <li>Нажмите кнопку "Регистрация" на странице входа</li>
+                            <li>Придумайте уникальное имя пользователя</li>
+                            <li>Создайте надежный пароль (минимум 6 символов)</li>
+                            <li>Подтвердите пароль</li>
+                            <li>Примите условия пользовательского соглашения</li>
+                            <li>Нажмите "Зарегистрироваться"</li>
+                        </ol>
+                        <p>После успешной регистрации вы сможете войти в свой аккаунт.</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="faq-item">
+                <div class="faq-question" onclick="toggleAnswer(this)">
+                    Как изменить информацию в профиле?
+                    <i class="fas fa-chevron-down"></i>
+                </div>
+                <div class="faq-answer">
+                    <div class="faq-answer-content">
+                        <p>Чтобы отредактировать профиль:</p>
+                        <ol>
+                            <li>Перейдите на свою страницу профиля</li>
+                            <li>Нажмите кнопку "Редактировать профиль"</li>
+                            <li>Заполните или измените следующие поля:
+                                <ul>
+                                    <li>Полное имя</li>
+                                    <li>О себе (биография)</li>
+                                    <li>Местоположение</li>
+                                    <li>Аватар (загрузите изображение)</li>
+                                </ul>
+                            </li>
+                            <li>Нажмите "Сохранить изменения"</li>
+                        </ol>
+                    </div>
+                </div>
+            </div>
+            <div class="faq-item">
+                <div class="faq-question" onclick="toggleAnswer(this)">
+                    Как загрузить или изменить аватар?
+                    <i class="fas fa-chevron-down"></i>
+                </div>
+                <div class="faq-answer">
+                    <div class="faq-answer-content">
+                        <p>Для загрузки аватара:</p>
+                        <ol>
+                            <li>Зайдите в редактирование профиля</li>
+                            <li>Нажмите на кнопку "Выберите файл" в разделе аватара</li>
+                            <li>Выберите изображение на компьютере</li>
+                            <li>Поддерживаемые форматы: JPG, PNG, GIF, WEBP</li>
+                            <li>Максимальный размер файла: 2 МБ</li>
+                            <li>Сохраните изменения</li>
+                        </ol>
+                        <p>Если вы не загрузите аватар, будет использоваться изображение по умолчанию.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Друзья -->
+        <div class="faq-section" data-category="friends">
+            <h2><i class="fas fa-user-friends"></i> Друзья</h2>
+
+            <div class="faq-item">
+                <div class="faq-question" onclick="toggleAnswer(this)">
+                    Как найти и добавить друзей?
+                    <i class="fas fa-chevron-down"></i>
+                </div>
+                <div class="faq-answer">
+                    <div class="faq-answer-content">
+                        <p>Чтобы найти друзей:</p>
+                        <ol>
+                            <li>Перейдите в раздел "Найти друзей" через боковое меню</li>
+                            <li>Введите имя пользователя или полное имя в поиск</li>
+                            <li>Нажмите "Найти"</li>
+                            <li>В результатах поиска нажмите "Добавить в друзья"</li>
+                        </ol>
+                        <p>После отправки заявки пользователь получит уведомление. Когда он примет заявку, вы станете друзьями.</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="faq-item">
+                <div class="faq-question" onclick="toggleAnswer(this)">
+                    Как принять или отклонить заявку в друзья?
+                    <i class="fas fa-chevron-down"></i>
+                </div>
+                <div class="faq-answer">
+                    <div class="faq-answer-content">
+                        <p>Для управления заявками:</p>
+                        <ol>
+                            <li>Перейдите в раздел "Друзья"</li>
+                            <li>В разделе "Входящие заявки" вы увидите список пользователей</li>
+                            <li>Нажмите "Принять" чтобы подтвердить дружбу</li>
+                            <li>Нажмите "Отклонить" чтобы отклонить заявку</li>
+                        </ol>
+                        <p>Вы также можете отменить свои исходящие заявки в разделе "Исходящие заявки".</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="faq-item">
+                <div class="faq-question" onclick="toggleAnswer(this)">
+                    Как удалить пользователя из друзей?
+                    <i class="fas fa-chevron-down"></i>
+                </div>
+                <div class="faq-answer">
+                    <div class="faq-answer-content">
+                        <p>Чтобы удалить друга:</p>
+                        <ol>
+                            <li>Перейдите в раздел "Друзья"</li>
+                            <li>Найдите пользователя в списке друзей</li>
+                            <li>Нажмите на иконку меню (три точки) или кнопку "Удалить из друзей"</li>
+                            <li>Подтвердите удаление</li>
+                        </ol>
+                        <p>После удаления вы сможете снова отправить заявку, если захотите.</p>
+                    </div>
+                </div>
+            </div>
+            <div class="faq-item">
+                <div class="faq-question" onclick="toggleAnswer(this)">
+                    Что такое черный список?
+                    <i class="fas fa-chevron-down"></i>
+                </div>
+                <div class="faq-answer">
+                    <div class="faq-answer-content">
+                        <p>Черный список позволяет:</p>
+                        <ul>
+                            <li>Заблокировать пользователя, чтобы он не мог:
+                                <ul>
+                                    <li>Отправлять вам заявки в друзья</li>
+                                    <li>Писать вам (функция будет добавлена)</li>
+                                    <li>Взаимодействовать с вашим контентом</li>
+                                </ul>
+                            </li>
+                            <li>Управлять черным списком можно в разделе профиля</li>
+                            <li>Вы всегда можете удалить пользователя из черного списка</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
+            <div class="faq-item">
+                <div class="faq-question" onclick="toggleAnswer(this)">
+                    Как пожаловаться на пользователя?
+                    <i class="fas fa-chevron-down"></i>
+                </div>
+                <div class="faq-answer">
+                    <div class="faq-answer-content">
+                        <p>Если вы столкнулись с нарушением:</p>
+                        <ol>
+                            <li>На странице пользователя или в списке друзей найдите кнопку "Пожаловаться"</li>
+                            <li>Выберите тип нарушения:
+                                <ul>
+                                    <li>Оскорбления и травля</li>
+                                    <li>Спам</li>
+                                    <li>Неприемлемый контент</li>
+                                    <li>Другое</li>
+                                </ul>
+                            </li>
+                            <li>Опишите ситуацию подробно (минимум 10 символов)</li>
+                            <li>Отправьте жалобу</li>
+                        </ol>
+                        <p>Администратор рассмотрит жалобу и примет необходимые меры.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Посты -->
+        <div class="faq-section" data-category="posts">
+            <h2><i class="fas fa-newspaper"></i> Посты</h2>
+
+            <div class="faq-item">
+                <div class="faq-question" onclick="toggleAnswer(this)">
+                    Как создать пост?
+                    <i class="fas fa-chevron-down"></i>
+                </div>
+                <div class="faq-answer">
+                    <div class="faq-answer-content">
+                        <p>Создать пост можно несколькими способами:</p>
+                        <ol>
+                            <li>На главной странице в форме "Создать пост":</li>
+                            <ul>
+                                <li>Напишите текст поста</li>
+                                <li>При необходимости прикрепите файлы</li>
+                                <li>Нажмите "Опубликовать"</li>
+                            </ul>
+                            <li>На странице "Мои посты" также есть форма создания</li>
+                        </ol>
+                    </div>
+                </div>
+            </div>
+
+            <div class="faq-item">
+                <div class="faq-question" onclick="toggleAnswer(this)">
+                    Какие файлы можно прикреплять к постам?
+                    <i class="fas fa-chevron-down"></i>
+                </div>
+                <div class="faq-answer">
+                    <div class="faq-answer-content">
+                        <p>Поддерживаются следующие типы файлов:</p>
+                        <ul>
+                            <li><strong>Изображения:</strong> PNG, JPG, JPEG, GIF, WEBP</li>
+                            <li><strong>Видео:</strong> MP4, AVI, MOV, WMV, MKV, WEBM</li>
+                            <li><strong>Документы:</strong> PDF, DOC, DOCX, XLS, XLSX, PPT, PPTX, TXT</li>
+                            <li><strong>Архивы:</strong> ZIP, RAR, 7Z</li>
+                        </ul>
+                        <p>Максимальный размер файла: 50 МБ</p>
+                        <p>Документы можно просматривать прямо на сайте!</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="faq-item">
+                <div class="faq-question" onclick="toggleAnswer(this)">
+                    Как поставить лайк или оставить комментарий?
+                    <i class="fas fa-chevron-down"></i>
+                </div>
+                <div class="faq-answer">
+                    <div class="faq-answer-content">
+                        <p>Взаимодействие с постами:</p>
+                        <ul>
+                            <li><strong>Лайк:</strong> Нажмите на иконку сердечка под постом. Повторное нажатие убирает лайк</li>
+                            <li><strong>Комментарий:</strong> Нажмите "Комментировать", напишите текст и отправьте</li>
+                            <li>Вы можете удалять свои комментарии</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
+            <div class="faq-item">
+                <div class="faq-question" onclick="toggleAnswer(this)">
+                    Как редактировать или удалить свой пост?
+                    <i class="fas fa-chevron-down"></i>
+                </div>
+                <div class="faq-answer">
+                    <div class="faq-answer-content">
+                        <p>Управление постами:</p>
+                        <ol>
+                            <li><strong>Редактирование:</strong>
+                                <ul>
+                                    <li>На странице поста или в списке "Мои посты" нажмите кнопку "Редактировать"</li>
+                                    <li>Измените текст и сохраните изменения</li>
+                                </ul>
+                            </li>
+                            <li><strong>Удаление:</strong>
+                                <ul>
+                                    <li>Нажмите кнопку "Удалить" рядом с постом</li>
+                                    <li>Подтвердите удаление</li>
+                                </ul>
+                            </li>
+                        </ol>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Группы -->
+        <div class="faq-section" data-category="groups">
+            <h2><i class="fas fa-users"></i> Группы</h2>
+
+            <div class="faq-item">
+                <div class="faq-question" onclick="toggleAnswer(this)">
+                    Как создать группу?
+                    <i class="fas fa-chevron-down"></i>
+                </div>
+                <div class="faq-answer">
+                    <div class="faq-answer-content">
+                        <p>Для создания группы:</p>
+                        <ol>
+                            <li>Перейдите в раздел "Группы"</li>
+                            <li>Нажмите кнопку "Создать группу"</li>
+                            <li>Заполните:
+                                <ul>
+                                    <li>Название группы (обязательно)</li>
+                                    <li>Описание</li>
+                                    <li>Загрузите аватар (опционально)</li>
+                                </ul>
+                            </li>
+                            <li>Нажмите "Создать"</li>
+                        </ol>
+                        <p>Вы автоматически станете администратором группы.</p>
+                    </div>
+                </div>
+            </div>
+            <div class="faq-item">
+                <div class="faq-question" onclick="toggleAnswer(this)">
+                    Как вступить в группу?
+                    <i class="fas fa-chevron-down"></i>
+                </div>
+                <div class="faq-answer">
+                    <div class="faq-answer-content">
+                        <p>Вступление в группу:</p>
+                        <ul>
+                            <li><strong>Публичные группы:</strong> Нажмите "Вступить" на странице группы</li>
+                            <li><strong>Приватные группы:</strong> Нажмите "Подать заявку" и ожидайте одобрения администратора</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
+            <div class="faq-item">
+                <div class="faq-question" onclick="toggleAnswer(this)">
+                    Какие роли бывают в группах?
+                    <i class="fas fa-chevron-down"></i>
+                </div>
+                <div class="faq-answer">
+                    <div class="faq-answer-content">
+                        <p>В группах есть следующие роли:</p>
+                        <ul>
+                            <li><strong>Администратор:</strong> Полный доступ к управлению группой, может:
+                                <ul>
+                                    <li>Изменять настройки группы</li>
+                                    <li>Назначать модераторов</li>
+                                    <li>Удалять участников</li>
+                                    <li>Удалять посты</li>
+                                </ul>
+                            </li>
+                            <li><strong>Модератор:</strong> Помогает модерировать контент:
+                                <ul>
+                                    <li>Удалять посты обычных участников</li>
+                                    <li>Обрабатывать заявки (если разрешено)</li>
+                                </ul>
+                            </li>
+                            <li><strong>Участник:</strong> Может создавать посты (если разрешено)</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
+            <div class="faq-item">
+                <div class="faq-question" onclick="toggleAnswer(this)">
+                    Как настроить права публикации в группе?
+                    <i class="fas fa-chevron-down"></i>
+                </div>
+                <div class="faq-answer">
+                    <div class="faq-answer-content">
+                        <p>Администратор может настроить, кто может создавать посты:</p>
+                        <ol>
+                            <li>Перейдите в настройки группы</li>
+                            <li>В разделе "Права" выберите опцию:
+                                <ul>
+                                    <li><strong>Все участники</strong> — любой участник может публиковать</li>
+                                    <li><strong>Администраторы и модераторы</strong> — только руководство</li>
+                                    <li><strong>Только администраторы</strong> — максимальные ограничения</li>
+                                </ul>
+                            </li>
+                            <li>Сохраните изменения</li>
+                        </ol>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Безопасность -->
+        <div class="faq-section" data-category="security">
+            <h2><i class="fas fa-shield-alt"></i> Безопасность</h2>
+
+            <div class="faq-item">
+                <div class="faq-question" onclick="toggleAnswer(this)">
+                    Как защитить свой аккаунт?
+                    <i class="fas fa-chevron-down"></i>
+                </div>
+                <div class="faq-answer">
+                    <div class="faq-answer-content">
+                        <p>Рекомендации по безопасности:</p>
+                        <ul>
+                            <li>Используйте надежный пароль (минимум 8 символов, буквы разного регистра, цифры)</li>
+                            <li>Не сообщайте пароль третьим лицам</li>
+                            <li>Выходите из аккаунта на общедоступных устройствах</li>
+                            <li>Не используйте один пароль на разных сайтах</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
+            <div class="faq-item">
+                <div class="faq-question" onclick="toggleAnswer(this)">
+                    Что делать, если я забыл пароль?
+                    <i class="fas fa-chevron-down"></i>
+                </div>
+                <div class="faq-answer">
+                    <div class="faq-answer-content">
+                        <p>В настоящее время восстановление пароля через email не реализовано. Пожалуйста:</p>
+                        <ol>
+                            <li>Обратитесь к администратору для сброса пароля</li>
+                            <li>Используйте тестовые аккаунты для демонстрации</li>
+                        </ol>
+                        <p>В будущем будет добавлена функция восстановления пароля.</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="faq-item">
+                <div class="faq-question" onclick="toggleAnswer(this)">
+                    Как работает модерация и жалобы?
+                    <i class="fas fa-chevron-down"></i>
+                </div>
+                <div class="faq-answer">
+                    <div class="faq-answer-content">
+                        <p>Процесс модерации:</p>
+                        <ol>
+                            <li>Пользователь отправляет жалобу на другого пользователя</li>
+                            <li>Жалоба попадает в раздел технического администратора</li>
+                            <li>Администратор рассматривает жалобу и принимает решение:
+                                <ul>
+                                    <li><strong>Одобрить</strong> — пользователь блокируется</li>
+                                    <li><strong>Отклонить</strong> — жалоба не подтверждается</li>
+                                </ul>
+                            </li>
+                            <li>Администратор может оставить комментарий к решению</li>
+                        </ol>
+                    </div>
+                </div>
+            </div>
+
+            <div class="faq-item">
+                <div class="faq-question" onclick="toggleAnswer(this)">
+                    Могут ли администраторы видеть мои личные данные?
+                    <i class="fas fa-chevron-down"></i>
+                </div>
+                <div class="faq-answer">
+                    <div class="faq-answer-content">
+                        <p>Администраторы имеют доступ к:</p>
+                        <ul>
+                            <li>Информации профиля, которую вы указали публично</li>
+                            <li>Вашим постам</li>
+                            <li>Списку друзей</li>
+                        </ul>
+                        <p>Пароли хранятся в зашифрованном виде и недоступны администраторам.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Если ничего не найдено -->
+        <div id="noResults" class="faq-empty" style="display: none;">
+            <i class="fas fa-search"></i>
+            <h3>Ничего не найдено</h3>
+            <p>Попробуйте изменить поисковый запрос или выбрать другую категорию</p>
+        </div>
+
+        <!-- Контакты поддержки -->
+        <div class="contact-support">
+            <h3>Не нашли ответ?</h3>
+            <p>Свяжитесь с администрацией, и мы поможем решить вашу проблему</p>
+            <a href="#" onclick="alert('Для связи с администрацией отправьте письмо на supportLinkA@gmail.com')" class="support-btn">
+                <i class="fas fa-envelope"></i> Написать в поддержку
+            </a>
+        </div>
+    </div>
+
+    <script>
+        // Функция для открытия/закрытия ответов
+        function toggleAnswer(element) {
+            const answer = element.nextElementSibling;
+            element.classList.toggle('active');
+
+            if (answer.classList.contains('show')) {
+                answer.classList.remove('show');
+            } else {
+                // Закрываем все другие открытые ответы
+                document.querySelectorAll('.faq-answer.show').forEach(el => {
+                    el.classList.remove('show');
+                    el.previousElementSibling.classList.remove('active');
+                });
+                answer.classList.add('show');
+            }
+        }
+
+        // Функция поиска по FAQ
+        function searchFAQ() {
+            const searchTerm = document.getElementById('faqSearch').value.toLowerCase();
+            const sections = document.querySelectorAll('.faq-section');
+            let hasVisibleItems = false;
+
+            sections.forEach(section => {
+                const questions = section.querySelectorAll('.faq-question');
+                let sectionHasVisible = false;
+
+                questions.forEach(question => {
+                    const questionText = question.textContent.toLowerCase();
+                    const answerText = question.nextElementSibling.textContent.toLowerCase();
+                    const item = question.closest('.faq-item');
+
+                    if (questionText.includes(searchTerm) || answerText.includes(searchTerm)) {
+                        item.style.display = 'block';
+                        sectionHasVisible = true;
+                        hasVisibleItems = true;
+                    } else {
+                        item.style.display = 'none';
+                    }
+                });
+
+                section.style.display = sectionHasVisible ? 'block' : 'none';
+            });
+
+            document.getElementById('noResults').style.display = hasVisibleItems ? 'none' : 'block';
+        }
+
+        // Функция фильтрации по категориям
+        function filterCategory(category) {
+            const sections = document.querySelectorAll('.faq-section');
+
+            // Обновляем активную кнопку
+            document.querySelectorAll('.category-btn').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            event.target.classList.add('active');
+
+            sections.forEach(section => {
+                if (category === 'all' || section.dataset.category === category) {
+                    section.style.display = 'block';
+                } else {
+                    section.style.display = 'none';
+                }
+            });
+
+            // Сбрасываем поиск
+            document.getElementById('faqSearch').value = '';
+            document.getElementById('noResults').style.display = 'none';
+        }
+
+        // Поиск при нажатии Enter
+        document.getElementById('faqSearch').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                searchFAQ();
+            }
+        });
+    </script>
+</body>
+</html>

@@ -592,6 +592,14 @@ def edit_post(post_id):
     conn.close()
     return render_template('edit_post.html', post=dict(post))
 
+@app.route('/faq')
+def faq():
+    """Страница часто задаваемых вопросов"""
+    if 'user_id' not in session:
+        return redirect('/login')
+
+    username = session.get('username', 'Пользователь')
+    return render_template('faq.html', username=username)
 
 @app.route('/delete_post_route/<int:post_id>', methods=['POST'])
 def delete_post_route(post_id):

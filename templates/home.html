@@ -63,28 +63,21 @@
                             <i class="fas fa-users"></i> Группы
                         </a>
                     </li>
-                    <li>
-                        <a href="/blacklist">
-                            <i class="fas fa-ban"></i> Черный список
+
+                    <li class="faq-menu-item">
+                        <a href="/faq">
+                            <i class="fas fa-question-circle"></i> FAQ
                         </a>
-                    </li>    
+                    </li>
+                    <li class="faq-menu-item">
+                        <a href="/terms">
+                            <i class="fas fa-question-circle"></i> Пользовательское соглашение
+                        </a>
+                    </li>
+
                 </ul>
 
-                <div class="sidebar-right">
-                    <div class="stats-sidebar">
-                        <h3>Статистика</h3>
-                        <div class="stats">
-                            <div class="stat-item">
-                                <div class="stat-number" id="posts-count">0</div>
-                                <div class="stat-label">Посты</div>
-                            </div>
-                            <div class="stat-item">
-                                <div class="stat-number" id="friends-count">0</div>
-                                <div class="stat-label">Друзья</div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
+
                 
                 <!-- Уведомление о заявках в друзья -->
                 {% if friend_requests_count > 0 %}
