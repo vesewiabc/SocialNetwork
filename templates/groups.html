@@ -4,326 +4,420 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Группы</title>
-    <style>
-        .group-card {
-            border: 1px solid #ddd;
-            border-radius: 8px;
-            padding: 20px;
-            margin-bottom: 20px;
-            display: flex;
-            gap: 20px;
-            background: white;
-            transition: box-shadow 0.3s ease;
-        }
-        .group-card:hover {
-            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-        }
-        .group-avatar-large {
-            width: 80px;
-            height: 80px;
-            border-radius: 8px;
-            object-fit: cover;
-        }
-        .group-info {
-            flex: 1;
-        }
-        .group-stats {
-            display: flex;
-            gap: 15px;
-            margin: 10px 0;
-            color: #666;
-            font-size: 14px;
-        }
-        .group-stats span {
-            display: flex;
-            align-items: center;
-            gap: 5px;
-        }
-        .create-group-btn {
-            background: #28a745;
-            color: white;
-            padding: 12px 24px;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
-            font-size: 16px;
-            margin-bottom: 20px;
-        }
-        .search-bar {
-            margin-bottom: 20px;
-        }
-        .search-bar input {
-            width: 100%;
-            padding: 12px;
-            border: 1px solid #ddd;
-            border-radius: 5px;
-            font-size: 16px;
-        }
-        .tabs {
-            display: flex;
-            border-bottom: 1px solid #ddd;
-            margin-bottom: 20px;
-        }
-        .tab {
-            padding: 10px 20px;
-            cursor: pointer;
-            text-decoration: none;
-            color: #333;
-            border-bottom: 2px solid transparent;
-        }
-        .tab:hover {
-            background: #f8f9fa;
-        }
-        .tab.active {
-            border-bottom: 2px solid #007bff;
-            color: #007bff;
-            font-weight: bold;
-        }
-        .group-actions {
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            gap: 10px;
-            min-width: 120px;
-        }
-        .subscribe-btn {
-            padding: 8px 16px;
-            background: #28a745;
-            color: white;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-            font-size: 14px;
-        }
-        .unsubscribe-btn {
-            padding: 8px 16px;
-            background: #dc3545;
-            color: white;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-            font-size: 14px;
-        }
-        .group-name {
-            color: #007bff;
-            text-decoration: none;
-            font-size: 18px;
-            font-weight: bold;
-        }
-        .group-name:hover {
-            text-decoration: underline;
-        }
-        .role-badge {
-            display: inline-block;
-            padding: 2px 8px;
-            border-radius: 12px;
-            font-size: 12px;
-            margin-left: 8px;
-            font-weight: normal;
-        }
-        .role-admin {
-            background: #dc3545;
-            color: white;
-        }
-        .role-member {
-            background: #6c757d;
-            color: white;
-        }
-    </style>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='defaults/style.css') }}">
     <link rel="icon" type="image/png" href="{{ url_for('static', filename='uploads/favicon.png') }}">
 </head>
 <body>
-    <div style="padding: 20px; max-width: 1000px; margin: 0 auto;">
-        <h1>Группы</h1>
-
-        <div style="margin-bottom: 20px;">
-            <a href="/home" style="margin-right: 10px;">← Главная</a>
-            <a href="/profile" style="margin-right: 10px;">Профиль</a>
+    <header>
+        <div class="container">
+            <div class="header-content">
+                <div class="logo">LinkA</div>
+                <div class="user-info">
+                    <div class="user-welcome">
+                        <a href="/logout" class="logout-link"><i class="fas fa-sign-out-alt"></i> Выйти</a>
+                    </div>
+                </div>
+            </div>
         </div>
+    </header>
 
-        <button class="create-group-btn" onclick="openCreateGroupModal()">
-            + Создать группу
-        </button>
+    <div class="container">
+        <div class="main-content">
+            <div class="sidebar-left">
+                <h3>Меню</h3>
+                <ul>
+                    <li><a href="/profile"><i class="fas fa-user-circle"></i> Мой профиль</a></li>
+                    <li><a href="/friends"><i class="fas fa-users"></i> Друзья</a></li>
+                    <li><a href="/find_friends"><i class="fas fa-search"></i> Найти друзей</a></li>
+                    <li><a href="/my_posts"><i class="fas fa-newspaper"></i> Мои посты</a></li>
+                    <li><a href="/groups"><i class="fas fa-layer-group"></i> Группы</a></li>
+                    <li><a href="/home"><i class="fas fa-home"></i> Главная</a></li>
+                </ul>
+            </div>
 
-        <div class="search-bar">
-            <form method="GET" action="/groups">
-                <input type="text" name="search" placeholder="Поиск групп..." value="{{ search_query }}">
-                <input type="hidden" name="tab" value="{{ current_tab }}">
-            </form>
-        </div>
-
-        <!-- Измененный порядок вкладок: сначала Все группы, потом Мои группы -->
-        <div class="tabs">
-            <a href="/groups?tab=all" class="tab {% if current_tab == 'all' %}active{% endif %}">Все группы</a>
-            <a href="/groups?tab=my" class="tab {% if current_tab == 'my' %}active{% endif %}">Мои группы</a>
-        </div>
-
-        {% if groups %}
-        <div id="groups-container">
-            {% for group in groups %}
-            <div class="group-card">
-                <a href="/group/{{ group.id }}">
-                    <img src="{{ url_for('static', filename='uploads/groups/' + group.avatar) if group.avatar else 'https://via.placeholder.com/80?text=Group' }}"
-                         class="group-avatar-large"
-                         onerror="this.src='/static/defaults/for_groups.png'">
-                </a>
-
-                <div class="group-info">
-                    <h2 style="margin-top: 0;">
-                        <a href="/group/{{ group.id }}" class="group-name">
-                            {{ group.name }}
-                            {% if group.role %}
-                                <span class="role-badge role-{{ group.role }}">
-                                    {% if group.role == 'admin' %}
-                                        Администратор
-                                    {% elif group.role == 'moderator' %}
-                                        Модератор
-                                    {% else %}
-                                        Участник
-                                    {% endif %}
-                                </span>
-                            {% endif %}
-                        </a>
-                    </h2>
-
-                    <p style="color: #666; margin: 5px 0;">{{ group.description or 'Нет описания' }}</p>
-
-                    <div class="group-stats">
-                        <span>👥 {{ group.members_count }} участников</span>
-                        <span>📝 {{ group.posts_count }} постов</span>
-                        <span>📅 Создан {{ group.created_at[:10] if group.created_at else '' }}</span>
+            <div class="feed">
+                <!-- Поиск + создать -->
+                <div class="card" style="padding:20px;">
+                    <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+                        <form method="GET" action="/groups" style="flex:1;display:flex;gap:8px;">
+                            <input type="text" name="search" placeholder="Поиск групп..."
+                                   value="{{ search_query }}" class="form-control">
+                            <input type="hidden" name="tab" value="{{ current_tab }}">
+                            <button type="submit" class="btn btn-secondary">
+                                <i class="fas fa-search"></i>
+                            </button>
+                        </form>
+                        <button class="btn btn-primary" onclick="openCreateGroupModal()">
+                            <i class="fas fa-plus"></i> Создать группу
+                        </button>
                     </div>
                 </div>
 
-                <div class="group-actions">
-                    {% if group.is_member %}
-                        <form method="POST"
-                              action="/leave_group/{{ group.id }}"
-                              style="margin: 0;"
-                              class="leave-group-form"
-                              data-is-creator="{{ '1' if group.creator_id == session_user_id else '0' }}"
-                              data-group-name="{{ group.name }}">
-                            <button type="submit" class="unsubscribe-btn">
-                                Отписаться
-                            </button>
-                        </form>
-                    {% else %}
-                        {% if group.has_pending_request %}
-                        <div style="padding: 8px 16px; background: #fff3cd; color: #856404; border-radius: 4px; font-size: 14px; text-align: center;">
-                            ⏳ Заявка отправлена
-                        </div>
-                        {% else %}
-                        <form method="POST" action="/join_group/{{ group.id }}">
-                            <button type="submit" class="subscribe-btn">
-                                {% if group.is_public %}Подписаться{% else %}Подать заявку{% endif %}
-                            </button>
-                        </form>
-                        {% endif %}
-                    {% endif %}
+                <!-- Вкладки -->
+                <div style="display:flex;border-bottom:2px solid var(--border-light);background:var(--bg-card);border-radius:var(--radius-lg) var(--radius-lg) 0 0;padding:0 16px;">
+                    <a href="/groups?tab=all"
+                       style="padding:14px 20px;font-weight:700;font-size:14px;text-decoration:none;border-bottom:2px solid {{ 'var(--amber-500)' if current_tab == 'all' else 'transparent' }};color:{{ 'var(--amber-600)' if current_tab == 'all' else 'var(--text-muted)' }};margin-bottom:-2px;">
+                        Все группы
+                    </a>
+                    <a href="/groups?tab=my"
+                       style="padding:14px 20px;font-weight:700;font-size:14px;text-decoration:none;border-bottom:2px solid {{ 'var(--amber-500)' if current_tab == 'my' else 'transparent' }};color:{{ 'var(--amber-600)' if current_tab == 'my' else 'var(--text-muted)' }};margin-bottom:-2px;">
+                        Мои группы
+                    </a>
                 </div>
+
+                <!-- Список групп -->
+                {% if groups %}
+                    {% for group in groups %}
+                    <div class="group-card" style="display:flex;gap:16px;align-items:flex-start;">
+                        <a href="/group/{{ group.id }}" style="flex-shrink:0;">
+                            <img src="{{ url_for('static', filename='uploads/groups/' + group.avatar) if group.avatar else '/static/defaults/for_groups.png' }}"
+                                 style="width:80px;height:80px;border-radius:var(--radius-md);object-fit:cover;border:2px solid var(--amber-200);"
+                                 onerror="this.src='/static/defaults/for_groups.png'">
+                        </a>
+
+                        <div class="group-info" style="flex:1;">
+                            <h2 style="margin:0 0 6px;font-size:16px;">
+                                <a href="/group/{{ group.id }}" style="color:var(--amber-600);font-weight:700;text-decoration:none;">
+                                    {{ group.name }}
+                                </a>
+                                {% if group.role %}
+                                <span class="badge {% if group.role == 'admin' %}badge-danger{% elif group.role == 'moderator' %}badge-primary{% else %}badge-secondary{% endif %}" style="font-size:10px;margin-left:6px;">
+                                    {% if group.role == 'admin' %}Администратор
+                                    {% elif group.role == 'moderator' %}Модератор
+                                    {% else %}Участник{% endif %}
+                                </span>
+                                {% endif %}
+                            </h2>
+                            <p style="color:var(--text-secondary);font-size:14px;margin:0 0 8px;">{{ group.description or 'Нет описания' }}</p>
+                            <div style="display:flex;gap:14px;font-size:13px;color:var(--text-muted);">
+                                <span><i class="fas fa-users" style="color:var(--amber-500);"></i> {{ group.members_count }}</span>
+                                <span><i class="fas fa-file-alt" style="color:var(--amber-500);"></i> {{ group.posts_count }}</span>
+                                <span><i class="fas fa-calendar" style="color:var(--amber-500);"></i> {{ group.created_at[:10] if group.created_at else '' }}</span>
+                            </div>
+                        </div>
+
+                        <div style="display:flex;flex-direction:column;gap:8px;flex-shrink:0;">
+                            {% if group.is_member %}
+                                <form method="POST" action="/leave_group/{{ group.id }}" class="leave-group-form"
+                                      data-is-creator="{{ '1' if group.creator_id == session_user_id else '0' }}"
+                                      data-group-name="{{ group.name }}">
+                                    <button type="submit" class="btn btn-danger btn-sm">
+                                        <i class="fas fa-sign-out-alt"></i> Отписаться
+                                    </button>
+                                </form>
+                                {% if group.role == 'admin' %}
+                                <button class="btn btn-primary btn-sm"
+                                        onclick="openInviteModal('{{ group.id }}', '{{ group.name|replace("'", "\\'")|replace('"', '&quot;')|safe }}')">
+                                    <i class="fas fa-user-plus"></i> Пригласить
+                                </button>
+                                <button class="btn btn-warning btn-sm"
+                                        onclick="openInviteLinkModal('{{ group.id }}', '{{ group.name|replace("'", "\\'")|replace('"', '&quot;')|safe }}')">
+                                    <i class="fas fa-link"></i> Ссылка
+                                </button>
+                                {% endif %}
+                            {% else %}
+                                {% if group.has_pending_request %}
+                                <span class="badge" style="padding:8px 12px;font-size:12px;">
+                                    <i class="fas fa-clock"></i> Заявка отправлена
+                                </span>
+                                {% else %}
+                                <form method="POST" action="/join_group/{{ group.id }}">
+                                    <button type="submit" class="btn btn-success btn-sm">
+                                        <i class="fas fa-plus-circle"></i>
+                                        {% if group.is_public %}Подписаться{% else %}Подать заявку{% endif %}
+                                    </button>
+                                </form>
+                                {% endif %}
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                <div class="empty-feed">
+                    <i class="fas fa-layer-group fa-3x"></i>
+                    <h3>
+                        {% if current_tab == 'my' %}У вас нет групп
+                        {% else %}Группы не найдены{% endif %}
+                    </h3>
+                    <p>
+                        {% if current_tab == 'my' %}Найдите интересные группы или создайте свою!
+                        {% else %}Создайте первую группу или измените поисковый запрос{% endif %}
+                    </p>
+                </div>
+                {% endif %}
             </div>
-            {% endfor %}
         </div>
-        {% else %}
-        <div style="text-align: center; padding: 40px; color: #666;">
-            <h3>
-                {% if current_tab == 'my' %}
-                    У вас нет групп
-                {% else %}
-                    Группы не найдены
-                {% endif %}
-            </h3>
-            <p>
-                {% if current_tab == 'my' %}
-                    Вы не подписаны ни на одну группу. Найдите интересные группы во вкладке "Все группы" или создайте свою!
-                {% else %}
-                    Создайте первую группу или попробуйте изменить поисковый запрос
-                {% endif %}
-            </p>
-        </div>
-        {% endif %}
     </div>
 
     <!-- Модальное окно создания группы -->
-    <div id="createGroupModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000;">
-        <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; padding: 30px; border-radius: 10px; width: 500px; max-width: 90%;">
-            <h2>Создать группу</h2>
+    <div id="createGroupModal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:1000;overflow-y:auto;">
+        <div style="position:relative;background:var(--bg-card);margin:60px auto;padding:32px;border-radius:var(--radius-xl);width:500px;max-width:90%;border-top:3px solid var(--amber-400);box-shadow:var(--shadow-lg);">
+            <h2 style="font-family:var(--font-display);font-size:18px;margin-bottom:24px;">
+                <i class="fas fa-plus-circle" style="color:var(--amber-500);"></i> Создать группу
+            </h2>
             <form method="POST" action="/create_group" enctype="multipart/form-data">
-                <div style="margin-bottom: 15px;">
-                    <label>Название группы *</label>
-                    <input type="text" name="name" required style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px;">
+                <div class="form-group">
+                    <label class="form-label">Название группы *</label>
+                    <input type="text" name="name" required class="form-control" placeholder="Введите название">
                 </div>
-
-                <div style="margin-bottom: 15px;">
-                    <label>Описание</label>
-                    <textarea name="description" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px; height: 100px;" placeholder="О чем эта группа?"></textarea>
+                <div class="form-group">
+                    <label class="form-label">Описание</label>
+                    <textarea name="description" class="form-control" placeholder="О чём эта группа?"></textarea>
                 </div>
-
-                <div style="margin-bottom: 15px;">
-                    <label>Аватар</label>
-                    <input type="file" name="avatar" accept="image/*">
+                <div class="form-group">
+                    <label class="form-label">Аватар</label>
+                    <input type="file" name="avatar" accept="image/*" class="form-control">
                 </div>
-
-                <div style="margin-bottom: 20px;">
-                    <label>
-                        <input type="checkbox" name="is_public" checked>
+                <div class="form-group">
+                    <label style="display:flex;align-items:center;gap:8px;font-size:14px;font-weight:600;cursor:pointer;">
+                        <input type="checkbox" name="is_public" checked style="accent-color:var(--amber-500);width:16px;height:16px;">
                         Публичная группа (видна всем)
                     </label>
                 </div>
-
-                <div style="display: flex; justify-content: space-between;">
-                    <button type="button" onclick="closeCreateGroupModal()" style="padding: 10px 20px; background: #6c757d; color: white; border: none; border-radius: 4px;">
-                        Отмена
-                    </button>
-                    <button type="submit" style="padding: 10px 20px; background: #28a745; color: white; border: none; border-radius: 4px;">
-                        Создать
+                <div style="display:flex;gap:10px;justify-content:flex-end;">
+                    <button type="button" onclick="closeCreateGroupModal()" class="btn btn-secondary">Отмена</button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-plus"></i> Создать
                     </button>
                 </div>
             </form>
+        </div>
+    </div>
+
+    <!-- Модальное окно приглашения -->
+    <div id="inviteModal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:1000;overflow-y:auto;">
+        <div style="position:relative;background:var(--bg-card);margin:50px auto;padding:30px;width:90%;max-width:600px;border-radius:var(--radius-xl);border-top:3px solid var(--amber-400);box-shadow:var(--shadow-lg);">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;padding-bottom:16px;border-bottom:1px solid var(--border-light);">
+                <h3 style="font-family:var(--font-display);font-size:16px;margin:0;">
+                    <i class="fas fa-user-plus" style="color:var(--amber-500);"></i>
+                    Пригласить в группу <span id="inviteGroupName" style="color:var(--amber-600);"></span>
+                </h3>
+                <button onclick="closeInviteModal()" style="background:none;border:none;font-size:24px;cursor:pointer;color:var(--text-muted);">×</button>
+            </div>
+
+            <div style="display:flex;gap:8px;margin-bottom:16px;border-bottom:1px solid var(--border-light);padding-bottom:12px;">
+                <button class="invite-tab active btn btn-secondary btn-sm" onclick="switchInviteTab('friends')">Друзья</button>
+                <button class="invite-tab btn btn-secondary btn-sm" onclick="switchInviteTab('link')">Ссылка-приглашение</button>
+            </div>
+
+            <!-- Вкладка друзья -->
+            <div id="inviteFriendsSection" class="invite-section" style="display:block;">
+                <input type="text" class="form-control" id="inviteSearch"
+                       placeholder="Поиск друзей..." onkeyup="filterFriends()" style="margin-bottom:12px;">
+                <div id="inviteFriendsList" style="max-height:320px;overflow-y:auto;border:1px solid var(--border-light);border-radius:var(--radius-md);padding:8px;">
+                    <div style="text-align:center;padding:20px;color:var(--text-muted);">
+                        <i class="fas fa-spinner fa-spin"></i> Загрузка...
+                    </div>
+                </div>
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-top:16px;padding-top:12px;border-top:1px solid var(--border-light);">
+                    <span style="color:var(--text-muted);font-size:14px;">Выбрано: <strong id="inviteCounter">0</strong></span>
+                    <div style="display:flex;gap:8px;">
+                        <button class="btn btn-primary btn-sm" onclick="sendInvitations()" id="sendInviteBtn" disabled>
+                            <i class="fas fa-paper-plane"></i> Отправить
+                        </button>
+                        <button class="btn btn-secondary btn-sm" onclick="closeInviteModal()">Закрыть</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Вкладка ссылка -->
+            <div id="inviteLinkSection" class="invite-section" style="display:none;">
+                <div style="background:var(--gray-50);border-radius:var(--radius-md);padding:16px;margin-bottom:16px;">
+                    <p style="font-size:13px;font-weight:700;color:var(--text-secondary);margin-bottom:8px;">
+                        <i class="fas fa-link" style="color:var(--amber-500);"></i> Ссылка для вступления
+                    </p>
+                    <div style="display:flex;gap:8px;">
+                        <input type="text" id="inviteLinkInput" class="form-control" readonly value="Загрузка...">
+                        <button class="btn btn-primary btn-sm" onclick="copyInviteLink()">
+                            <i class="fas fa-copy"></i> Копировать
+                        </button>
+                    </div>
+                    <p style="font-size:12px;color:var(--text-muted);margin-top:8px;">
+                        Отправьте эту ссылку друзьям — по ней они смогут вступить в группу.
+                    </p>
+                </div>
+                <div style="text-align:right;">
+                    <button class="btn btn-secondary btn-sm" onclick="closeInviteModal()">Закрыть</button>
+                </div>
+            </div>
         </div>
     </div>
 
     <script>
-        function confirmUnsubscribe(isCreator, groupName) {
-            if (isCreator) {
-                return confirm(`ВНИМАНИЕ! Вы являетесь создателем группы "${groupName}".\n\nЕсли вы покинете группу, она будет полностью УДАЛЕНА вместе со всеми постами, участниками и данными!\n\nВы уверены, что хотите удалить группу?`);
-            } else {
-                return confirm(`Вы уверены, что хотите отписаться от группы "${groupName}"?`);
-            }
+        let currentGroupId = null;
+        let friendsList = [];
+        let groupMemberIds = [];
+
+        function openInviteModal(groupId, groupName) {
+            currentGroupId = groupId;
+            document.getElementById('inviteGroupName').textContent = `"${groupName}"`;
+            document.getElementById('inviteModal').style.display = 'block';
+            document.body.style.overflow = 'hidden';
+            switchInviteTabDirect('friends');
+            loadFriends(groupId);
         }
 
-        // Привязываем подтверждение к формам с классом leave-group-form
+        function openInviteLinkModal(groupId, groupName) {
+            currentGroupId = groupId;
+            document.getElementById('inviteGroupName').textContent = `"${groupName}"`;
+            document.getElementById('inviteModal').style.display = 'block';
+            document.body.style.overflow = 'hidden';
+            switchInviteTabDirect('link');
+            loadInviteLink(groupId);
+        }
+
+        function closeInviteModal() {
+            document.getElementById('inviteModal').style.display = 'none';
+            document.body.style.overflow = 'auto';
+            currentGroupId = null; friendsList = []; groupMemberIds = [];
+            document.getElementById('inviteSearch').value = '';
+        }
+
+        function switchInviteTab(tabName) {
+            document.querySelectorAll('.invite-tab').forEach(t => t.classList.remove('active', 'btn-primary'));
+            if (event && event.target) { event.target.classList.add('active', 'btn-primary'); }
+            switchInviteTabDirect(tabName);
+        }
+
+        function switchInviteTabDirect(tabName) {
+            document.getElementById('inviteFriendsSection').style.display = tabName === 'friends' ? 'block' : 'none';
+            document.getElementById('inviteLinkSection').style.display = tabName === 'link' ? 'block' : 'none';
+        }
+
+        function loadFriends(groupId) {
+            const container = document.getElementById('inviteFriendsList');
+            container.innerHTML = '<div style="text-align:center;padding:20px;color:var(--text-muted);"><i class="fas fa-spinner fa-spin"></i> Загрузка...</div>';
+            fetch('/friends/list')
+                .then(r => r.json())
+                .then(data => {
+                    return fetch(`/group/${groupId}/members`)
+                        .then(r => r.json())
+                        .then(membersData => {
+                            if (membersData.success) groupMemberIds = membersData.member_ids;
+                            return data;
+                        });
+                })
+                .then(data => {
+                    if (data.success) { friendsList = data.friends; displayFriends(friendsList); }
+                    else container.innerHTML = '<div style="text-align:center;padding:20px;color:var(--text-muted);">Ошибка загрузки</div>';
+                })
+                .catch(() => container.innerHTML = '<div style="text-align:center;padding:20px;color:var(--text-muted);">Ошибка загрузки</div>');
+        }
+
+        function loadInviteLink(groupId) {
+            document.getElementById('inviteLinkInput').value = `${window.location.origin}/group/${groupId}`;
+        }
+
+        function displayFriends(friends) {
+            const container = document.getElementById('inviteFriendsList');
+            const searchTerm = document.getElementById('inviteSearch').value.toLowerCase();
+            if (friends.length === 0) {
+                container.innerHTML = '<div style="text-align:center;padding:20px;color:var(--text-muted);">У вас пока нет друзей для приглашения</div>';
+                return;
+            }
+            let filtered = searchTerm ? friends.filter(f =>
+                f.username.toLowerCase().includes(searchTerm) || (f.full_name||'').toLowerCase().includes(searchTerm)
+            ) : friends;
+            if (filtered.length === 0) {
+                container.innerHTML = '<div style="text-align:center;padding:20px;color:var(--text-muted);">Ничего не найдено</div>';
+                return;
+            }
+            container.innerHTML = '';
+            filtered.forEach(friend => {
+                const isMember = groupMemberIds.includes(friend.id);
+                const avatarUrl = friend.avatar ? `/static/uploads/avatars/${friend.avatar}` : '/static/defaults/for_users.png';
+                const item = document.createElement('div');
+                item.style.cssText = `display:flex;align-items:center;gap:12px;padding:10px;border-radius:var(--radius-md);margin-bottom:6px;border:1px solid var(--border-light);opacity:${isMember?'0.6':'1'};`;
+                item.innerHTML = `
+                    <img src="${avatarUrl}" style="width:40px;height:40px;border-radius:50%;object-fit:cover;border:2px solid var(--amber-200);" onerror="this.src='/static/defaults/for_users.png'">
+                    <div style="flex:1;">
+                        <div style="font-weight:700;font-size:14px;">${friend.full_name||friend.username}${isMember?'<span style="font-size:11px;color:var(--text-muted);margin-left:6px;">уже в группе</span>':''}</div>
+                        <div style="font-size:12px;color:var(--text-muted);">@${friend.username}</div>
+                    </div>
+                    ${!isMember ? `<input type="checkbox" class="friend-select" value="${friend.id}" onchange="updateInviteCounter()" style="width:18px;height:18px;accent-color:var(--amber-500);cursor:pointer;">` : ''}
+                `;
+                container.appendChild(item);
+            });
+            updateInviteCounter();
+        }
+
+        function filterFriends() { displayFriends(friendsList); }
+
+        function updateInviteCounter() {
+            const selected = document.querySelectorAll('.friend-select:checked').length;
+            document.getElementById('inviteCounter').textContent = selected;
+            const btn = document.getElementById('sendInviteBtn');
+            btn.disabled = selected === 0;
+            btn.innerHTML = selected > 0 ? `<i class="fas fa-paper-plane"></i> Отправить (${selected})` : '<i class="fas fa-paper-plane"></i> Отправить';
+        }
+
+        function sendInvitations() {
+            const selected = Array.from(document.querySelectorAll('.friend-select:checked')).map(cb => parseInt(cb.value));
+            if (!selected.length) return;
+            if (!confirm(`Отправить приглашения ${selected.length} друг(у/зьям)?`)) return;
+            const btn = document.getElementById('sendInviteBtn');
+            btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+            fetch(`/group/${currentGroupId}/invite`, {
+                method: 'POST', headers: {'Content-Type':'application/json'},
+                body: JSON.stringify({user_ids: selected})
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    showSuccessMessage(`Приглашения отправлены ${data.sent_count} пользователям`);
+                    if (data.sent_ids) groupMemberIds = [...groupMemberIds, ...data.sent_ids];
+                    displayFriends(friendsList);
+                } else alert('Ошибка: ' + (data.error || 'Неизвестная ошибка'));
+            })
+            .catch(err => alert('Ошибка сети: ' + err))
+            .finally(() => { btn.disabled = false; updateInviteCounter(); });
+        }
+
+        function copyInviteLink() {
+            const input = document.getElementById('inviteLinkInput');
+            input.select(); input.setSelectionRange(0, 99999);
+            try { document.execCommand('copy'); showSuccessMessage('Ссылка скопирована!'); }
+            catch { alert('Не удалось скопировать'); }
+        }
+
+        function showSuccessMessage(msg) {
+            const div = document.createElement('div');
+            div.style.cssText = 'position:fixed;top:20px;right:20px;background:var(--accent-gradient);color:#111;padding:14px 22px;border-radius:var(--radius-lg);box-shadow:var(--shadow-md);z-index:1100;font-weight:700;font-size:14px;';
+            div.innerHTML = `<i class="fas fa-check-circle"></i> ${msg}`;
+            document.body.appendChild(div);
+            setTimeout(() => div.remove(), 3000);
+        }
+
+        function openCreateGroupModal() { document.getElementById('createGroupModal').style.display = 'block'; }
+        function closeCreateGroupModal() { document.getElementById('createGroupModal').style.display = 'none'; }
+
+        document.getElementById('createGroupModal').addEventListener('click', function(e) {
+            if (e.target === this) closeCreateGroupModal();
+        });
+        document.getElementById('inviteModal').addEventListener('click', function(e) {
+            if (e.target === this) closeInviteModal();
+        });
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') { closeInviteModal(); closeCreateGroupModal(); }
+        });
+
         document.querySelectorAll('.leave-group-form').forEach(form => {
             form.addEventListener('submit', function(e) {
                 const isCreator = this.dataset.isCreator === '1';
-                const groupName = this.dataset.groupName || '';
-                if (!confirmUnsubscribe(isCreator, groupName)) {
-                    e.preventDefault();
-                }
+                const name = this.dataset.groupName || '';
+                const msg = isCreator
+                    ? `ВНИМАНИЕ! Вы создатель группы "${name}".\n\nГруппа будет УДАЛЕНА вместе со всеми данными!\n\nВы уверены?`
+                    : `Отписаться от группы "${name}"?`;
+                if (!confirm(msg)) e.preventDefault();
             });
         });
 
-        function openCreateGroupModal() {
-            document.getElementById('createGroupModal').style.display = 'block';
-        }
-
-        function closeCreateGroupModal() {
-            document.getElementById('createGroupModal').style.display = 'none';
-        }
-
-        // Закрытие модального окна при клике вне его
-        document.getElementById('createGroupModal').addEventListener('click', function(e) {
-            if (e.target === this) {
-                closeCreateGroupModal();
-            }
-        });
-
-        // Автофокус в поле поиска при нажатии /
         document.addEventListener('keydown', function(e) {
             if (e.key === '/' && document.activeElement.tagName !== 'INPUT' && document.activeElement.tagName !== 'TEXTAREA') {
                 e.preventDefault();
-                document.querySelector('input[name="search"]').focus();
+                const s = document.querySelector('input[name="search"]');
+                if (s) s.focus();
             }
         });
     </script>

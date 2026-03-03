@@ -5,426 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Главная - Социальная сеть</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-        
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background-color: #f0f2f5;
-            color: #333;
-            line-height: 1.6;
-        }
-        
-        .container {
-            max-width: 1200px;
-            margin: 0 auto;
-            padding: 0 15px;
-        }
-        
-        header {
-            background-color: #1877f2;
-            color: white;
-            padding: 15px 0;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-        }
-        
-        .header-content {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-        
-        .logo {
-            font-size: 24px;
-            font-weight: bold;
-        }
-        
-        .user-info {
-            display: flex;
-            align-items: center;
-            gap: 20px;
-        }
-        
-        .nav-links {
-            display: flex;
-            gap: 20px;
-        }
-        
-        .nav-links a {
-            color: white;
-            text-decoration: none;
-            padding: 8px 12px;
-            border-radius: 4px;
-            transition: background-color 0.3s;
-        }
-        
-        .nav-links a:hover {
-            background-color: rgba(255,255,255,0.1);
-        }
-        
-        .notification {
-            position: relative;
-        }
-        
-        .notification-count {
-            position: absolute;
-            top: -8px;
-            right: -8px;
-            background-color: #ff4757;
-            color: white;
-            font-size: 12px;
-            padding: 2px 6px;
-            border-radius: 10px;
-            min-width: 18px;
-            text-align: center;
-        }
-        
-        .main-content {
-            display: grid;
-            grid-template-columns: 300px 1fr;
-            gap: 20px;
-            margin-top: 20px;
-        }
-        
-        .sidebar-left {
-            background-color: white;
-            border-radius: 8px;
-            padding: 20px;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-            height: fit-content;
-        }
-        
-        .sidebar-left h3 {
-            margin-bottom: 15px;
-            color: #1877f2;
-            border-bottom: 2px solid #f0f2f5;
-            padding-bottom: 8px;
-        }
-        
-        .sidebar-left ul {
-            list-style: none;
-        }
-        
-        .sidebar-left ul li {
-            margin-bottom: 10px;
-        }
-        
-        .sidebar-left ul li a {
-            color: #333;
-            text-decoration: none;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            padding: 8px;
-            border-radius: 4px;
-            transition: background-color 0.3s;
-        }
-        
-        .sidebar-left ul li a:hover {
-            background-color: #f0f2f5;
-        }
-        
-        .sidebar-right {
-            grid-column: 2;
-            grid-row: 1;
-            margin-left: 20px;
-        }
-        
-        .feed {
-            grid-column: 2;
-            display: flex;
-            flex-direction: column;
-            gap: 20px;
-        }
-        
-        .create-post {
-            background-color: white;
-            border-radius: 8px;
-            padding: 20px;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-        }
-        
-        .create-post textarea {
-            width: 100%;
-            height: 100px;
-padding: 15px;
-            border: 1px solid #ddd;
-            border-radius: 8px;
-            resize: vertical;
-            font-size: 16px;
-            font-family: inherit;
-            margin-bottom: 15px;
-        }
-        
-        .create-post textarea:focus {
-            outline: none;
-            border-color: #1877f2;
-        }
-        
-        .create-post button {
-            background-color: #1877f2;
-            color: white;
-            border: none;
-            padding: 12px 24px;
-            border-radius: 6px;
-            font-size: 16px;
-            cursor: pointer;
-            transition: background-color 0.3s;
-            width: 100%;
-        }
-        
-        .create-post button:hover {
-            background-color: #166fe5;
-        }
-        
-        .feed-controls {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            background-color: white;
-            padding: 15px 20px;
-            border-radius: 8px;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-        }
-        
-        .refresh-btn {
-            background-color: #42b72a;
-            color: white;
-            border: none;
-            padding: 10px 20px;
-            border-radius: 6px;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            transition: background-color 0.3s;
-        }
-        
-        .refresh-btn:hover {
-            background-color: #36a420;
-        }
-        
-        .post, .news-item {
-            background-color: white;
-            border-radius: 8px;
-            padding: 20px;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-        }
-        
-        .post-header, .news-header {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            margin-bottom: 15px;
-        }
-        
-        .avatar {
-            width: 40px;
-            height: 40px;
-            border-radius: 50%;
-            background-color: #f0f2f5;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-weight: bold;
-            color: #1877f2;
-        }
-        
-        .post-info h4, .news-info h4 {
-            color: #1877f2;
-            margin-bottom: 5px;
-        }
-        
-        .post-info small, .news-info small {
-            color: #65676b;
-        }
-        
-        .post-content, .news-content {
-            margin-bottom: 15px;
-            line-height: 1.6;
-        }
-        
-        .post-content {
-            font-size: 16px;
-            color: #1c1e21;
-        }
-        
-        .news-content h3 {
-            color: #1a1a1a;
-            margin-bottom: 10px;
-            font-size: 18px;
-        }
-        
-        .news-content p {
-            color: #4a4a4a;
-            margin-bottom: 10px;
-        }
-        
-        .news-content a {
-            color: #1877f2;
-            text-decoration: none;
-            font-weight: 500;
-        }
-        
-        .news-content a:hover {
-            text-decoration: underline;
-        }
-        
-        .post-actions, .news-actions {
-            display: flex;
-            gap: 20px;
-            padding-top: 15px;
-            border-top: 1px solid #f0f2f5;
-        }
-        
-        .action-btn {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            color: #65676b;
-            background: none;
-            border: none;
-            cursor: pointer;
-            font-size: 14px;
-        }
-        
-        .action-btn:hover {
-            color: #1877f2;
-        }
-        
-        .news-source {
-            display: inline-block;
-            background-color: #f0f2f5;
-            color: #65676b;
-            padding: 4px 8px;
-            border-radius: 4px;
-font-size: 12px;
-            margin-bottom: 10px;
-        }
-        
-        .stats-sidebar {
-            background-color: white;
-            border-radius: 8px;
-            padding: 20px;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-            height: fit-content;
-        }
-        
-        .stats {
-            display: flex;
-            justify-content: space-between;
-            margin-bottom: 20px;
-        }
-        
-        .stat-item {
-            text-align: center;
-        }
-        
-        .stat-number {
-            font-size: 24px;
-            font-weight: bold;
-            color: #1877f2;
-        }
-        
-        .stat-label {
-            font-size: 12px;
-            color: #65676b;
-        }
-        
-        .message {
-            padding: 15px;
-            margin-bottom: 20px;
-            border-radius: 6px;
-            font-weight: 500;
-        }
-        
-        .success {
-            background-color: #d4edda;
-            color: #155724;
-            border: 1px solid #c3e6cb;
-        }
-        
-        .error {
-            background-color: #f8d7da;
-            color: #721c24;
-            border: 1px solid #f5c6cb;
-        }
-        
-        .info {
-            background-color: #d1ecf1;
-            color: #0c5460;
-            border: 1px solid #bee5eb;
-        }
-        
-        .empty-feed {
-            text-align: center;
-            padding: 40px 20px;
-            color: #65676b;
-        }
-        
-        .friend-requests-notification {
-            background: #fff3cd;
-            border: 1px solid #ffeaa7;
-            border-radius: 5px;
-            padding: 15px;
-            margin-top: 20px;
-        }
-        
-        .friend-requests-notification div {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-        }
-        
-        .friend-requests-notification strong {
-            display: block;
-            margin-bottom: 5px;
-        }
-        
-        .friend-requests-notification p {
-            margin: 5px 0 0 0;
-            color: #856404;
-            font-size: 14px;
-        }
-        
-        .friend-requests-notification a {
-            padding: 8px 15px;
-            background: #28a745;
-            color: white;
-            text-decoration: none;
-            border-radius: 4px;
-        }
-        
-        @media (max-width: 768px) {
-            .main-content {
-                grid-template-columns: 1fr;
-            }
-            
-            .header-content {
-                flex-direction: column;
-                gap: 15px;
-            }
-            
-            .nav-links {
-                flex-wrap: wrap;
-                justify-content: center;
-            }
-            
-            .sidebar-right {
-                grid-column: 1;
-                grid-row: 3;
-                margin-left: 0;
-            }
-            
-            .feed {
-                grid-column: 1;
-            }
-        }
-    </style>
+    <link rel="stylesheet" href="{{ url_for('static', filename='defaults/style.css') }}">
+    
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <link rel="icon" type="image/png" href="{{ url_for('static', filename='uploads/favicon.png') }}">
 </head>
@@ -481,28 +63,21 @@ font-size: 12px;
                             <i class="fas fa-users"></i> Группы
                         </a>
                     </li>
-                    <li>
-                        <a href="/blacklist">
-                            <i class="fas fa-ban"></i> Черный список
+
+                    <li class="faq-menu-item">
+                        <a href="/faq">
+                            <i class="fas fa-question-circle"></i> FAQ
                         </a>
-                    </li>    
+                    </li>
+                    <li class="faq-menu-item">
+                        <a href="/terms">
+                            <i class="fas fa-question-circle"></i> Пользовательское соглашение
+                        </a>
+                    </li>
+
                 </ul>
 
-                <div class="sidebar-right">
-                    <div class="stats-sidebar">
-                        <h3>Статистика</h3>
-                        <div class="stats">
-                            <div class="stat-item">
-                                <div class="stat-number" id="posts-count">0</div>
-                                <div class="stat-label">Посты</div>
-                            </div>
-                            <div class="stat-item">
-                                <div class="stat-number" id="friends-count">0</div>
-                                <div class="stat-label">Друзья</div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
+
                 
                 <!-- Уведомление о заявках в друзья -->
                 {% if friend_requests_count > 0 %}
@@ -523,24 +98,32 @@ font-size: 12px;
             <!-- Основная лента -->
             <div class="feed">
                 <!-- Форма создания поста -->
-                <div class="create-post">
-                    <h3>Что у вас нового?</h3>
-                    <form method="POST" action="/home">
-                        <textarea name="content" placeholder="Поделитесь своими мыслями..." required></textarea>
-                        <button type="submit">
-                            <i class="fas fa-paper-plane"></i> Опубликовать
-                        </button>
-                    </form>
-                </div>
+<div class="create-post">
+    <h3>Что у вас нового?</h3>
+    <form method="POST" action="/home" enctype="multipart/form-data">
+        <textarea name="content" placeholder="Поделитесь своими мыслями..."></textarea>
+        
+        <!-- Блок для загрузки медиафайлов -->
+        <div class="media-upload">
+            <label for="media-files" class="upload-btn">
+                <i class="fas fa-camera"></i> Фото/видео
+            </label>
+            <input type="file" id="media-files" name="media_files" multiple accept="image/*,video/*" style="display: none;">
+            <div id="file-preview" class="file-preview"></div>
+            <small class="upload-info">Максимум 50 МБ. Поддерживаются: JPG, PNG, GIF, MP4, AVI, MOV</small>
+        </div>
+        
+        <button type="submit" class="submit-post">
+            <i class="fas fa-paper-plane"></i> Опубликовать
+        </button>
+    </form>
+</div>
 
-                <!-- Управление лентой -->
                 <div class="feed-controls">
                     <h3>Лента новостей</h3>
-                    <form method="GET" action="/home">
-                        <button type="submit" class="refresh-btn">
-                            <i class="fas fa-sync-alt"></i> Обновить ленту
-                        </button>
-                    </form>
+                    <a href="/home?refresh=1" class="refresh-btn">
+                        <i class="fas fa-sync-alt"></i> Обновить ленту
+                    </a>
                 </div>
 
                 <!-- Сообщения об ошибках/успехе -->
@@ -559,47 +142,46 @@ font-size: 12px;
                     {% for item in feed_items %}
 {% if item.type == 'post' %}
                             <!-- Пост пользователя -->
-                            <div class="post">
-                                <div class="post-header">
-                                    <div class="avatar">
-                                        {{ item.username[0].upper() if item.username and item.username|length > 0 else '?' }}
-                                    </div>
-                                    <div class="post-info">
-                                        <h4>{{ item.username or 'Пользователь' }}</h4>
-                                        <small>
-                                            {% if item.created_at %}
-                                                {% if item.created_at is string %}
-                                                    {{ item.created_at[:16] }}
-                                                {% else %}
-                                                    {{ item.created_at.strftime('%d.%m.%Y %H:%M') }}
-                                                {% endif %}
-                                            {% else %}
-                                                Дата неизвестна
-                                            {% endif %}
-                                        </small>
-                                    </div>
-                                </div>
-                                <div class="post-content">
-                                    {{ item.content or 'Пустой пост' }}
-                                </div>
-                                <div class="post-actions">
-                                    <button class="action-btn">
-                                        <i class="far fa-thumbs-up"></i> Нравится
-                                        {% if item.get('likes_count') %}
-                                            <span>({{ item.likes_count }})</span>
-                                        {% endif %}
-                                    </button>
-                                    <button class="action-btn">
-                                        <i class="far fa-comment"></i> Комментировать
-                                        {% if item.get('comments_count') %}
-                                            <span>({{ item.comments_count }})</span>
-                                        {% endif %}
-                                    </button>
-                                    <button class="action-btn">
-                                        <i class="fas fa-share"></i> Поделиться
-                                    </button>
-                                </div>
-                            </div>
+                            <div class="post" id="post-{{ item.id }}">
+    <div class="post-header">
+        <div class="avatar">
+            {{ item.username[0].upper() if item.username and item.username|length > 0 else '?' }}
+        </div>
+        <div class="post-info">
+            <h4>
+                <a href="/post/{{ item.id }}" style="text-decoration: none; color: #1877f2">
+                    {{ item.username or 'Пользователь' }}
+                </a>
+            </h4>
+            <small>
+                {% if item.created_at %}
+                    {% if item.created_at is string %}
+                        {{ item.created_at[:16] }}
+                    {% else %}
+                        {{ item.created_at.strftime('%d.%m.%Y %H:%M') }}
+                    {% endif %}
+                {% else %}
+                    Дата неизвестна
+                {% endif %}
+            </small>
+        </div>
+    </div>
+    <div class="post-content">
+        {{ item.content or 'Пустой пост' }}
+    </div>
+    <div class="post-actions">
+ 
+        <button class="action-btn like-btn" onclick="likePost({{ item.id }}, this)">
+            <i class="far fa-thumbs-up"></i> Нравится
+            <span class="likes-count" id="likes-{{ item.id }}">({{ item.likes_count|default(0) }})</span>
+        </button>
+        <a href="/post/{{ item.id }}#comments" class="action-btn" style="text-decoration: none; color: inherit;">
+            <i class="far fa-comment"></i> Комментировать
+            <span class="comments-count" id="comments-{{ item.id }}">({{ item.comments_count|default(0) }})</span>
+        </a>
+    </div>
+</div>
+                            
                         {% elif item.type == 'news' %}
                             <!-- Новость -->
                             <div class="news-item">
@@ -614,10 +196,12 @@ font-size: 12px;
                                     </div>
                                 </div>
                                 <div class="news-content">
-                            
+                                    {% if item.description %}
+                                        <p style="color: #444; margin: 8px 0 10px 0; line-height: 1.5;">{{ item.description[:200] }}{% if item.description|length > 200 %}...{% endif %}</p>
+                                    {% endif %}
                                     {% if item.link %}
                                         <a href="{{ item.link }}" target="_blank">
-<i class="fas fa-external-link-alt"></i> Читать полностью
+                                            <i class="fas fa-external-link-alt"></i> Читать полностью
                                         </a>
                                     {% endif %}
                                 </div>
@@ -645,5 +229,97 @@ font-size: 12px;
             
         </div>
     </div>
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script>
+
+function likePost(postId, buttonElement) {
+    $.ajax({
+        url: `/like_post_action/${postId}`,
+        type: 'POST',
+        contentType: 'application/json',
+        success: function(response) {
+            if (response.success) {
+                // Находим элементы внутри конкретной кнопки
+                const $button = $(buttonElement);
+                const $likeIcon = $button.find('i');
+                const $likesCount = $button.find('.likes-count');
+                
+                // Меняем иконку
+                if (response.action === 'liked') {
+                    $likeIcon.removeClass('far').addClass('fas');
+                    $button.addClass('liked');
+                } else {
+                    $likeIcon.removeClass('fas').addClass('far');
+                    $button.removeClass('liked');
+                }
+                
+                // Обновляем счетчик
+                $likesCount.text(`(${response.likes_count})`);
+            } else {
+                alert('Ошибка: ' + response.error);
+            }
+        },
+        error: function() {
+            alert('Ошибка сервера');
+        }
+    });
+}
+
+function showComments(postId) {
+    window.location.href = `/post/${postId}`;
+}
+
+document.getElementById('media-files').addEventListener('change', function(e) {
+    const preview = document.getElementById('file-preview');
+    preview.innerHTML = '';
+    
+    const files = Array.from(e.target.files);
+    
+    files.forEach((file, index) => {
+        const reader = new FileReader();
+        const previewItem = document.createElement('div');
+        previewItem.className = 'preview-item';
+        
+        reader.onload = function(e) {
+            if (file.type.startsWith('image/')) {
+                const img = document.createElement('img');
+                img.src = e.target.result;
+                previewItem.appendChild(img);
+            } else if (file.type.startsWith('video/')) {
+                const video = document.createElement('video');
+                video.src = e.target.result;
+                video.controls = true;
+                previewItem.appendChild(video);
+            } else {
+                const icon = document.createElement('div');
+                icon.className = 'file-icon';
+                icon.innerHTML = '<i class="fas fa-file"></i> ' + file.name.split('.').pop();
+                previewItem.appendChild(icon);
+            }
+        };
+        
+        reader.readAsDataURL(file);
+        
+        const removeBtn = document.createElement('button');
+        removeBtn.className = 'remove-file';
+        removeBtn.innerHTML = '<i class="fas fa-times"></i>';
+        removeBtn.onclick = function() {
+            const dt = new DataTransfer();
+            const input = document.getElementById('media-files');
+            const files = Array.from(input.files);
+            files.splice(index, 1);
+            files.forEach(file => dt.items.add(file));
+            input.files = dt.files;
+            previewItem.remove();
+        };
+        
+        previewItem.appendChild(removeBtn);
+        preview.appendChild(previewItem);
+    });
+});
+</script>
+
+</script>
+</script>
 </body>
 </html>

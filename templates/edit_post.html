@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Редактировать пост</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='defaults/style.css') }}">
+    <link rel="icon" type="image/png" href="{{ url_for('static', filename='uploads/favicon.png') }}">
+</head>
+<body>
+    <header>
+        <div class="container">
+            <div class="header-content">
+                <div class="logo">LinkA</div>
+                <div class="user-info">
+                    <div class="user-welcome">
+                        <a href="/logout" class="logout-link"><i class="fas fa-sign-out-alt"></i> Выйти</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <div class="container">
+        <div class="main-content">
+            <div class="sidebar-left">
+                <h3>Меню</h3>
+                <ul>
+                    <li><a href="/profile"><i class="fas fa-user-circle"></i> Мой профиль</a></li>
+                    <li><a href="/friends"><i class="fas fa-users"></i> Друзья</a></li>
+                    <li><a href="/find_friends"><i class="fas fa-search"></i> Найти друзей</a></li>
+                    <li><a href="/my_posts"><i class="fas fa-newspaper"></i> Мои посты</a></li>
+                    <li><a href="/groups"><i class="fas fa-layer-group"></i> Группы</a></li>
+                    <li><a href="/home"><i class="fas fa-home"></i> Главная</a></li>
+                </ul>
+            </div>
+
+            <div class="feed">
+                <div class="post">
+                    <a href="/my_posts" class="back-link" style="display:inline-flex;margin-bottom:20px;">
+                        <i class="fas fa-arrow-left"></i>&nbsp; Назад к моим постам
+                    </a>
+
+                    <h2 style="font-family:var(--font-display);font-size:18px;margin-bottom:20px;">
+                        <i class="fas fa-edit" style="color:var(--amber-500);"></i> Редактировать пост
+                    </h2>
+
+                    <div class="original-post">
+                        <small style="color:var(--text-muted);font-size:12px;">Оригинальный пост:</small>
+                        <p style="margin:8px 0 4px;color:var(--text-primary);">{{ post.content }}</p>
+                        <small style="color:var(--text-muted);font-size:11px;">Создан: {{ post.created_at }}</small>
+                    </div>
+
+                    <form method="POST">
+                        <div class="form-group">
+                            <label class="form-label">Содержание поста</label>
+                            <textarea name="content" id="content" class="form-control"
+                                      style="min-height:200px;" required>{{ post.content }}</textarea>
+                        </div>
+                        <div style="display:flex;gap:10px;">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-save"></i> Сохранить изменения
+                            </button>
+                            <a href="/my_posts" class="btn btn-secondary">Отмена</a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

@@ -55,18 +55,40 @@ LinkA — это web-приложение, написанное на Python,
 ## 📁 Структура проекта
 
 ```text
-linka/
+LinkA/
 │
-├── app.py                # основной файл приложения
-├── database.db           # база данных SQLite (создаётся автоматически)
+├── main.py                # основной файл приложения
+├── users.db               # база данных SQLite (создаётся автоматически)
 │
-├── templates/            # все HTML-файлы
-│   ├── index.html
+├── templates/             # все HTML-файлы
+│   ├── edit_profile.html
+│   ├── feed.html
+│   ├── find_friends.html
+│   ├── friends.html
+│   ├── group_detail.html
+│   ├── group_settings.html
+│   ├── groups.html
+│   ├── home.html
 │   ├── login.html
-│   └── profile.html
+│   ├── my_posts.html
+│   ├── profile.html
+│   ├── register.html
+│   ├── report_user.html
+│   ├── techadmin.html
+│   ├── techadmin_reports.html
+│   ├── view_profile.html
+│   ├── blacklist.html
+│   └── add_to_blacklist.html
 │
-├── static/               # стили, скрипты, изображения
-│   └── style.css
+├── static/                 # стили, скрипты, изображения
+│   ├── defaults/           
+│   │   ├── for_groups.png
+│   │   └── for_users.png
+│   └── uploads/
+│       ├── avatars/  
+│       ├── groups/
+│       ├── posts/
+│       └── favicon.png
 │
 └── README.md
 ```

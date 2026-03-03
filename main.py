@@ -8,7 +8,30 @@ import feedparser
 from bs4 import BeautifulSoup
 import requests
 import re
-    
+
+# Импорты для просмотра документов
+try:
+    import docx
+
+    DOCX_AVAILABLE = True
+except ImportError:
+    DOCX_AVAILABLE = False
+
+try:
+    import openpyxl
+
+    XLSX_AVAILABLE = True
+except ImportError:
+    XLSX_AVAILABLE = False
+
+try:
+    from pptx import Presentation
+    from pptx.util import Pt
+
+    PPTX_AVAILABLE = True
+except ImportError:
+    PPTX_AVAILABLE = False
+
 app = Flask(__name__)
 app.secret_key = "123"
 
@@ -16,9 +39,10 @@ app.secret_key = "123"
 UPLOAD_FOLDER = 'static/uploads/avatars'
 GROUP_UPLOAD_FOLDER = 'static/uploads/groups'
 POST_MEDIA_FOLDER = 'static/uploads/posts'
-ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'mp4', 'avi', 'mov', 'wmv'}
-ALLOWED_IMAGE_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif'}
-ALLOWED_VIDEO_EXTENSIONS = {'mp4', 'avi', 'mov', 'wmv'}
+ALLOWED_IMAGE_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'webp'}
+ALLOWED_VIDEO_EXTENSIONS = {'mp4', 'avi', 'mov', 'wmv', 'mkv', 'webm'}
+ALLOWED_DOCUMENT_EXTENSIONS = {'pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'txt', 'zip', 'rar', '7z'}
+ALLOWED_EXTENSIONS = ALLOWED_IMAGE_EXTENSIONS | ALLOWED_VIDEO_EXTENSIONS | ALLOWED_DOCUMENT_EXTENSIONS
 
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 app.config['GROUP_UPLOAD_FOLDER'] = GROUP_UPLOAD_FOLDER
@@ -107,8 +131,7 @@ def migrate_database():
         print("Добавляем столбец request_permissions в таблицу groups...")
         cursor.execute('ALTER TABLE groups ADD COLUMN request_permissions TEXT DEFAULT "moderators"')
 
-
-# Проверяем и добавляем таблицу post_media если нет
+    # Проверяем и добавляем таблицу post_media если нет
     try:
         cursor.execute("SELECT post_id FROM post_media LIMIT 1")
     except sqlite3.OperationalError:
@@ -160,6 +183,13 @@ def migrate_database():
                 cursor.execute('ALTER TABLE post_media_new RENAME TO post_media')
                 break
 
+    # Добавляем колонку original_filename если её нет
+    cursor.execute("PRAGMA table_info(post_media)")
+    pm_columns = [col[1] for col in cursor.fetchall()]
+    if 'original_filename' not in pm_columns:
+        cursor.execute('ALTER TABLE post_media ADD COLUMN original_filename TEXT')
+        print("Добавлена колонка original_filename в post_media")
+
     # Создаем таблицу черного списка, если ее нет
     cursor.execute('''
     CREATE TABLE IF NOT EXISTS blacklist (
@@ -210,8 +240,7 @@ def create_tables():
     )
     ''')
 
-
-# Таблица личных постов
+    # Таблица личных постов
     cursor.execute('''
     CREATE TABLE IF NOT EXISTS posts (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -439,7 +468,7 @@ def utility_processor():
                     return f"{value} 00:00"  # Добавляем время по умолчанию
 
         return value
-    
+
     def get_default_avatar(avatar_type='user'):
         """Возвращает путь к дефолтной аватарке"""
         if avatar_type == 'group':
@@ -450,7 +479,8 @@ def utility_processor():
     return {
         'datetime_format': format_datetime,
         'default_avatar': get_default_avatar
-        }
+    }
+
 
 # Функция для получения медиафайлов поста
 def get_post_media(post_id, is_group_post=True):
@@ -459,14 +489,14 @@ def get_post_media(post_id, is_group_post=True):
 
     if is_group_post:
         media = conn.execute('''
-            SELECT id, filename, file_type, thumbnail 
+            SELECT id, filename, file_type, thumbnail, original_filename
             FROM post_media 
             WHERE group_post_id = ?
             ORDER BY id
         ''', (post_id,)).fetchall()
     else:
         media = conn.execute('''
-            SELECT id, filename, file_type, thumbnail 
+            SELECT id, filename, file_type, thumbnail, original_filename
             FROM post_media 
             WHERE post_id = ?
             ORDER BY id
@@ -474,6 +504,357 @@ def get_post_media(post_id, is_group_post=True):
 
     conn.close()
     return rows_to_dicts(media)
+
+
+# ==================== ФУНКЦИИ ДЛЯ КОММЕНТАРИЕВ И ЛАЙКОВ ====================
+
+def get_post_comments(post_id):
+    """Получение комментариев для поста"""
+    conn = get_db_connection()
+    comments = rows_to_dicts(conn.execute('''
+        SELECT c.*, u.username, up.full_name, 
+               COALESCE(up.avatar, 'default_avatar.png') as avatar
+        FROM comments c
+        JOIN users u ON c.user_id = u.id
+        LEFT JOIN user_profiles up ON u.id = up.user_id
+        WHERE c.post_id = ?
+        ORDER BY c.created_at DESC
+    ''', (post_id,)).fetchall())
+    conn.close()
+    return comments
+
+
+def get_post_likes(post_id):
+    """Получение лайков для поста"""
+    conn = get_db_connection()
+    likes = rows_to_dicts(conn.execute('''
+        SELECT pl.*, u.username
+        FROM post_likes pl
+        JOIN users u ON pl.user_id = u.id
+        WHERE pl.post_id = ?
+    ''', (post_id,)).fetchall())
+    conn.close()
+    return likes
+
+
+def has_user_liked_post(post_id, user_id):
+    """Проверка, поставил ли пользователь лайк посту"""
+    conn = get_db_connection()
+    result = conn.execute('''
+        SELECT id FROM post_likes 
+        WHERE post_id = ? AND user_id = ?
+    ''', (post_id, user_id)).fetchone()
+    conn.close()
+    return result is not None
+
+
+# ==================== НОВЫЕ МАРШРУТЫ ====================
+
+@app.route('/edit_post/<int:post_id>', methods=['GET', 'POST'])
+def edit_post(post_id):
+    """Редактирование поста"""
+    if 'user_id' not in session:
+        return redirect('/login')
+
+    user_id = session['user_id']
+    conn = get_db_connection()
+
+    # Получаем пост
+    post = conn.execute('SELECT * FROM posts WHERE id = ?', (post_id,)).fetchone()
+
+    if not post:
+        conn.close()
+        flash('Пост не найден', 'error')
+        return redirect('/my_posts')
+
+    # Проверяем права доступа
+    if post['user_id'] != user_id:
+        conn.close()
+        flash('Вы не можете редактировать этот пост', 'error')
+        return redirect('/my_posts')
+
+    if request.method == 'POST':
+        content = request.form.get('content', '').strip()
+
+        if not content:
+            flash('Пост не может быть пустым', 'error')
+            return redirect(f'/edit_post/{post_id}')
+
+        # Обновляем пост
+        conn.execute('UPDATE posts SET content = ? WHERE id = ?', (content, post_id))
+        conn.commit()
+        conn.close()
+
+        flash('Пост успешно обновлен!', 'success')
+        return redirect('/my_posts')
+
+    # GET запрос - показываем форму редактирования
+    conn.close()
+    return render_template('edit_post.html', post=dict(post))
+
+@app.route('/faq')
+def faq():
+    """Страница часто задаваемых вопросов"""
+    if 'user_id' not in session:
+        return redirect('/login')
+
+    username = session.get('username', 'Пользователь')
+    return render_template('faq.html', username=username)
+
+@app.route('/delete_post_route/<int:post_id>', methods=['POST'])
+def delete_post_route(post_id):
+    """Удаление поста (POST запрос)"""
+    if 'user_id' not in session:
+        return jsonify({'success': False, 'error': 'Требуется авторизация'}), 401
+
+    user_id = session['user_id']
+    conn = get_db_connection()
+
+    # Получаем пост
+    post = conn.execute('SELECT * FROM posts WHERE id = ?', (post_id,)).fetchone()
+
+    if not post:
+        conn.close()
+        return jsonify({'success': False, 'error': 'Пост не найден'})
+
+    # Проверяем права доступа
+    if post['user_id'] != user_id:
+        conn.close()
+        return jsonify({'success': False, 'error': 'Нет прав на удаление'})
+
+    try:
+        # Удаляем лайки и комментарии
+        conn.execute('DELETE FROM post_likes WHERE post_id = ?', (post_id,))
+        conn.execute('DELETE FROM comments WHERE post_id = ?', (post_id,))
+
+        # Удаляем медиафайлы
+        media_files = conn.execute('SELECT filename FROM post_media WHERE post_id = ?', (post_id,)).fetchall()
+        for media in media_files:
+            try:
+                os.remove(os.path.join(app.config['POST_MEDIA_FOLDER'], media['filename']))
+            except:
+                pass
+
+        # Удаляем записи о медиа
+        conn.execute('DELETE FROM post_media WHERE post_id = ?', (post_id,))
+
+        # Удаляем сам пост
+        conn.execute('DELETE FROM posts WHERE id = ?', (post_id,))
+        conn.commit()
+        conn.close()
+
+        return jsonify({'success': True, 'message': 'Пост удален'})
+
+    except Exception as e:
+        conn.rollback()
+        conn.close()
+        return jsonify({'success': False, 'error': str(e)})
+
+
+@app.route('/like_post_action/<int:post_id>', methods=['POST'])
+def like_post_action(post_id):
+    """Поставить/убрать лайк посту"""
+    if 'user_id' not in session:
+        return jsonify({'success': False, 'error': 'Требуется авторизация'}), 401
+
+    user_id = session['user_id']
+    conn = get_db_connection()
+
+    try:
+        # Проверяем, существует ли пост
+        post = conn.execute('SELECT id FROM posts WHERE id = ?', (post_id,)).fetchone()
+        if not post:
+            conn.close()
+            return jsonify({'success': False, 'error': 'Пост не найден'})
+
+        # Проверяем, лайкал ли уже пользователь
+        existing_like = conn.execute('''
+            SELECT id FROM post_likes WHERE post_id = ? AND user_id = ?
+        ''', (post_id, user_id)).fetchone()
+
+        if existing_like:
+            # Убираем лайк
+            conn.execute('DELETE FROM post_likes WHERE id = ?', (existing_like['id'],))
+            action = 'unliked'
+        else:
+            # Ставим лайк
+            conn.execute('INSERT INTO post_likes (post_id, user_id) VALUES (?, ?)', (post_id, user_id))
+            action = 'liked'
+
+        # Получаем новое количество лайков
+        likes_count = conn.execute('SELECT COUNT(*) as count FROM post_likes WHERE post_id = ?', (post_id,)).fetchone()[
+            'count']
+
+        conn.commit()
+        conn.close()
+
+        return jsonify({
+            'success': True,
+            'action': action,
+            'likes_count': likes_count,
+            'liked': action == 'liked'
+        })
+
+    except Exception as e:
+        conn.rollback()
+        conn.close()
+        return jsonify({'success': False, 'error': str(e)})
+
+
+@app.route('/add_comment/<int:post_id>', methods=['POST'])
+def add_comment(post_id):
+    """Добавить комментарий к посту"""
+    if 'user_id' not in session:
+        return jsonify({'success': False, 'error': 'Требуется авторизация'}), 401
+
+    user_id = session['user_id']
+    data = request.get_json()
+    content = data.get('content', '').strip()
+
+    if not content:
+        return jsonify({'success': False, 'error': 'Комментарий не может быть пустым'})
+
+    conn = get_db_connection()
+
+    try:
+        # Проверяем, существует ли пост
+        post = conn.execute('SELECT id FROM posts WHERE id = ?', (post_id,)).fetchone()
+        if not post:
+            conn.close()
+            return jsonify({'success': False, 'error': 'Пост не найден'})
+
+        # Добавляем комментарий - ИСПОЛЬЗУЕМ CURSOR
+        cursor = conn.cursor()
+        cursor.execute('''
+            INSERT INTO comments (post_id, user_id, content)
+            VALUES (?, ?, ?)
+        ''', (post_id, user_id, content))
+
+        # Получаем ID нового комментария через cursor.lastrowid
+        comment_id = cursor.lastrowid
+
+        # Получаем информацию о комментаторе для ответа
+        comment_data = conn.execute('''
+            SELECT c.*, u.username, up.full_name, 
+                   COALESCE(up.avatar, 'default_avatar.png') as avatar
+            FROM comments c
+            JOIN users u ON c.user_id = u.id
+            LEFT JOIN user_profiles up ON u.id = up.user_id
+            WHERE c.id = ?
+        ''', (comment_id,)).fetchone()
+
+        # Получаем общее количество комментариев
+        comments_count = \
+        conn.execute('SELECT COUNT(*) as count FROM comments WHERE post_id = ?', (post_id,)).fetchone()['count']
+
+        conn.commit()
+        conn.close()
+
+        return jsonify({
+            'success': True,
+            'comment': dict(comment_data),
+            'comments_count': comments_count
+        })
+
+    except Exception as e:
+        conn.rollback()
+        conn.close()
+        return jsonify({'success': False, 'error': str(e)})
+
+
+@app.route('/delete_comment/<int:comment_id>', methods=['POST'])
+def delete_comment(comment_id):
+    """Удалить комментарий"""
+    if 'user_id' not in session:
+        return jsonify({'success': False, 'error': 'Требуется авторизация'}), 401
+
+    user_id = session['user_id']
+    conn = get_db_connection()
+
+    try:
+        # Проверяем, существует ли комментарий
+        comment = conn.execute('SELECT * FROM comments WHERE id = ?', (comment_id,)).fetchone()
+        if not comment:
+            conn.close()
+            return jsonify({'success': False, 'error': 'Комментарий не найден'})
+
+        # Проверяем права доступа (только автор комментария или автор поста)
+        if comment['user_id'] != user_id:
+            # Проверяем, является ли пользователь автором поста
+            post = conn.execute('SELECT user_id FROM posts WHERE id = ?', (comment['post_id'],)).fetchone()
+            if not post or post['user_id'] != user_id:
+                conn.close()
+                return jsonify({'success': False, 'error': 'Нет прав на удаление'})
+
+        # Получаем post_id перед удалением
+        post_id = comment['post_id']
+
+        # Удаляем комментарий
+        conn.execute('DELETE FROM comments WHERE id = ?', (comment_id,))
+
+        # Получаем новое количество комментариев
+        comments_count = \
+        conn.execute('SELECT COUNT(*) as count FROM comments WHERE post_id = ?', (post_id,)).fetchone()['count']
+
+        conn.commit()
+        conn.close()
+
+        return jsonify({
+            'success': True,
+            'comments_count': comments_count
+        })
+
+    except Exception as e:
+        conn.rollback()
+        conn.close()
+        return jsonify({'success': False, 'error': str(e)})
+
+
+@app.route('/post/<int:post_id>')
+def view_post(post_id):
+    """Просмотр отдельного поста с комментариями"""
+    if 'user_id' not in session:
+        return redirect('/login')
+
+    user_id = session['user_id']
+    conn = get_db_connection()
+
+    # Получаем пост
+    post = conn.execute('''
+        SELECT p.*, u.username, up.full_name, 
+               COALESCE(up.avatar, 'default_avatar.png') as avatar
+        FROM posts p
+        JOIN users u ON p.user_id = u.id
+        LEFT JOIN user_profiles up ON u.id = up.user_id
+        WHERE p.id = ?
+    ''', (post_id,)).fetchone()
+
+    if not post:
+        conn.close()
+        flash('Пост не найден', 'error')
+        return redirect('/home')
+
+    # Получаем комментарии
+    comments = get_post_comments(post_id)
+
+    # Получаем лайки
+    likes = get_post_likes(post_id)
+    has_liked = has_user_liked_post(post_id, user_id)
+
+    # Получаем количество лайков и комментариев
+    likes_count = len(likes)
+    comments_count = len(comments)
+
+    conn.close()
+
+    return render_template('view_post.html',
+                           post=dict(post),
+                           comments=comments,
+                           likes=likes,
+                           likes_count=likes_count,
+                           comments_count=comments_count,
+                           has_liked=has_liked,
+                           current_user_id=user_id)
 
 
 @app.template_filter('format_date')
@@ -549,12 +930,13 @@ def get_news_feed(user_id=None, limit=20):
     imported_news = []
 
     try:
-        # Получаем посты пользователей (свои и друзей)
+        # Получаем посты пользователей с количеством лайков, комментариев и медиа
         if user_id:
             try:
-                # Получаем посты всех пользователей для упрощения
                 user_posts_rows = conn.execute('''
-                    SELECT p.*, u.username 
+                    SELECT p.*, u.username,
+                           (SELECT COUNT(*) FROM post_likes WHERE post_id = p.id) as likes_count,
+                           (SELECT COUNT(*) FROM comments WHERE post_id = p.id) as comments_count
                     FROM posts p
                     JOIN users u ON p.user_id = u.id
                     ORDER BY p.created_at DESC
@@ -563,6 +945,16 @@ def get_news_feed(user_id=None, limit=20):
 
                 if user_posts_rows:
                     user_posts = rows_to_dicts(user_posts_rows)
+
+                    # Добавляем медиафайлы к каждому посту
+                    for post in user_posts:
+                        media_files = conn.execute('''
+                            SELECT filename, file_type FROM post_media 
+                            WHERE post_id = ?
+                            ORDER BY id
+                        ''', (post['id'],)).fetchall()
+                        post['media_files'] = rows_to_dicts(media_files) if media_files else []
+
             except Exception as e:
                 print(f"Ошибка при получении постов: {e}")
                 import traceback
@@ -592,17 +984,19 @@ def get_news_feed(user_id=None, limit=20):
     # Добавляем посты
     for post in user_posts:
         post['type'] = 'post'
+        if 'likes_count' not in post:
+            post['likes_count'] = 0
+        if 'comments_count' not in post:
+            post['comments_count'] = 0
         all_feed.append(post)
 
-
-# Добавляем новости
+    # Добавляем новости
     for news in imported_news:
         news['type'] = 'news'
         all_feed.append(news)
 
-    # Простая сортировка - сначала новые посты, потом новости
+    # Сортировка
     try:
-        # Приводим даты к строковому формату для сравнения
         def get_sort_key(item):
             if item['type'] == 'post':
                 return item.get('created_at', '') if isinstance(item.get('created_at'), str) else ''
@@ -612,7 +1006,6 @@ def get_news_feed(user_id=None, limit=20):
         all_feed.sort(key=lambda x: get_sort_key(x), reverse=True)
     except Exception as e:
         print(f"Ошибка сортировки: {e}")
-        # Если сортировка не работает, просто оставляем как есть
 
     return all_feed[:limit]
 
@@ -688,10 +1081,9 @@ def fetch_ria_news():
                         # Ищем описание рядом со ссылкой
                         desc_pattern = r'<div[^>]*?class="[^"]*itemcontent[^"]*"[^>]*?>.*?<div[^>]*?class="[^"]*itemtext[^"]*"[^>]*?>([^<]+)</div>'
                         desc_match = re.search(desc_pattern, html_content[
-                                                              html_content.find(link_part) - 500:html_content.find(
+                            html_content.find(link_part) - 500:html_content.find(
 
-
-link_part) + 500])
+                                link_part) + 500])
                         if desc_match:
                             description = desc_match.group(1).strip()
                             description = re.sub(r'<[^>]+>', '', description)
@@ -836,27 +1228,61 @@ def fetch_news_simple():
 
 
 def create_test_news():
-    """Создание тестовых новостей"""
+    """Создание тестовых новостей с уникальными заголовками"""
+    import random
+    import time
+
     topics = [
-        ("Технологии", "Новые технологии меняют нашу жизнь"),
-        ("Наука", "Ученые совершили важное открытие"),
-        ("Образование", "Онлайн-обучение становится популярнее"),
-        ("ИТ", "Развитие программирования и ИИ"),
-        ("Соцсети", "Новые возможности в социальных сетях"),
-        ("Киберспорт", "Турниры по киберспорту набирают популярность"),
-        ("Игры", "Выход новых игровых проектов"),
-        ("Бизнес", "Стартапы привлекают инвестиции")
+        ("Технологии", [
+            "Новый процессор установил мировой рекорд производительности",
+            "Учёные создали батарею с зарядкой за 5 минут",
+            "Квантовый компьютер решил задачу за секунды вместо тысяч лет",
+            "Выпущен открытый ИИ-ассистент для разработчиков",
+        ]),
+        ("Наука", [
+            "Обнаружена новая форма жизни в глубинах океана",
+            "Физики зафиксировали новую элементарную частицу",
+            "Учёные расшифровали геном вымершего животного",
+            "Открыта экзопланета с признаками атмосферы",
+        ]),
+        ("Экономика", [
+            "Центробанк изменил ключевую ставку",
+            "Мировые рынки показали рост второй день подряд",
+            "Инфляция в еврозоне достигла трёхлетнего минимума",
+            "Нефть подорожала на фоне сокращения добычи",
+        ]),
+        ("Спорт", [
+            "Российский спортсмен завоевал золото чемпионата мира",
+            "Футбольный клуб объявил о трансфере звёздного игрока",
+            "Установлен новый мировой рекорд в лёгкой атлетике",
+            "Чемпионат прошёл при рекордной посещаемости",
+        ]),
+        ("Общество", [
+            "В столице открылся новый культурный центр",
+            "Число волонтёров в стране выросло на 20%",
+            "Запущена программа поддержки молодых учёных",
+            "Принят закон об охране окружающей среды",
+        ]),
+        ("Игры", [
+            "Анонсировано продолжение культовой ролевой игры",
+            "Инди-студия выпустила хит за первые сутки продаж",
+            "Турнир по киберспорту собрал миллион зрителей онлайн",
+            "Классическая игра переиздана с обновлённой графикой",
+        ]),
     ]
 
-    import random
+    ts = int(time.time())
     news_items = []
+    random.shuffle(topics)
 
-    for i, (topic, desc) in enumerate(topics):
+    for idx, (topic, headlines) in enumerate(topics):
+        headline = random.choice(headlines)
+        unique_ts = ts - idx * 300  # каждые 5 минут назад
         news_items.append({
-            'title': f'{topic}: Новости дня',
-            'description': f'{desc}. Подробнее читайте в полной версии статьи.',
-            'link': f'https://example.com/news_{i + 1}',
-            'published': datetime.now().strftime('%d.%m.%Y %H:%M'),
+            'title': f'[{topic}] {headline}',
+            'description': f'{headline}. Подробности и комментарии экспертов читайте в полной версии материала.',
+            'link': f'https://example.com/news/{unique_ts}_{idx}',
+            'published': datetime.fromtimestamp(unique_ts).strftime('%d.%m.%Y %H:%M'),
             'source': 'Новостной портал'
         })
 
@@ -882,12 +1308,11 @@ def import_news_to_db():
         imported_count = 0
         for i, news in enumerate(news_items, 1):
             try:
-                # Проверяем, не существует ли уже такая новость
+                # Проверяем, не существует ли уже такая новость (только по ссылке)
                 existing = conn.execute(
-                    'SELECT id FROM imported_news WHERE link = ? OR title = ?',
-                    (news['link'], news['title'])
+                    'SELECT id FROM imported_news WHERE link = ?',
+                    (news['link'],)
                 ).fetchone()
-
 
                 if not existing:
                     # Преобразуем строку даты в datetime объект
@@ -933,12 +1358,7 @@ def import_news_to_db():
 def index():
     if 'user_id' in session:
         username = session.get('username')
-        if username == 'admin':
-            return redirect('/admin')
-        elif username == 'techadmin':
-            return redirect('/techadmin')
-        else:
-            return redirect('/home')
+        return redirect_based_on_role(username)
     return redirect('/login')
 
 
@@ -952,24 +1372,91 @@ def home():
     if request.method == 'POST':
         # Создание нового поста
         content = request.form.get('content', '').strip()
+        files = request.files.getlist('media_files')
 
-        if content:
-            conn = get_db_connection()
-            try:
-                conn.execute('''
-                    INSERT INTO posts (user_id, content)
-                    VALUES (?, ?)
-                ''', (user_id, content))
-                conn.commit()
+        # Проверяем, есть ли хоть что-то для публикации
+        has_content = bool(content)
+        has_files = any(f and f.filename for f in files)
+
+        if not has_content and not has_files:
+            flash('Пост не может быть пустым. Добавьте текст или файлы.', 'error')
+            return redirect('/home')
+
+        conn = get_db_connection()
+        try:
+            current_datetime = get_current_datetime()
+
+            # Создаем пост
+            cursor = conn.cursor()
+            cursor.execute('''
+                INSERT INTO posts (user_id, content, created_at)
+                VALUES (?, ?, ?)
+            ''', (user_id, content, current_datetime))
+
+            post_id = cursor.lastrowid
+            print(f"Создан пост ID: {post_id} с текстом: {content}")
+
+            # Обработка загруженных файлов
+            uploaded_files = 0
+            if files:
+                for file in files:
+                    if file and file.filename and file.filename.strip() != '':
+                        original_name = file.filename
+                        filename = secure_filename(file.filename)
+
+                        if '.' not in filename:
+                            continue
+
+                        file_ext = filename.rsplit('.', 1)[1].lower()
+
+                        # Определяем тип файла
+                        if file_ext in ALLOWED_IMAGE_EXTENSIONS:
+                            file_type = 'image'
+                        elif file_ext in ALLOWED_VIDEO_EXTENSIONS:
+                            file_type = 'video'
+                        elif file_ext in ALLOWED_DOCUMENT_EXTENSIONS:
+                            file_type = 'document'
+                        else:
+                            continue
+
+                        # Генерируем уникальное имя файла
+                        import time
+                        unique_filename = f"post_{post_id}_{int(time.time())}_{hashlib.md5(filename.encode()).hexdigest()[:8]}.{file_ext}"
+                        file_path = os.path.join(app.config['POST_MEDIA_FOLDER'], unique_filename)
+
+                        try:
+                            # Сохраняем файл
+                            file.save(file_path)
+                            print(f"Файл сохранен: {file_path}")
+
+                            # Сохраняем в БД
+                            cursor.execute('''
+                                INSERT INTO post_media (post_id, filename, file_type, original_filename)
+                                VALUES (?, ?, ?, ?)
+                            ''', (post_id, unique_filename, file_type, original_name))
+
+                            uploaded_files += 1
+                            print(f"Сохранен файл {uploaded_files}: {unique_filename} (тип: {file_type})")
+
+                        except Exception as file_error:
+                            print(f"Ошибка при сохранении файла: {str(file_error)}")
+                            continue
+
+            conn.commit()
+
+            if uploaded_files > 0:
+                flash(f'Пост опубликован с {uploaded_files} файл(ов)!', 'success')
+            else:
                 flash('Пост опубликован!', 'success')
-                print(f"Пользователь {user_id} опубликовал пост: {content[:50]}...")
-            except Exception as e:
-                flash(f'Ошибка при публикации поста: {str(e)[:50]}', 'error')
-                print(f"Ошибка при публикации поста: {e}")
-            finally:
-                conn.close()
-        else:
-            flash('Пост не может быть пустым', 'error')
+
+        except Exception as e:
+            conn.rollback()
+            print(f"Ошибка при создании поста: {e}")
+            import traceback
+            traceback.print_exc()
+            flash(f'Ошибка при публикации поста: {str(e)[:50]}', 'error')
+        finally:
+            conn.close()
 
         return redirect('/home')
 
@@ -977,24 +1464,23 @@ def home():
     feed_items = []
 
     try:
-        # Пробуем импортировать новости (только раз в 5 запросов)
-        import_counter = session.get('import_counter', 0)
-        import_counter += 1
-        session['import_counter'] = import_counter
-
-        if import_counter % 5 == 0:
-            print(f"Попытка импорта новостей (запрос #{import_counter})...")
+        # Принудительный импорт при нажатии "Обновить ленту"
+        if request.args.get('refresh') == '1':
             import_news_to_db()
-            # Сбрасываем счетчик, чтобы не импортировать слишком часто
-            if import_counter > 100:
-                session['import_counter'] = 0
+        else:
+            # Фоновый импорт раз в 5 запросов
+            import_counter = session.get('import_counter', 0) + 1
+            session['import_counter'] = import_counter % 100
+            if import_counter % 5 == 0:
+                import_news_to_db()
 
-        # Получаем ленту новостей
-        feed_items = get_news_feed(user_id, limit=20)
+        feed_items = get_news_feed_with_media(user_id, limit=20)
         print(f"Получено {len(feed_items)} элементов в ленте")
 
     except Exception as e:
         print(f"Ошибка при подготовке ленты: {e}")
+        import traceback
+        traceback.print_exc()
         flash('Не удалось загрузить все новости', 'info')
 
     # Получаем количество заявок в друзья
@@ -1048,8 +1534,7 @@ def profile():
     # Получаем профиль пользователя
     profile_data = row_to_dict(conn.execute('SELECT * FROM user_profiles WHERE user_id = ?', (user_id,)).fetchone())
 
-
-# Получаем количество постов
+    # Получаем количество постов
     posts_count = conn.execute('SELECT COUNT(*) as count FROM posts WHERE user_id = ?', (user_id,)).fetchone()['count']
 
     # Получаем количество друзей
@@ -1112,6 +1597,7 @@ def view_profile(user_id):
                            posts_count=posts_count,
                            friend_status=friend_status,
                            is_own_profile=(user_id == session['user_id']))
+
 
 @app.route('/profile/edit', methods=['GET', 'POST'])
 def edit_profile():
@@ -1210,7 +1696,7 @@ def find_friends():
 
                 user['friend_status'] = friend_status['status'] if friend_status else None
 
-# Проверяем, находится ли пользователь в черном списке
+                # Проверяем, находится ли пользователь в черном списке
                 blacklisted = conn.execute('''
                     SELECT id FROM blacklist 
                     WHERE blocker_id = ? AND blocked_id = ?
@@ -1637,7 +2123,7 @@ def report_friend(friend_id):
 
             conn.commit()
             flash('Жалоба отправлена администратору. Спасибо за ваше сообщение!', 'success')
-            
+
         except Exception as e:
             conn.rollback()
             print(f"Ошибка при сохранении жалобы: {e}")
@@ -1701,7 +2187,7 @@ def report_user(user_id):
 
             conn.commit()
             flash('Жалоба отправлена администратору. Спасибо за ваше сообщение!', 'success')
-            
+
         except Exception as e:
             conn.rollback()
             print(f"Ошибка при сохранении жалобы: {e}")
@@ -1952,7 +2438,7 @@ def group_detail(group_id):
     user_id = session['user_id']
     conn = get_db_connection()
 
-# Получаем информацию о группе
+    # Получаем информацию о группе
     group = row_to_dict(conn.execute('''
         SELECT g.*, 
                COUNT(DISTINCT gm.user_id) as members_count,
@@ -2096,6 +2582,7 @@ def group_detail(group_id):
                            pending_requests=pending_requests,
                            pending_requests_count=pending_requests_count)
 
+
 @app.route('/group/<int:group_id>/create_post', methods=['POST'])
 def create_group_post(group_id):
     if 'user_id' not in session:
@@ -2147,6 +2634,7 @@ def create_group_post(group_id):
         if files:
             for file in files:
                 if file and file.filename and file.filename.strip() != '':
+                    original_name = file.filename
                     filename = secure_filename(file.filename)
 
                     if '.' not in filename:
@@ -2159,6 +2647,8 @@ def create_group_post(group_id):
                         file_type = 'image'
                     elif file_ext in ALLOWED_VIDEO_EXTENSIONS:
                         file_type = 'video'
+                    elif file_ext in ALLOWED_DOCUMENT_EXTENSIONS:
+                        file_type = 'document'
                     else:
                         continue
 
@@ -2173,9 +2663,9 @@ def create_group_post(group_id):
 
                         # ВАЖНО: Используем group_post_id для групповых постов
                         cursor.execute('''
-                            INSERT INTO post_media (group_post_id, filename, file_type)
-                            VALUES (?, ?, ?)
-                        ''', (post_id, unique_filename, file_type))
+                            INSERT INTO post_media (group_post_id, filename, file_type, original_filename)
+                            VALUES (?, ?, ?, ?)
+                        ''', (post_id, unique_filename, file_type, original_name))
 
                         uploaded_files += 1
 
@@ -2209,8 +2699,8 @@ def manage_group(group_id):
 
     conn = get_db_connection()
 
-
-    membership = conn.execute(''' SELECT role FROM group_members WHERE group_id = ? AND user_id = ? ''', (group_id, user_id)).fetchone()
+    membership = conn.execute(''' SELECT role FROM group_members WHERE group_id = ? AND user_id = ? ''',
+                              (group_id, user_id)).fetchone()
 
     if not membership or membership['role'] != 'admin':
         flash('У вас нет прав для управления этой группой', 'error')
@@ -2322,7 +2812,7 @@ def update_group_settings(group_id):
         ''', (name, description, 1 if is_public else 0,
               post_permissions, request_permissions, group_id))
 
-# Обработка аватарки
+        # Обработка аватарки
         if 'avatar' in request.files:
             file = request.files['avatar']
             if file and file.filename and allowed_file(file.filename):
@@ -2563,6 +3053,7 @@ def remove_group_member(group_id, user_id):
     finally:
         conn.close()
 
+
 @app.route('/group_post/edit/<int:post_id>', methods=['POST'])
 def edit_group_post(post_id):
     if 'user_id' not in session:
@@ -2680,80 +3171,168 @@ def delete_group_post(post_id):
     finally:
         conn.close()
 
-@app.route('/feed')
-def feed():
+
+# Добавьте в main.py после импортов
+
+@app.route('/friends/list')
+def friends_list():
+    """Получение списка друзей пользователя"""
     if 'user_id' not in session:
-        return redirect('/login')
+        return jsonify({'success': False, 'error': 'Требуется авторизация'}), 401
 
     user_id = session['user_id']
     conn = get_db_connection()
 
-    posts_rows = conn.execute('''
-        SELECT p.*,
-               u.id as author_id, 
-               u.username as author_username,
-               up.full_name as author_name,
-               COALESCE(up.avatar, 'default_avatar.png') as author_avatar,
-               (SELECT COUNT(*) FROM post_likes WHERE post_id = p.id) as likes_count,
-               (SELECT COUNT(*) FROM comments WHERE post_id = p.id) as comments_count
-        FROM posts p
-        JOIN users u ON p.user_id = u.id
+    friends = rows_to_dicts(conn.execute('''
+        SELECT u.id, u.username, up.full_name, up.avatar
+        FROM users u
         LEFT JOIN user_profiles up ON u.id = up.user_id
-        WHERE (p.visibility = 'public' 
-               OR (p.visibility = 'friends' AND p.user_id IN (
-                   SELECT CASE 
-                       WHEN sender_id = ? THEN receiver_id 
-                       ELSE sender_id 
-                   END as friend_id
-                   FROM friendships 
-                   WHERE (sender_id = ? OR receiver_id = ?) AND status = 'accepted'
-               ))
-               OR p.user_id = ?)
-        AND (p.user_id IN (
+        WHERE u.id IN (
             SELECT CASE 
                 WHEN sender_id = ? THEN receiver_id 
                 ELSE sender_id 
             END as friend_id
             FROM friendships 
             WHERE (sender_id = ? OR receiver_id = ?) AND status = 'accepted'
-        ) OR p.user_id = ?)
-        ORDER BY p.created_at DESC
-        LIMIT 50
-    ''', (user_id, user_id, user_id, user_id, user_id, user_id, user_id, user_id)).fetchall()
-
-    group_posts_rows = conn.execute('''
-        SELECT gp.*,
-               g.id as group_id,
-               g.name as group_name,
-               COALESCE(g.avatar, 'default_group.png') as group_avatar,
-               u.id as author_id,
-               u.username as author_username,
-               up.full_name as author_name,
-               COALESCE(up.avatar, 'default_avatar.png') as author_avatar,
-               (SELECT COUNT(*) FROM group_post_likes WHERE post_id = gp.id) as likes_count
-        FROM group_posts gp
-        JOIN groups g ON gp.group_id = g.id
-        JOIN users u ON gp.author_id = u.id
-        LEFT JOIN user_profiles up ON u.id = up.user_id
-        WHERE g.id IN (
-            SELECT group_id FROM group_members WHERE user_id = ?
         )
-        ORDER BY gp.created_at DESC
-        LIMIT 50
-    ''', (user_id,)).fetchall()
+        ORDER BY up.full_name, u.username
+    ''', (user_id, user_id, user_id)).fetchall())
 
-    all_posts = []
-    for post in posts_rows:
-        post_dict = dict(post)
-        post_dict['type'] = 'personal'
-        all_posts.append(post_dict)
+    conn.close()
 
-    for post in group_posts_rows:
-        post_dict = dict(post)
-        post_dict['type'] = 'group'
-        all_posts.append(post_dict)
+    return jsonify({'success': True, 'friends': friends})
 
-    all_posts.sort(key=lambda x: x['created_at'], reverse=True)
+
+@app.route('/group/<int:group_id>/members')
+def group_members_list(group_id):
+    """Получение списка ID участников группы"""
+    if 'user_id' not in session:
+        return jsonify({'success': False, 'error': 'Требуется авторизация'}), 401
+
+    conn = get_db_connection()
+    members = conn.execute('''
+        SELECT user_id FROM group_members WHERE group_id = ?
+    ''', (group_id,)).fetchall()
+
+    member_ids = [m['user_id'] for m in members]
+    conn.close()
+
+    return jsonify({'success': True, 'member_ids': member_ids})
+
+
+@app.route('/group/<int:group_id>/invite', methods=['POST'])
+def invite_to_group(group_id):
+    """Приглашение друзей в группу"""
+    if 'user_id' not in session:
+        return jsonify({'success': False, 'error': 'Требуется авторизация'}), 401
+
+    user_id = session['user_id']
+    data = request.get_json()
+    user_ids = data.get('user_ids', [])
+
+    if not user_ids:
+        return jsonify({'success': False, 'error': 'Нет пользователей для приглашения'})
+
+    conn = get_db_connection()
+
+    # Проверяем, является ли пользователь администратором группы
+    role = conn.execute('''
+        SELECT role FROM group_members 
+        WHERE group_id = ? AND user_id = ?
+    ''', (group_id, user_id)).fetchone()
+
+    if not role or role['role'] != 'admin':
+        conn.close()
+        return jsonify({'success': False, 'error': 'Только администраторы могут приглашать'})
+
+    sent_count = 0
+    sent_ids = []
+
+    for invited_id in user_ids:
+        # Проверяем, не состоит ли уже пользователь в группе
+        existing = conn.execute('''
+            SELECT id FROM group_members 
+            WHERE group_id = ? AND user_id = ?
+        ''', (group_id, invited_id)).fetchone()
+
+        if existing:
+            continue
+
+        # Проверяем, есть ли уже заявка
+        existing_request = conn.execute('''
+            SELECT id FROM group_requests 
+            WHERE group_id = ? AND user_id = ? AND status = 'pending'
+        ''', (group_id, invited_id)).fetchone()
+
+        if existing_request:
+            continue
+
+        # Добавляем приглашение (создаем запись в group_requests)
+        conn.execute('''
+            INSERT INTO group_requests (group_id, user_id, status, created_at)
+            VALUES (?, ?, 'pending', ?)
+        ''', (group_id, invited_id, get_current_datetime()))
+
+        sent_count += 1
+        sent_ids.append(invited_id)
+
+    conn.commit()
+    conn.close()
+
+    if sent_count > 0:
+        return jsonify({
+            'success': True,
+            'message': f'Приглашения отправлены {sent_count} пользователям',
+            'sent_count': sent_count,
+            'sent_ids': sent_ids
+        })
+    else:
+        return jsonify({'success': False, 'error': 'Все выбранные пользователи уже в группе или имеют активные заявки'})
+
+
+@app.route('/feed', methods=['GET', 'POST'])
+def feed():
+    if 'user_id' not in session:
+        return redirect('/login')
+
+    user_id = session['user_id']
+
+    # Создание поста через форму в ленте
+    if request.method == 'POST':
+        content = request.form.get('content', '').strip()
+        visibility = request.form.get('visibility', 'public')
+        if content:
+            conn = get_db_connection()
+            current_datetime = get_current_datetime()
+            conn.execute(
+                'INSERT INTO posts (user_id, content, visibility, created_at) VALUES (?, ?, ?, ?)',
+                (user_id, content, visibility, current_datetime)
+            )
+            conn.commit()
+            conn.close()
+            flash('Пост опубликован!', 'success')
+        return redirect('/feed')
+
+    # При нажатии "Обновить ленту" — импортируем свежие новости
+    if request.args.get('refresh') == '1':
+        try:
+            import_news_to_db()
+        except Exception as e:
+            print(f"Ошибка импорта при обновлении ленты: {e}")
+        return redirect('/feed')
+
+    conn = get_db_connection()
+
+    user = conn.execute('SELECT username FROM users WHERE id = ?', (user_id,)).fetchone()
+    username = user['username'] if user else ''
+
+    try:
+        friend_requests_count = conn.execute(
+            "SELECT COUNT(*) as cnt FROM friendships WHERE receiver_id = ? AND status = 'pending'",
+            (user_id,)
+        ).fetchone()['cnt']
+    except Exception:
+        friend_requests_count = 0
 
     my_groups = rows_to_dicts(conn.execute('''
         SELECT g.*, COUNT(DISTINCT gm.user_id) as members_count
@@ -2767,7 +3346,13 @@ def feed():
 
     conn.close()
 
-    return render_template('feed.html', posts=all_posts, my_groups=my_groups)
+    feed_items = get_news_feed(user_id=user_id, limit=50)
+
+    return render_template('feed.html',
+                           feed_items=feed_items,
+                           username=username,
+                           friend_requests_count=friend_requests_count,
+                           my_groups=my_groups)
 
 
 @app.route('/create_post', methods=['POST'])
@@ -2904,8 +3489,12 @@ def my_posts():
     user_id = session['user_id']
     conn = get_db_connection()
 
+    # Получаем посты с количеством лайков и комментариев
     posts_rows = conn.execute('''
-        SELECT * FROM posts 
+        SELECT p.*, 
+               (SELECT COUNT(*) FROM post_likes WHERE post_id = p.id) as likes_count,
+               (SELECT COUNT(*) FROM comments WHERE post_id = p.id) as comments_count
+        FROM posts p 
         WHERE user_id = ? 
         ORDER BY created_at DESC
     ''', (user_id,)).fetchall()
@@ -2915,6 +3504,7 @@ def my_posts():
     conn.close()
 
     return render_template('my_posts.html', posts=posts)
+
 
 # ==================== ТЕХ-АДМИН ====================
 
@@ -2984,7 +3574,8 @@ def techadmin_reports():
 
     print(f"Найдено жалоб: {len(reports)}")
     for i, report in enumerate(reports):
-        print(f"  {i + 1}. ID: {report['id']}, Статус: {report['status']}, От: {report['reporter_username']}, На: {report['reported_username']}")
+        print(
+            f"  {i + 1}. ID: {report['id']}, Статус: {report['status']}, От: {report['reporter_username']}, На: {report['reported_username']}")
 
     conn.close()
 
@@ -3085,6 +3676,9 @@ def techadmin_stats():
 @app.route('/register', methods=['GET', 'POST'])
 def register():
     if request.method == 'POST':
+        agree_terms = request.form.get('agree_terms')
+        if not agree_terms:
+            return render_template('register.html', error="Вы должны принять услвоия пользовательского соглашения")
         username = request.form['username']
         password = request.form['password']
         confirm_password = request.form.get('confirm_password', '')
@@ -3127,22 +3721,17 @@ def login():
             connection.close()
 
             if user_row:
-                # Преобразуем Row в словарь
                 user = dict(user_row)
 
-                # Проверяем, не забанен ли пользователь (для обычных пользователей)
+                # Проверяем, не забанен ли пользователь
                 if user.get('role') == 'user' and user.get('is_banned', 0) == 1:
                     return render_template('login.html', error="Ваш аккаунт заблокирован")
 
                 session['user_id'] = user['id']
                 session['username'] = user['username']
 
-                if username == 'admin':
-                    return redirect('/admin')
-                elif username == 'techadmin':
-                    return redirect('/techadmin')
-                else:
-                    return redirect('/home')
+                # Используем функцию перенаправления
+                return redirect_based_on_role(user['username'])
             else:
                 return render_template('login.html', error="Неверное имя пользователя или пароль")
         except Exception as e:
@@ -3152,11 +3741,323 @@ def login():
     return render_template('login.html')
 
 
+@app.route('/terms')
+def terms():
+    return render_template('terms.html')
+
+
+# ==================== АДМИН-ПАНЕЛЬ ====================
+
 @app.route('/admin')
-def admin():
-    if 'user_id' not in session or session.get('username') != 'admin':
+def admin_panel():
+    """Главная страница админ-панели"""
+    if 'user_id' not in session:
         return redirect('/login')
-    return "Админ-панель (будет реализована позже)"
+
+    # Проверяем, является ли пользователь админом
+    conn = get_db_connection()
+    user = conn.execute('SELECT role FROM users WHERE id = ?', (session['user_id'],)).fetchone()
+    conn.close()
+
+    if not user or user['role'] != 'admin':
+        flash('Доступ запрещен', 'error')
+        return redirect('/home')
+
+    return redirect('/admin/users')  # По умолчанию переходим к управлению пользователями
+
+
+@app.route('/admin/users')
+def admin_users():
+    """Управление пользователями"""
+    if 'user_id' not in session:
+        return redirect('/login')
+
+    # Проверяем, является ли пользователь админом
+    conn = get_db_connection()
+    user = conn.execute('SELECT role FROM users WHERE id = ?', (session['user_id'],)).fetchone()
+
+    if not user or user['role'] != 'admin':
+        conn.close()
+        flash('Доступ запрещен', 'error')
+        return redirect('/home')
+
+    # Получаем параметры поиска и фильтрации
+    search_query = request.args.get('search', '').strip()
+    role_filter = request.args.get('role', 'all')
+    banned_filter = request.args.get('banned', 'all')
+
+    # Формируем запрос
+    query = '''
+        SELECT u.*, 
+               up.full_name, 
+               up.avatar,
+               (SELECT COUNT(*) FROM posts WHERE user_id = u.id) as posts_count,
+               (SELECT COUNT(*) FROM friendships WHERE (sender_id = u.id OR receiver_id = u.id) AND status = 'accepted') as friends_count
+        FROM users u
+        LEFT JOIN user_profiles up ON u.id = up.user_id
+        WHERE 1=1
+    '''
+
+    params = []
+
+    # Применяем фильтры
+    if search_query:
+        query += ' AND (u.username LIKE ? OR up.full_name LIKE ?)'
+        params.extend([f'%{search_query}%', f'%{search_query}%'])
+
+    if role_filter != 'all':
+        query += ' AND u.role = ?'
+        params.append(role_filter)
+
+    if banned_filter != 'all':
+        if banned_filter == 'banned':
+            query += ' AND u.is_banned = 1'
+        elif banned_filter == 'active':
+            query += ' AND u.is_banned = 0'
+
+    query += ' ORDER BY u.created_at DESC'
+
+    users = rows_to_dicts(conn.execute(query, params).fetchall())
+
+    # Получаем статистику
+    total_users = conn.execute('SELECT COUNT(*) as count FROM users').fetchone()['count']
+    admin_users = conn.execute("SELECT COUNT(*) as count FROM users WHERE role = 'admin'").fetchone()['count']
+    techadmin_users = conn.execute("SELECT COUNT(*) as count FROM users WHERE role = 'techadmin'").fetchone()['count']
+    banned_users = conn.execute("SELECT COUNT(*) as count FROM users WHERE is_banned = 1").fetchone()['count']
+
+    conn.close()
+
+    return render_template('admin_users.html',
+                           users=users,
+                           search_query=search_query,
+                           role_filter=role_filter,
+                           banned_filter=banned_filter,
+                           total_users=total_users,
+                           admin_users=admin_users,
+                           techadmin_users=techadmin_users,
+                           banned_users=banned_users)
+
+
+@app.route('/admin/banned')
+def admin_banned():
+    """Забаненные пользователи"""
+    if 'user_id' not in session:
+        return redirect('/login')
+
+    # Проверяем, является ли пользователь админом
+    conn = get_db_connection()
+    user = conn.execute('SELECT role FROM users WHERE id = ?', (session['user_id'],)).fetchone()
+
+    if not user or user['role'] != 'admin':
+        conn.close()
+        flash('Доступ запрещен', 'error')
+        return redirect('/home')
+
+    # Получаем список забаненных пользователей
+    users = rows_to_dicts(conn.execute('''
+        SELECT u.*, 
+               up.full_name, 
+               up.avatar,
+               (SELECT COUNT(*) FROM posts WHERE user_id = u.id) as posts_count
+        FROM users u
+        LEFT JOIN user_profiles up ON u.id = up.user_id
+        WHERE u.is_banned = 1
+        ORDER BY u.created_at DESC
+    ''').fetchall())
+
+    conn.close()
+
+    return render_template('admin_banned.html', users=users)
+
+
+@app.route('/admin/change_role/<int:user_id>', methods=['POST'])
+def admin_change_role(user_id):
+    """Изменение роли пользователя"""
+    if 'user_id' not in session:
+        return jsonify({'success': False, 'error': 'Требуется авторизация'}), 401
+
+    # Проверяем, является ли пользователь админом
+    conn = get_db_connection()
+    admin_user = conn.execute('SELECT role FROM users WHERE id = ?', (session['user_id'],)).fetchone()
+
+    if not admin_user or admin_user['role'] != 'admin':
+        conn.close()
+        return jsonify({'success': False, 'error': 'Доступ запрещен'}), 403
+
+    data = request.get_json()
+    new_role = data.get('role')
+
+    if not new_role or new_role not in ['admin', 'techadmin', 'user']:
+        return jsonify({'success': False, 'error': 'Недопустимая роль'})
+
+    # Получаем информацию о пользователе
+    target_user = conn.execute('SELECT id, username, role FROM users WHERE id = ?', (user_id,)).fetchone()
+
+    if not target_user:
+        return jsonify({'success': False, 'error': 'Пользователь не найден'})
+
+    # Не позволяем менять роль главного админа
+    if target_user['username'] == 'admin':
+        return jsonify({'success': False, 'error': 'Нельзя изменить роль главного администратора'})
+
+    # Не позволяем менять свою собственную роль
+    if user_id == session['user_id']:
+        return jsonify({'success': False, 'error': 'Нельзя изменить свою собственную роль'})
+
+    old_role = target_user['role']
+
+    # Изменяем роль
+    conn.execute('UPDATE users SET role = ? WHERE id = ?', (new_role, user_id))
+    conn.commit()
+    conn.close()
+
+    # Определяем название роли для сообщения
+    role_names = {
+        'admin': 'администратора',
+        'techadmin': 'технического администратора',
+        'user': 'обычного пользователя'
+    }
+
+    role_name = role_names.get(new_role, new_role)
+    old_role_name = role_names.get(old_role, old_role)
+
+    return jsonify({
+        'success': True,
+        'message': f'Роль пользователя изменена с {old_role_name} на {role_name}',
+        'new_role': new_role,
+        'old_role': old_role
+    })
+
+
+@app.route('/admin/ban_user/<int:user_id>', methods=['POST'])
+def admin_ban_user(user_id):
+    """Бан пользователя"""
+    if 'user_id' not in session:
+        return jsonify({'success': False, 'error': 'Требуется авторизация'}), 401
+
+    # Проверяем, является ли пользователь админом
+    conn = get_db_connection()
+    admin_user = conn.execute('SELECT role FROM users WHERE id = ?', (session['user_id'],)).fetchone()
+
+    if not admin_user or admin_user['role'] != 'admin':
+        conn.close()
+        return jsonify({'success': False, 'error': 'Доступ запрещен'}), 403
+
+    data = request.get_json()
+    ban_reason = data.get('reason', '')
+
+    # Получаем информацию о пользователе
+    target_user = conn.execute('SELECT id, username, role FROM users WHERE id = ?', (user_id,)).fetchone()
+
+    if not target_user:
+        return jsonify({'success': False, 'error': 'Пользователь не найден'})
+
+    # Не позволяем забанить другого админа или тех-админа
+    if target_user['role'] in ['admin', 'techadmin']:
+        return jsonify({'success': False, 'error': 'Нельзя забанить администратора или тех-админа'})
+
+    # Не позволяем забанить себя
+    if user_id == session['user_id']:
+        return jsonify({'success': False, 'error': 'Нельзя забанить себя'})
+
+    # Баним пользователя
+    conn.execute('UPDATE users SET is_banned = 1 WHERE id = ?', (user_id,))
+
+    # Добавляем запись в журнал банов (можно создать таблицу ban_history если нужно)
+    conn.commit()
+    conn.close()
+
+    return jsonify({'success': True, 'message': f'Пользователь {target_user["username"]} забанен'})
+
+
+@app.route('/admin/unban_user/<int:user_id>', methods=['POST'])
+def admin_unban_user(user_id):
+    """Разбан пользователя"""
+    if 'user_id' not in session:
+        return jsonify({'success': False, 'error': 'Требуется авторизация'}), 401
+
+    # Проверяем, является ли пользователь админом
+    conn = get_db_connection()
+    admin_user = conn.execute('SELECT role FROM users WHERE id = ?', (session['user_id'],)).fetchone()
+
+    if not admin_user or admin_user['role'] != 'admin':
+        conn.close()
+        return jsonify({'success': False, 'error': 'Доступ запрещен'}), 403
+
+    # Получаем информацию о пользователе
+    target_user = conn.execute('SELECT id, username FROM users WHERE id = ?', (user_id,)).fetchone()
+
+    if not target_user:
+        return jsonify({'success': False, 'error': 'Пользователь не найден'})
+
+    # Разбаниваем пользователя
+    conn.execute('UPDATE users SET is_banned = 0 WHERE id = ?', (user_id,))
+    conn.commit()
+    conn.close()
+
+    return jsonify({'success': True, 'message': f'Пользователь {target_user["username"]} разбанен'})
+
+
+@app.route('/admin/get_user_stats')
+def admin_get_user_stats():
+    """Получение статистики пользователей для админа"""
+    if 'user_id' not in session:
+        return jsonify({'error': 'Требуется авторизация'}), 401
+
+    # Проверяем, является ли пользователь админом
+    conn = get_db_connection()
+    user = conn.execute('SELECT role FROM users WHERE id = ?', (session['user_id'],)).fetchone()
+
+    if not user or user['role'] != 'admin':
+        conn.close()
+        return jsonify({'error': 'Доступ запрещен'}), 403
+
+    # Получаем статистику
+    today = datetime.now().strftime('%Y-%m-%d')
+
+    total_users = conn.execute('SELECT COUNT(*) as count FROM users').fetchone()['count']
+    today_users = conn.execute('SELECT COUNT(*) as count FROM users WHERE DATE(created_at) = ?', (today,)).fetchone()[
+        'count']
+    banned_users = conn.execute("SELECT COUNT(*) as count FROM users WHERE is_banned = 1").fetchone()['count']
+    active_users = total_users - banned_users
+
+    # Получаем распределение по ролям
+    roles_stats = rows_to_dicts(conn.execute('''
+        SELECT role, COUNT(*) as count 
+        FROM users 
+        GROUP BY role
+    ''').fetchall())
+
+    conn.close()
+
+    return jsonify({
+        'total_users': total_users,
+        'today_users': today_users,
+        'banned_users': banned_users,
+        'active_users': active_users,
+        'roles_stats': roles_stats
+    })
+
+
+def redirect_based_on_role(username):
+    """Перенаправляет пользователя на соответствующую страницу в зависимости от роли"""
+    if username == 'admin':
+        return redirect('/admin')
+    elif username == 'techadmin':
+        return redirect('/techadmin')
+    else:
+        # Проверяем роль в базе данных
+        conn = get_db_connection()
+        user = conn.execute('SELECT role FROM users WHERE username = ?', (username,)).fetchone()
+        conn.close()
+
+        if user:
+            if user['role'] == 'admin':
+                return redirect('/admin')
+            elif user['role'] == 'techadmin':
+                return redirect('/techadmin')
+
+    return redirect('/home')
 
 
 @app.route('/user')
@@ -3196,6 +4097,290 @@ def get_user_stats():
         'friends_count': friends_count
     })
 
+
+def get_news_feed_with_media(user_id=None, limit=20):
+    """Получение ленты новостей с медиафайлами"""
+    conn = get_db_connection()
+
+    user_posts = []
+    imported_news = []
+
+    try:
+        # Получаем посты пользователей
+        if user_id:
+            try:
+                user_posts_rows = conn.execute('''
+                    SELECT p.*, u.username,
+                           (SELECT COUNT(*) FROM post_likes WHERE post_id = p.id) as likes_count,
+                           (SELECT COUNT(*) FROM comments WHERE post_id = p.id) as comments_count
+                    FROM posts p
+                    JOIN users u ON p.user_id = u.id
+                    ORDER BY p.created_at DESC
+                    LIMIT 20
+                ''').fetchall()
+
+                if user_posts_rows:
+                    user_posts = rows_to_dicts(user_posts_rows)
+
+                    # Добавляем медиафайлы к каждому посту
+                    for post in user_posts:
+                        # Получаем медиафайлы для поста
+                        media_files = conn.execute('''
+                            SELECT filename, file_type FROM post_media 
+                            WHERE post_id = ?
+                            ORDER BY id
+                        ''', (post['id'],)).fetchall()
+
+                        # Преобразуем в список словарей
+                        media_list = []
+                        for media in media_files:
+                            media_dict = dict(media)
+
+                            # Если file_type не указан, определяем по расширению
+                            if not media_dict.get('file_type'):
+                                ext = media_dict['filename'].split('.')[-1].lower()
+                                if ext in ALLOWED_IMAGE_EXTENSIONS:
+                                    media_dict['file_type'] = 'image'
+                                elif ext in ALLOWED_VIDEO_EXTENSIONS:
+                                    media_dict['file_type'] = 'video'
+                                else:
+                                    media_dict['file_type'] = 'unknown'
+
+                            # Убеждаемся, что файл физически существует
+                            file_path = os.path.join(app.config['POST_MEDIA_FOLDER'], media_dict['filename'])
+                            if os.path.exists(file_path):
+                                media_dict['exists'] = True
+                                media_dict['file_size'] = os.path.getsize(file_path)
+                            else:
+                                media_dict['exists'] = False
+                                print(f"Файл не найден: {file_path}")
+
+                            media_list.append(media_dict)
+
+                        post['media_files'] = media_list
+                        print(f"Пост {post['id']}: найдено {len(media_list)} медиафайлов")
+
+            except Exception as e:
+                print(f"Ошибка при получении постов: {e}")
+                import traceback
+                traceback.print_exc()
+
+        # Получаем импортированные новости
+        try:
+            news_rows = conn.execute('''
+                SELECT *, 'news' as type FROM imported_news
+                ORDER BY published DESC
+                LIMIT 10
+            ''').fetchall()
+
+            if news_rows:
+                imported_news = rows_to_dicts(news_rows)
+                for news in imported_news:
+                    news['media_files'] = []
+        except Exception as e:
+            print(f"Ошибка при получении новостей: {e}")
+
+    except Exception as e:
+        print(f"Общая ошибка при получении ленты: {e}")
+        import traceback
+        traceback.print_exc()
+    finally:
+        conn.close()
+
+    # Объединяем
+    all_feed = []
+
+    # Добавляем посты
+    for post in user_posts:
+        post['type'] = 'post'
+        if 'likes_count' not in post:
+            post['likes_count'] = 0
+        if 'comments_count' not in post:
+            post['comments_count'] = 0
+        if 'media_files' not in post:
+            post['media_files'] = []
+        all_feed.append(post)
+
+    # Добавляем новости
+    for news in imported_news:
+        news['type'] = 'news'
+        if 'media_files' not in news:
+            news['media_files'] = []
+        all_feed.append(news)
+
+    # Сортировка
+    try:
+        def get_sort_key(item):
+            if item['type'] == 'post':
+                return item.get('created_at', '')
+            else:
+                return item.get('published', '')
+
+        all_feed.sort(key=lambda x: get_sort_key(x), reverse=True)
+    except Exception as e:
+        print(f"Ошибка сортировки: {e}")
+
+    return all_feed[:limit]
+
+
+@app.route('/debug_video')
+def debug_video():
+    if 'user_id' not in session:
+        return redirect('/login')
+
+    conn = get_db_connection()
+
+    # Получаем все видео из БД
+    videos = conn.execute('''
+        SELECT pm.*, p.content, p.user_id, u.username
+        FROM post_media pm
+        JOIN posts p ON pm.post_id = p.id
+        JOIN users u ON p.user_id = u.id
+        WHERE pm.file_type = 'video'
+        ORDER BY pm.id DESC
+    ''').fetchall()
+
+    # Проверяем физическое существование файлов
+    import os
+    video_files = []
+    missing_files = []
+
+    for video in videos:
+        file_path = os.path.join(app.config['POST_MEDIA_FOLDER'], video['filename'])
+        if os.path.exists(file_path):
+            file_size = os.path.getsize(file_path)
+            video_files.append({
+                'id': video['id'],
+                'filename': video['filename'],
+                'post_id': video['post_id'],
+                'username': video['username'],
+                'size': file_size,
+                'exists': True
+            })
+        else:
+            missing_files.append({
+                'id': video['id'],
+                'filename': video['filename'],
+                'post_id': video['post_id']
+            })
+
+    # Получаем все физические видеофайлы в папке
+    all_files = os.listdir(app.config['POST_MEDIA_FOLDER'])
+    video_extensions = {'.mp4', '.avi', '.mov', '.wmv', '.flv', '.webm'}
+    physical_videos = [f for f in all_files if os.path.splitext(f)[1].lower() in video_extensions]
+
+    conn.close()
+
+    return f"""
+    <h2>Диагностика видео</h2>
+
+    <h3>Видео в БД: {len(videos)}</h3>
+    <table border="1" cellpadding="5">
+        <tr>
+            <th>ID</th>
+            <th>Пост</th>
+            <th>Автор</th>
+            <th>Файл</th>
+            <th>Статус</th>
+            <th>Размер</th>
+        </tr>
+        {"".join([f"""
+        <tr>
+            <td>{v['id']}</td>
+            <td>{v['post_id']}</td>
+            <td>{v['username']}</td>
+            <td>{v['filename']}</td>
+            <td style="color:green">✅ Существует</td>
+            <td>{v['size']} байт</td>
+        </tr>
+        """ for v in video_files])}
+        {"".join([f"""
+        <tr>
+            <td>{m['id']}</td>
+            <td>{m['post_id']}</td>
+            <td>-</td>
+            <td>{m['filename']}</td>
+            <td style="color:red">❌ Файл отсутствует</td>
+            <td>-</td>
+        </tr>
+        """ for m in missing_files])}
+    </table>
+
+    <h3>Физические видеофайлы в папке: {len(physical_videos)}</h3>
+    <ul>
+    {"".join([f"<li>{f}</li>" for f in physical_videos[:20]])}
+    </ul>
+
+    <h3>MIME-типы видео</h3>
+    <p>Убедитесь, что сервер правильно отдает видеофайлы:</p>
+    <ul>
+        <li>.mp4 - video/mp4</li>
+        <li>.avi - video/x-msvideo</li>
+        <li>.mov - video/quicktime</li>
+        <li>.wmv - video/x-ms-wmv</li>
+    </ul>
+
+    <p><a href="/home">На главную</a></p>
+    """
+
+
+def get_video_mime_type(filename):
+    """Определяет MIME-тип видео по расширению"""
+    ext = filename.split('.')[-1].lower()
+    mime_types = {
+        'mp4': 'video/mp4',
+        'avi': 'video/x-msvideo',
+        'mov': 'video/quicktime',
+        'wmv': 'video/x-ms-wmv',
+        'flv': 'video/x-flv',
+        'webm': 'video/webm',
+        'mkv': 'video/x-matroska',
+        'm4v': 'video/x-m4v',
+        'mpg': 'video/mpeg',
+        'mpeg': 'video/mpeg'
+    }
+    return mime_types.get(ext, 'video/mp4')
+
+
+@app.route('/fix_video_types')
+def fix_video_types():
+    if 'user_id' not in session:
+        return redirect('/login')
+
+    conn = get_db_connection()
+
+    # Получаем все медиафайлы с неправильным или отсутствующим типом
+    media_files = conn.execute('''
+        SELECT id, filename, file_type, post_id
+        FROM post_media
+        WHERE file_type IS NULL OR file_type = '' OR file_type = 'unknown'
+    ''').fetchall()
+
+    fixed_count = 0
+    for media in media_files:
+        ext = media['filename'].split('.')[-1].lower()
+        if ext in ALLOWED_IMAGE_EXTENSIONS:
+            new_type = 'image'
+        elif ext in ALLOWED_VIDEO_EXTENSIONS:
+            new_type = 'video'
+        else:
+            new_type = 'unknown'
+
+        if new_type != 'unknown':
+            conn.execute('''
+                UPDATE post_media 
+                SET file_type = ? 
+                WHERE id = ?
+            ''', (new_type, media['id']))
+            fixed_count += 1
+            print(f"Исправлен файл {media['filename']}: {media['file_type']} -> {new_type}")
+
+    conn.commit()
+    conn.close()
+
+    return f"<h2>Исправлено {fixed_count} записей</h2><p><a href='/debug_video'>Проверить</a></p>"
+
+
 @app.route('/check_table_structure')
 def check_table_structure():
     conn = get_db_connection()
@@ -3213,8 +4398,365 @@ def check_table_structure():
     return result
 
 
-if __name__ == '__main__':
-    create_tables()
+@app.route('/test_video/<int:post_id>')
+def test_video(post_id):
+    """Прямая проверка видео для конкретного поста"""
+    conn = get_db_connection()
+
+    # Получаем медиафайлы поста
+    media = conn.execute('''
+        SELECT * FROM post_media WHERE post_id = ?
+    ''', (post_id,)).fetchall()
+
+    # Получаем сам пост
+    post = conn.execute('''
+        SELECT p.*, u.username 
+        FROM posts p
+        JOIN users u ON p.user_id = u.id
+        WHERE p.id = ?
+    ''', (post_id,)).fetchone()
+
+    conn.close()
+
+    html = f"<h2>Пост #{post_id}</h2>"
+    html += f"<p>Автор: {post['username']}</p>"
+    html += f"<p>Текст: {post['content']}</p>"
+    html += f"<p>Медиафайлов в БД: {len(media)}</p>"
+
+    for m in media:
+        m_dict = dict(m)
+        file_path = os.path.join(app.config['POST_MEDIA_FOLDER'], m_dict['filename'])
+        file_exists = os.path.exists(file_path)
+
+        html += f"<hr>"
+        html += f"<p>ID: {m_dict['id']}</p>"
+        html += f"<p>Файл: {m_dict['filename']}</p>"
+        html += f"<p>Тип: {m_dict['file_type']}</p>"
+        html += f"<p>Физически существует: {'✅' if file_exists else '❌'}</p>"
+
+        if file_exists and m_dict['file_type'] == 'video':
+            html += f"""
+            <video width="400" controls>
+                <source src="/static/uploads/posts/{m_dict['filename']}" type="video/mp4">
+                Ваш браузер не поддерживает видео.
+            </video>
+            """
+
+    html += f'<p><a href="/home">На главную</a></p>'
+    return html
+
+
+# ==================== ПРОСМОТРЩИК ДОКУМЕНТОВ ====================
+
+def docx_to_html(filepath):
+    """Конвертирует .docx в HTML"""
+    doc = docx.Document(filepath)
+    html_parts = []
+    for para in doc.paragraphs:
+        if not para.text.strip():
+            html_parts.append('<br>')
+            continue
+        style = para.style.name.lower()
+        runs_html = ''
+        for run in para.runs:
+            text = run.text.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
+            css = []
+            if run.bold:
+                css.append('font-weight:bold')
+            if run.italic:
+                css.append('font-style:italic')
+            if run.underline:
+                css.append('text-decoration:underline')
+            if run.font.size:
+                css.append(f'font-size:{run.font.size.pt:.0f}pt')
+            if css:
+                runs_html += f'<span style="{";".join(css)}">{text}</span>'
+            else:
+                runs_html += text
+
+        if 'heading 1' in style:
+            html_parts.append(f'<h1>{runs_html}</h1>')
+        elif 'heading 2' in style:
+            html_parts.append(f'<h2>{runs_html}</h2>')
+        elif 'heading 3' in style:
+            html_parts.append(f'<h3>{runs_html}</h3>')
+        else:
+            align = para.alignment
+            align_style = ''
+            if align and align.name == 'CENTER':
+                align_style = 'text-align:center;'
+            elif align and align.name == 'RIGHT':
+                align_style = 'text-align:right;'
+            html_parts.append(f'<p style="margin:6px 0;{align_style}">{runs_html}</p>')
+
+    # Таблицы
+    for table in doc.tables:
+        t = '<table style="border-collapse:collapse;width:100%;margin:12px 0;">'
+        for row in table.rows:
+            t += '<tr>'
+            for cell in row.cells:
+                t += f'<td style="border:1px solid #ccc;padding:6px 10px;">{cell.text.replace(chr(10), "<br>")}</td>'
+            t += '</tr>'
+        t += '</table>'
+        html_parts.append(t)
+
+    return '\n'.join(html_parts)
+
+
+def xlsx_to_html(filepath):
+    """Конвертирует .xlsx в HTML таблицу"""
+    wb = openpyxl.load_workbook(filepath, data_only=True)
+    html_parts = []
+    for sheet_name in wb.sheetnames:
+        ws = wb[sheet_name]
+        html_parts.append(f'<h3 style="margin:16px 0 8px;color:#555;">Лист: {sheet_name}</h3>')
+        html_parts.append('<div style="overflow-x:auto;">')
+        html_parts.append('<table style="border-collapse:collapse;min-width:100%;font-size:13px;">')
+        for row in ws.iter_rows():
+            html_parts.append('<tr>')
+            for cell in row:
+                val = '' if cell.value is None else str(cell.value)
+                val = val.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
+                bold = 'font-weight:bold;' if cell.font and cell.font.bold else ''
+                bg = ''
+                if cell.fill and cell.fill.fgColor and cell.fill.fgColor.type == 'rgb':
+                    color = cell.fill.fgColor.rgb
+                    if color and color != '00000000' and color != 'FFFFFFFF':
+                        bg = f'background:#{color[2:]};'
+                html_parts.append(f'<td style="border:1px solid #ddd;padding:4px 8px;{bold}{bg}">{val}</td>')
+            html_parts.append('</tr>')
+        html_parts.append('</table></div>')
+    return '\n'.join(html_parts)
+
+
+def pptx_to_html(filepath):
+    """Конвертирует .pptx в HTML слайды"""
+    prs = Presentation(filepath)
+    html_parts = []
+    for i, slide in enumerate(prs.slides, 1):
+        html_parts.append(f'''
+        <div style="background:white;border:1px solid #ddd;border-radius:8px;
+                    padding:30px;margin-bottom:20px;min-height:200px;position:relative;
+                    box-shadow:0 2px 8px rgba(0,0,0,0.08);">
+            <div style="position:absolute;top:10px;right:14px;font-size:12px;color:#aaa;">Слайд {i}</div>
+        ''')
+        for shape in slide.shapes:
+            if not shape.has_text_frame:
+                continue
+            for para in shape.text_frame.paragraphs:
+                text = para.text.strip()
+                if not text:
+                    continue
+                text_esc = text.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
+                # Определяем размер шрифта первого run
+                font_size = 14
+                if para.runs:
+                    try:
+                        sz = para.runs[0].font.size
+                        if sz:
+                            font_size = int(sz.pt)
+                    except:
+                        pass
+                if font_size >= 24:
+                    html_parts.append(f'<h2 style="margin:8px 0;font-size:{font_size}px;">{text_esc}</h2>')
+                else:
+                    html_parts.append(f'<p style="margin:4px 0;font-size:{font_size}px;">{text_esc}</p>')
+        html_parts.append('</div>')
+    return '\n'.join(html_parts)
+
+
+def txt_to_html(filepath):
+    """Конвертирует .txt в HTML"""
+    with open(filepath, 'r', encoding='utf-8', errors='replace') as f:
+        content = f.read()
+    content = content.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
+    return f'<pre style="white-space:pre-wrap;font-family:inherit;line-height:1.6;">{content}</pre>'
+
+
+@app.route('/post_file/<path:filename>')
+def serve_post_file(filename):
+    """Отдаёт файл поста с правильными заголовками для просмотра в браузере (не скачивания)"""
+    from flask import send_from_directory
+    MIME_TYPES = {
+        'pdf': 'application/pdf',
+        'png': 'image/png', 'jpg': 'image/jpeg', 'jpeg': 'image/jpeg',
+        'gif': 'image/gif', 'webp': 'image/webp',
+        'mp4': 'video/mp4', 'webm': 'video/webm', 'mov': 'video/quicktime',
+        'txt': 'text/plain; charset=utf-8',
+    }
+    ext = filename.rsplit('.', 1)[-1].lower() if '.' in filename else ''
+    mimetype = MIME_TYPES.get(ext, 'application/octet-stream')
+    response = send_from_directory(app.config['POST_MEDIA_FOLDER'], filename, mimetype=mimetype)
+    # Убираем заголовок скачивания — браузер должен показать файл, а не скачать
+    response.headers.pop('Content-Disposition', None)
+    return response
+
+
+@app.route('/view_document/<int:media_id>')
+def view_document(media_id):
+    """Страница просмотра документа прямо на сайте"""
+    if 'user_id' not in session:
+        return redirect('/login')
+
+    conn = get_db_connection()
+    media = conn.execute(
+        'SELECT * FROM post_media WHERE id = ?', (media_id,)
+    ).fetchone()
+    conn.close()
+
+    if not media:
+        return 'Файл не найден', 404
+
+    media = dict(media)
+    filepath = os.path.join(app.config['POST_MEDIA_FOLDER'], media['filename'])
+
+    if not os.path.exists(filepath):
+        return 'Файл не найден на сервере', 404
+
+    ext = media['filename'].rsplit('.', 1)[-1].lower()
+    original_name = media.get('original_filename') or media['filename']
+
+    # PDF — отдаём напрямую в iframe
+    if ext == 'pdf':
+        return redirect(url_for('static', filename='uploads/posts/' + media['filename']))
+
+    content_html = ''
+    error = None
+
+    try:
+        if ext in ('doc', 'docx'):
+            if not DOCX_AVAILABLE:
+                error = 'Библиотека python-docx не установлена.'
+            else:
+                content_html = docx_to_html(filepath)
+        elif ext in ('xls', 'xlsx'):
+            if not XLSX_AVAILABLE:
+                error = 'Библиотека openpyxl не установлена.'
+            else:
+                content_html = xlsx_to_html(filepath)
+        elif ext in ('ppt', 'pptx'):
+            if not PPTX_AVAILABLE:
+                error = 'Библиотека python-pptx не установлена.'
+            else:
+                content_html = pptx_to_html(filepath)
+        elif ext == 'txt':
+            content_html = txt_to_html(filepath)
+        else:
+            error = 'Просмотр этого типа файлов не поддерживается.'
+    except Exception as e:
+        error = f'Не удалось открыть файл: {str(e)}'
+
+    page_html = f'''<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{original_name}</title>
+    <style>
+        * {{ box-sizing: border-box; margin: 0; padding: 0; }}
+        body {{ font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+               background: #f5f5f5; color: #222; }}
+        .toolbar {{
+            position: sticky; top: 0; z-index: 100;
+            background: #2c3e50; color: white;
+            padding: 12px 20px;
+            display: flex; align-items: center; gap: 16px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+        }}
+        .toolbar .filename {{
+            font-size: 15px; font-weight: 600; flex: 1;
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+        }}
+        .toolbar a {{
+            color: #7fc8f8; text-decoration: none; font-size: 13px;
+            padding: 5px 12px; border: 1px solid #7fc8f8; border-radius: 4px;
+            white-space: nowrap;
+        }}
+        .toolbar a:hover {{ background: #7fc8f8; color: #2c3e50; }}
+        .toolbar .back {{ color: #ccc; font-size: 13px; cursor:pointer;
+                          padding: 5px 12px; border: 1px solid #ccc; border-radius: 4px;
+                          text-decoration:none; }}
+        .toolbar .back:hover {{ background: #ccc; color: #2c3e50; }}
+        .content {{
+            max-width: 860px; margin: 30px auto; padding: 40px;
+            background: white; border-radius: 8px;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+            min-height: 400px; line-height: 1.7;
+        }}
+        .error {{
+            color: #c0392b; background: #fdecea; padding: 20px;
+            border-radius: 6px; border: 1px solid #f5c6cb;
+        }}
+        h1,h2,h3 {{ margin: 16px 0 8px; color: #1a1a1a; }}
+        table {{ margin: 12px 0; }}
+    </style>
+</head>
+<body>
+    <div class="toolbar">
+        <a href="javascript:history.back()" class="back">← Назад</a>
+        <span class="filename">📄 {original_name}</span>
+        <a href="/static/uploads/posts/{media['filename']}" download="{original_name}">⬇ Скачать</a>
+    </div>
+    <div class="content">
+        {"<div class='error'>" + error + "</div>" if error else content_html}
+    </div>
+</body>
+</html>'''
+
+    return page_html
+
+
+
+@app.route('/view_document_content/<int:media_id>')
+def view_document_content(media_id):
+    """Возвращает только HTML-содержимое документа для показа в модальном окне"""
+    if 'user_id' not in session:
+        return jsonify({'error': 'Не авторизован'}), 401
+
+    conn = get_db_connection()
+    media = conn.execute('SELECT * FROM post_media WHERE id = ?', (media_id,)).fetchone()
+    conn.close()
+
+    if not media:
+        return '<p style="color:red">Файл не найден</p>', 404
+
+    media = dict(media)
+    filepath = os.path.join(app.config['POST_MEDIA_FOLDER'], media['filename'])
+
+    if not os.path.exists(filepath):
+        return '<p style="color:red">Файл не найден на сервере</p>', 404
+
+    ext = media['filename'].rsplit('.', 1)[-1].lower()
+    original_name = media.get('original_filename') or media['filename']
+
+    try:
+        if ext == 'pdf':
+            # Отдаём PDF через отдельный маршрут с правильными заголовками
+            file_url = url_for('serve_post_file', filename=media['filename'])
+            return f'''<iframe src="{file_url}" style="width:100%;height:100%;border:none;min-height:80vh;display:block;"></iframe>'''
+        elif ext in ('doc', 'docx') and DOCX_AVAILABLE:
+            html = docx_to_html(filepath)
+        elif ext in ('xls', 'xlsx') and XLSX_AVAILABLE:
+            html = xlsx_to_html(filepath)
+        elif ext in ('ppt', 'pptx') and PPTX_AVAILABLE:
+            html = pptx_to_html(filepath)
+        elif ext == 'txt':
+            html = txt_to_html(filepath)
+        else:
+            file_url = url_for('serve_post_file', filename=media['filename'])
+            return f'''<div style="text-align:center;padding:40px;">
+                <div style="font-size:64px;">📎</div>
+                <p style="margin:16px 0;font-size:16px;">{original_name}</p>
+                <a href="{file_url}" download="{original_name}"
+                   style="display:inline-block;padding:10px 24px;background:#007bff;color:white;
+                          border-radius:6px;text-decoration:none;">⬇ Скачать файл</a>
+            </div>'''
+        return f'''<div style="padding:24px;font-family:-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif;
+                           line-height:1.7;max-width:860px;margin:0 auto;">{html}</div>'''
+    except Exception as e:
+        return f'''<div style="padding:24px;color:#c0392b;background:#fdecea;border-radius:6px;margin:20px;">
+            Не удалось открыть файл: {str(e)}</div>''', 500
+
 
 if __name__ == '__main__':
     create_tables()
