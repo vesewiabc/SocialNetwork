@@ -3,395 +3,208 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Лента новостей - Социальная сеть</title>
-    
+    <title>Лента новостей</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <link rel="stylesheet" href="{{ url_for('static', filename='defaults/style.css') }}">
-    <style>
-        .read-more-btn {
-            margin-top: 8px;
-            background: none;
-            border: none;
-            color: #1877f2;
-            cursor: pointer;
-            font-size: 14px;
-            padding: 4px 0;
-            font-weight: 500;
-        }
-        .read-more-btn:hover { text-decoration: underline; }
-    </style>
     <link rel="icon" type="image/png" href="{{ url_for('static', filename='uploads/favicon.png') }}">
 </head>
 <body>
-    <div class="header">
-        <div class="header-content">
-            <a href="/home" class="logo">СоцСеть</a>
-            <div class="nav-section">
-                <div class="nav-links">
-                    <a href="/home" class="nav-link">Главная</a>
-                    <a href="/profile" class="nav-link">Профиль</a>
-                    <a href="/friends" class="nav-link">Друзья</a>
-                    <a href="/feed" class="nav-link active">Лента</a>
-                    <a href="/find_friends" class="nav-link">Поиск</a>
-                    <a href="/groups" class="nav-link">Группы</a>
-                </div>
-                <div class="user-menu">
-                    <a href="/friends" class="icon-link" style="position: relative;">
-                        <i class="fas fa-user-friends"></i>
-                        {% if friend_requests_count > 0 %}
-                        <span class="notification-badge">{{ friend_requests_count }}</span>
+        <header>
+        <div class="container">
+            <div class="header-content">
+                <div class="logo">LinkA</div>
+                <div class="user-menu-wrap">
+                    <button class="user-menu-btn" onclick="toggleUserMenu()" aria-label="Меню пользователя">
+                        {% set _avatar = current_user_avatar() %}
+                        {% if _avatar %}
+                            <img src="{{ url_for('static', filename='uploads/avatars/' + _avatar) }}"
+                                 onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';"
+                                 alt="Аватар">
+                            <i class="fas fa-user" style="display:none;"></i>
+                        {% else %}
+                            <i class="fas fa-user"></i>
                         {% endif %}
-                    </a>
-                    <a href="/logout" class="icon-link logout-link">
-                        <i class="fas fa-sign-out-alt"></i>
-                    </a>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <div class="container">
-        <!-- Вкладки (из второй версии feed.html) -->
-        <div class="tabs">
-            <div class="tab active" onclick="switchTab('all')">Все посты</div>
-            <div class="tab" onclick="switchTab('friends')">Друзья</div>
-            <div class="tab" onclick="switchTab('groups')">Группы</div>
-        </div>
-
-        <!-- Форма создания поста -->
-        <div class="create-post">
-            <h3 style="margin-top: 0; margin-bottom: 15px; color: #333;">Создать пост</h3>
-            <form method="POST" action="/feed">
-                <textarea name="content" class="post-textarea" 
-                          placeholder="Что у вас нового, {{ username }}?" required></textarea>
-                <div style="text-align: right;">
-                    <select name="visibility" style="padding: 8px; border: 1px solid #ddd; border-radius: 4px; margin-right: 10px;">
-                        <option value="public">Для всех</option>
-                        <option value="friends">Только друзьям</option>
-                        <option value="private">Только мне</option>
-                    </select>
-                    <button type="submit" class="post-button">
-                        <i class="fas fa-paper-plane"></i> Опубликовать
                     </button>
-                </div>
-            </form>
-        </div>
-
-        <!-- Сообщения Flash -->
-        {% with messages = get_flashed_messages(with_categories=true) %}
-            {% if messages %}
-                {% for category, message in messages %}
-                    <div class="import-status" style="{% if category == 'error' %}background: #f8d7da; color: #721c24;{% endif %}">
-                        {{ message }}
-                        <a href="/feed" class="refresh-button">
-                            <i class="fas fa-sync-alt"></i> Обновить
+                    <div class="user-dropdown" id="userDropdown">
+                        <a href="/settings">
+                            <i class="fas fa-cog"></i> Настройки
+                        </a>
+                        <div class="divider"></div>
+                        <a href="/logout" class="logout-item">
+                            <i class="fas fa-sign-out-alt"></i> Выйти
                         </a>
                     </div>
-                {% endfor %}
-            {% endif %}
-        {% endwith %}
-
-        <!-- Лента новостей -->
-        {% if feed_items %}
-            {% for item in feed_items %}
-            <div class="feed-item">
-                {% if item.type == 'post' %}
-                    <!-- Пост пользователя -->
-                    <div class="post-header">
-                        <img src="{{ url_for('static', filename='uploads/avatars/' + (item.avatar or 'default_avatar.png')) }}" 
-                             alt="Аватар" class="avatar" 
-                             onerror="this.onerror=null; this.src='https://ui-avatars.com/api/?name={{ item.username|urlencode }}&background=random&size=50'">
-                        <div class="user-info">
-                            <div class="username">
-                                {{ item.full_name or item.username }}
-                                {% if item.group_id %}
-                                <span class="group-tag">Паблик: {{ item.group_name }}</span>
-                                {% endif %}
-                            </div>
-                            <div class="post-time">
-                                <i class="far fa-clock"></i> {{ item.created_at }}
-                                {% if item.group_id %}
-                                • {{ item.group_name }}
-                                {% endif %}
-                            </div>
-                        </div>
-                    </div>
-                    <div class="post-content" id="post-content-{{ item.id }}">
-                        {% set paragraphs = item.content.split('\n\n') %}
-                        {% if paragraphs|length > 2 or item.content|length > 400 %}
-                            <div class="post-preview" id="preview-{{ item.id }}">
-                                {{ (item.content[:400] + '...')|safe if item.content|length > 400 else (paragraphs[:2]|join('\n\n'))|safe }}
-                            </div>
-                            <div class="post-full" id="full-{{ item.id }}" style="display:none;">
-                                {{ item.content|safe }}
-                            </div>
-                            <button class="read-more-btn" id="btn-{{ item.id }}" onclick="togglePost({{ item.id }})">
-                                <i class="fas fa-chevron-down"></i> Читать полностью
-                            </button>
-                        {% else %}
-                            {{ item.content|safe }}
-                        {% endif %}
-                    </div>
-                    <div class="post-actions">
-                        <button class="action-button like-button" data-post-id="{{ item.id }}">
-                            <i class="fas fa-thumbs-up {% if item.user_liked %}text-primary{% endif %}" 
-                               style="{% if item.user_liked %}color: #1877f2;{% endif %}"></i>
-                            <span class="likes-count">{{ item.likes_count or 0 }}</span>
-                        </button>
-                        <button class="action-button comment-button" data-post-id="{{ item.id }}">
-                            <i class="fas fa-comment"></i>
-                            <span>{{ item.comments_count or 0 }}</span>
-                        </button>
-                        <button class="action-button share-button" data-post-id="{{ item.id }}">
-                            <i class="fas fa-share"></i> Поделиться
-                        </button>
-                    </div>
-                    
-                    <!-- Комментарии -->
-                    <div class="comments-section" id="comments-{{ item.id }}" style="display: none;">
-                        <h4 style="margin-top: 0; margin-bottom: 15px;">Комментарии</h4>
-                        <div class="comments-list" id="comments-list-{{ item.id }}">
-                            <!-- Комментарии будут загружены здесь -->
-                        </div>
-                        <form class="comment-form" data-post-id="{{ item.id }}">
-                            <textarea name="content" placeholder="Добавить комментарий..." required></textarea>
-                            <button type="submit" class="comment-submit">
-                                <i class="fas fa-paper-plane"></i> Отправить
-                            </button>
-                        </form>
-                    </div>
-                    
-                {% elif item.type == 'news' %}
-                    <!-- Импортированная новость -->
-                    <div class="news-header">
-                        <span class="news-source">
-                            <i class="fas fa-newspaper"></i> RBC News
-                        </span>
-                        <span class="news-time">
-                            <i class="far fa-clock"></i> {{ item.published or item.imported_at }}
-                        </span>
-                    </div>
-                    <div class="news-title">{{ item.title }}</div>
-                    {% if item.description %}
-                    <div class="news-description">
-                        <i class="fas fa-align-left"></i> {{ item.description }}
-                    </div>
-                    {% endif %}
-                    <a href="{{ item.link }}" target="_blank" class="external-link">
-                        <i class="fas fa-external-link-alt"></i> Читать на RBC.ru
-                    </a>
-                {% endif %}
-            </div>
-            {% endfor %}
-        {% else %}
-            <div class="empty-feed">
-                <i class="far fa-newspaper"></i>
-                <h3>Лента пуста</h3>
-                <p>Добавьте друзей или создайте первый пост!</p>
-                <div style="margin-top: 20px;">
-                    <a href="/find_friends" style="background: #1877f2; color: white; padding: 10px 20px; border-radius: 5px; text-decoration: none; margin-right: 10px;">
-                        <i class="fas fa-user-plus"></i> Найти друзей
-                    </a>
-                    <a href="/feed" class="refresh-button">
-                        <i class="fas fa-sync-alt"></i> Обновить ленту
-                    </a>
                 </div>
             </div>
-        {% endif %}
-    </div>
+        </div>
+    </header>
 
-    <!-- Боковая панель с группами (из второй версии) -->
-    <div class="groups-sidebar">
-        <h3 style="margin-top: 0;">Ваши группы</h3>
-        {% for group in my_groups %}
-        <div style="display: flex; align-items: center; margin-bottom: 10px; padding: 10px; border-radius: 5px; background: #f8f9fa;">
-            <img src="{{ url_for('static', filename='uploads/groups/' + group.avatar) if group.avatar else 'https://via.placeholder.com/30?text=G' }}"
-                 style="width: 30px; height: 30px; border-radius: 5px; margin-right: 10px;"
-                 onerror="this.src='https://via.placeholder.com/30?text=G'">
-            <div style="flex: 1;">
-                <strong><a href="/group/{{ group.id }}" style="color: inherit; text-decoration: none;">{{ group.name }}</a></strong>
-                <div style="font-size: 12px; color: #666;">{{ group.members_count }} участников</div>
+    <div class="container">
+        <div class="main-content">
+            <div class="sidebar-left">
+                <h3>Меню</h3>
+                <ul>
+                    <li><a href="/profile"><i class="fas fa-user-circle"></i> Мой профиль</a></li>
+                    <li><a href="/friends"><i class="fas fa-users"></i> Друзья</a></li>
+                    <li><a href="/find_friends"><i class="fas fa-search"></i> Найти друзей</a></li>
+                    <li><a href="/my_posts"><i class="fas fa-newspaper"></i> Мои посты</a></li>
+                    <li><a href="/groups"><i class="fas fa-layer-group"></i> Группы</a></li>
+                    <li><a href="/home"><i class="fas fa-home"></i> Главная</a></li>
+                </ul>
+            </div>
+
+            <div class="feed">
+                <div class="feed-controls">
+                    <h3><i class="fas fa-rss" style="color:var(--amber-500);"></i> Лента новостей</h3>
+                    <a href="/feed?refresh=1" class="refresh-btn">
+                        <i class="fas fa-sync-alt"></i> Обновить
+                    </a>
+                </div>
+
+                {% with messages = get_flashed_messages(with_categories=true) %}
+                    {% if messages %}
+                        {% for category, message in messages %}
+                            <div class="message {{ category }}">{{ message }}</div>
+                        {% endfor %}
+                    {% endif %}
+                {% endwith %}
+
+                {% if feed_items and feed_items|length > 0 %}
+                    {% for item in feed_items %}
+                        {% if item.type == 'post' %}
+                        <div class="post" id="post-{{ item.id }}">
+                            <div class="post-header">
+                                <div class="avatar">
+                                    {{ item.username[0].upper() if item.username else '?' }}
+                                </div>
+                                <div class="post-info">
+                                    <strong class="post-author">
+                                        <a href="/post/{{ item.id }}" style="color:var(--amber-600);text-decoration:none;">
+                                            {{ item.username or 'Пользователь' }}
+                                        </a>
+                                    </strong>
+                                    <small class="post-time">
+                                        {% if item.created_at %}
+                                            {% if item.created_at is string %}{{ item.created_at[:16] }}
+                                            {% else %}{{ item.created_at.strftime('%d.%m.%Y %H:%M') }}{% endif %}
+                                        {% else %}Дата неизвестна{% endif %}
+                                    </small>
+                                </div>
+                            </div>
+                            <div class="post-content">{{ item.content or 'Пустой пост' }}</div>
+                            <div class="post-actions">
+                                <button class="action-btn like-btn" onclick="likePost({{ item.id }}, this)">
+                                    <i class="far fa-thumbs-up"></i> Нравится
+                                    <span class="likes-count" id="likes-{{ item.id }}">({{ item.likes_count|default(0) }})</span>
+                                </button>
+                                <a href="/post/{{ item.id }}#comments" class="action-btn" style="text-decoration:none;color:inherit;">
+                                    <i class="far fa-comment"></i> Комментировать
+                                    <span id="comments-{{ item.id }}">({{ item.comments_count|default(0) }})</span>
+                                </a>
+                            </div>
+                        </div>
+
+                        {% elif item.type == 'news' %}
+                        <div class="news-item">
+                            <div class="news-header">
+                                <div class="avatar" style="background:var(--accent-gradient);">
+                                    <i class="fas fa-newspaper"></i>
+                                </div>
+                                <div class="news-info">
+                                    <h4 class="news-title">{{ item.title or 'Без названия' }}</h4>
+                                    <small class="news-time">{{ item.published if item.published else 'Сегодня' }}</small>
+                                    <div class="news-source">{{ item.source or 'Новости' }}</div>
+                                </div>
+                            </div>
+                            <div class="news-content">
+                                {% if item.description %}
+                                    <p class="news-description">{{ item.description[:200] }}{% if item.description|length > 200 %}...{% endif %}</p>
+                                {% endif %}
+                                {% if item.link %}
+                                    <a href="{{ item.link }}" target="_blank" class="icon-link">
+                                        <i class="fas fa-external-link-alt"></i> Читать полностью
+                                    </a>
+                                {% endif %}
+                            </div>
+                        </div>
+                        {% endif %}
+                    {% endfor %}
+                {% else %}
+                    <div class="empty-feed">
+                        <i class="fas fa-newspaper fa-3x"></i>
+                        <h3>Лента пуста</h3>
+                        <p>Подпишитесь на друзей или группы, чтобы видеть новости</p>
+                        <a href="/home" class="btn btn-primary" style="margin-top:16px;">
+                            <i class="fas fa-home"></i> На главную
+                        </a>
+                    </div>
+                {% endif %}
             </div>
         </div>
-        {% endfor %}
-
-        <div style="margin-top: 20px; text-align: center;">
-            <a href="/groups" style="display: block; padding: 10px; background: #28a745; color: white; text-decoration: none; border-radius: 5px;">
-                Найти группы
-            </a>
-        </div>
     </div>
 
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script>
-    function togglePost(postId) {
-        const preview = document.getElementById('preview-' + postId);
-        const full = document.getElementById('full-' + postId);
-        const btn = document.getElementById('btn-' + postId);
-        if (full.style.display === 'none') {
-            preview.style.display = 'none';
-            full.style.display = 'block';
-            btn.innerHTML = '<i class="fas fa-chevron-up"></i> Свернуть';
-        } else {
-            preview.style.display = 'block';
-            full.style.display = 'none';
-            btn.innerHTML = '<i class="fas fa-chevron-down"></i> Читать полностью';
-        }
+    function likePost(postId, buttonElement) {
+        $.ajax({
+            url: `/like_post_action/${postId}`,
+            type: 'POST',
+            contentType: 'application/json',
+            success: function(response) {
+                if (response.success) {
+                    const $button = $(buttonElement);
+                    const $icon = $button.find('i');
+                    const $count = $button.find('.likes-count');
+                    if (response.action === 'liked') {
+                        $icon.removeClass('far').addClass('fas');
+                        $button.addClass('liked');
+                    } else {
+                        $icon.removeClass('fas').addClass('far');
+                        $button.removeClass('liked');
+                    }
+                    $count.text(`(${response.likes_count})`);
+                } else { alert('Ошибка: ' + response.error); }
+            },
+            error: function() { alert('Ошибка сервера'); }
+        });
     }
-    document.addEventListener('DOMContentLoaded', function() {
-        // Лайки постов
-        document.querySelectorAll('.like-button').forEach(button => {
-            button.addEventListener('click', function() {
-                const postId = this.dataset.postId;
-                const likeIcon = this.querySelector('i');
-                const likesCount = this.querySelector('.likes-count');
-                
-                fetch(`/like_post/${postId}`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                })
-                .then(response => response.json())
-                .then(data => {
-                    if (data.action === 'like') {
-                        likeIcon.style.color = '#1877f2';
-                        likeIcon.classList.add('text-primary');
-                    } else {
-                        likeIcon.style.color = '';
-                        likeIcon.classList.remove('text-primary');
-                    }
-                    likesCount.textContent = data.likes_count;
-                })
-                .catch(error => console.error('Error:', error));
-            });
-        });
-        
-        // Комментарии
-        document.querySelectorAll('.comment-button').forEach(button => {
-            button.addEventListener('click', function() {
-                const postId = this.dataset.postId;
-                const commentsSection = document.getElementById(`comments-${postId}`);
-                const commentsList = document.getElementById(`comments-list-${postId}`);
-                
-                if (commentsSection.style.display === 'none') {
-                    // Загружаем комментарии
-                    fetch(`/get_comments/${postId}`)
-                        .then(response => {
-                            if (!response.ok) {
-                                throw new Error('Network response was not ok');
-                            }
-                            return response.json();
-                        })
-                        .then(comments => {
-                            commentsList.innerHTML = '';
-                            
-                            if (!comments || comments.length === 0) {
-                                commentsList.innerHTML = `
-                                    <div style="text-align: center; padding: 20px; color: #666;">
-                                        <i class="far fa-comment-dots" style="font-size: 24px; margin-bottom: 10px;"></i>
-                                        <p>Комментариев пока нет</p>
-                                    </div>
-                                `;
-                            } else {
-                                comments.forEach(comment => {
-                                    const commentDate = new Date(comment.created_at);
-                                    const formattedDate = commentDate.toLocaleString('ru-RU', {
-                                        day: '2-digit',
-                                        month: '2-digit',
-                                        year: 'numeric',
-                                        hour: '2-digit',
-                                        minute: '2-digit'
-                                    });
-                                    
-                                    const commentDiv = document.createElement('div');
-                                    commentDiv.className = 'comment-item';
-                                    commentDiv.innerHTML = `
-                                        <div class="comment-author">
-                                            <i class="fas fa-user"></i> ${comment.full_name || comment.username}
-                                        </div>
-                                        <div class="comment-content">${comment.content}</div>
-                                        <div class="comment-time">
-                                            <i class="far fa-clock"></i> ${formattedDate}
-                                        </div>
-                                    `;
-                                    commentsList.appendChild(commentDiv);
-                                });
-                            }
-                        })
-                        .catch(error => {
-                            console.error('Error loading comments:', error);
-                            commentsList.innerHTML = `
-                                <div style="color: #dc3545; text-align: center;">
-                                    <i class="fas fa-exclamation-circle"></i> Ошибка загрузки комментариев
-                                </div>
-                            `;
-                        });
-                    
-                    commentsSection.style.display = 'block';
-                } else {
-                    commentsSection.style.display = 'none';
-                }
-            });
-        });
-        
-        // Отправка комментариев
-        document.querySelectorAll('.comment-form').forEach(form => {
-            form.addEventListener('submit', function(e) {
-                e.preventDefault();
-                const postId = this.dataset.postId;
-                const content = this.querySelector('textarea').value;
-                
-                if (!content.trim()) {
-                    alert('Введите текст комментария');
-                    return;
-                }
-                
-                const formData = new FormData();
-                formData.append('content', content);
-                
-                fetch(`/add_comment/${postId}`, {
-                    method: 'POST',
-                    body: new URLSearchParams({
-                        'content': content
-                    }),
-                    headers: {
-                        'Content-Type': 'application/x-www-form-urlencoded',
-                    }
-                })
-                .then(response => {
-                    if (response.ok) {
-                        location.reload();
-                    } else {
-                        alert('Ошибка при отправке комментария');
-                    }
-                })
-                .catch(error => {
-                    console.error('Error:', error);
-                    alert('Ошибка сети');
-                });
-            });
-        });
+    </script>
 
-        // Переключение вкладок
-        function switchTab(tab) {
-            // Обновляем активную вкладку
-            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-            event.target.classList.add('active');
+    <!-- Футер -->
+    <footer style="
+        margin-top:auto; padding:20px 24px;
+        border-top:1px solid var(--border-light);
+        background:var(--bg-card);
+        text-align:center;
+        font-size:13px;
+        color:var(--text-muted);">
+        <div style="max-width:1200px; margin:0 auto; display:flex; align-items:center; justify-content:center; gap:20px; flex-wrap:wrap;">
+            <span style="font-family:var(--font-display);font-size:13px;background:var(--accent-gradient);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;">LinkA</span>
+            <span style="color:var(--border-medium);">·</span>
+            <a href="/faq" style="color:var(--text-muted);font-weight:600;transition:color 0.2s;" onmouseover="this.style.color='var(--amber-600)'" onmouseout="this.style.color='var(--text-muted)'">
+                <i class="fas fa-question-circle"></i> FAQ
+            </a>
+            <span style="color:var(--border-medium);">·</span>
+            <a href="/terms" style="color:var(--text-muted);font-weight:600;transition:color 0.2s;" onmouseover="this.style.color='var(--amber-600)'" onmouseout="this.style.color='var(--text-muted)'">
+                <i class="fas fa-file-alt"></i> Соглашение
+            </a>
+            <span style="color:var(--border-medium);">·</span>
+            <span>© 2025 LinkA</span>
+        </div>
+    </footer>
+</body>
 
-            // Здесь будет AJAX загрузка постов для выбранной вкладки
-            fetch(`/feed/${tab}`)
-                .then(response => response.text())
-                .then(html => {
-                    // Обновляем содержимое ленты
-                    document.querySelector('.container').innerHTML = html;
-                });
+    <script>
+        function toggleUserMenu() {
+            document.getElementById('userDropdown').classList.toggle('open');
         }
-        
-        // Автоматическое обновление ленты каждые 5 минут
-        setTimeout(function() {
-            window.location.reload();
-        }, 300000); // 5 минут
-    });
+        document.addEventListener('click', function(e) {
+            const wrap = document.querySelector('.user-menu-wrap');
+            if (wrap && !wrap.contains(e.target)) {
+                const dd = document.getElementById('userDropdown');
+                if (dd) dd.classList.remove('open');
+            }
+        });
     </script>
 </body>
 </html>

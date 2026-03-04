@@ -4,968 +4,892 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{ group.name }}</title>
-    <style>
-        /* Основные стили */
-        .group-header {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            padding: 40px 20px;
-            border-radius: 10px;
-            margin-bottom: 20px;
-            position: relative;
-        }
-        .group-avatar-large {
-            width: 120px;
-            height: 120px;
-            border-radius: 15px;
-            border: 4px solid white;
-            object-fit: cover;
-        }
-        .group-actions {
-            position: absolute;
-            top: 20px;
-            right: 20px;
-        }
-        .member-list {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 10px;
-            margin: 20px 0;
-        }
-        .member-avatar {
-            width: 40px;
-            height: 40px;
-            border-radius: 50%;
-        }
-        .post-form {
-            background: white;
-            border: 1px solid #ddd;
-            border-radius: 8px;
-            padding: 20px;
-            margin-bottom: 20px;
-        }
-        .tab-content {
-            display: none;
-        }
-        .tab-content.active {
-            display: block;
-        }
-        .tab-btn {
-            padding: 10px 20px;
-            cursor: pointer;
-            border-bottom: 2px solid transparent;
-            display: flex;
-            align-items: center;
-            gap: 5px;
-        }
-        .tab-btn:hover {
-            background: #f8f9fa;
-        }
-        .tab-btn.active {
-            border-bottom: 2px solid #007bff;
-            color: #007bff;
-            font-weight: bold;
-        }
-        .request-pending {
-            background: #fff3cd;
-            border: 1px solid #ffeaa7;
-            color: #856404;
-            padding: 10px 15px;
-            border-radius: 5px;
-            margin-bottom: 20px;
-            text-align: center;
-        }
-        .post-actions {
-            display: flex;
-            gap: 10px;
-            align-items: center;
-        }
-        .edit-mode {
-            background: #fff3cd;
-            border: 1px solid #ffc107;
-        }
-        .edit-textarea {
-            width: 100%;
-            padding: 10px;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-            margin: 10px 0;
-            resize: vertical;
-            font-family: inherit;
-            font-size: 14px;
-        }
-
-        /* Стили для медиа */
-        .media-preview-container {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 10px;
-            margin: 15px 0;
-        }
-        .media-preview-item {
-            position: relative;
-            width: 100px;
-            height: 100px;
-            border-radius: 8px;
-            overflow: hidden;
-            border: 2px solid #ddd;
-        }
-        .media-preview-item img,
-        .media-preview-item video {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-        }
-        .remove-media-btn {
-            position: absolute;
-            top: 5px;
-            right: 5px;
-            background: #dc3545;
-            color: white;
-            border: none;
-            border-radius: 50%;
-            width: 24px;
-            height: 24px;
-            cursor: pointer;
-            font-size: 16px;
-            line-height: 1;
-        }
-
-        /* Стили для отображения медиа в посте */
-        .post-media-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-            gap: 10px;
-            margin: 15px 0;
-        }
-        .media-item {
-            position: relative;
-            border-radius: 8px;
-            overflow: hidden;
-            cursor: pointer;
-        }
-        .media-item img,
-        .media-item video {
-            width: 100%;
-            height: 200px;
-            object-fit: cover;
-            display: block;
-        }
-        .video-icon {
-            position: absolute;
-            top: 10px;
-            left: 10px;
-            background: rgba(0,0,0,0.7);
-            color: white;
-            padding: 5px 10px;
-            border-radius: 4px;
-            font-size: 12px;
-        }
-
-        /* Стили для полноэкранного просмотра */
-        .media-viewer {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0,0,0,0.9);
-            z-index: 1000;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-        }
-        .media-viewer img,
-        .media-viewer video {
-            max-width: 90%;
-            max-height: 90%;
-            border-radius: 10px;
-        }
-        .media-viewer-close {
-            position: absolute;
-            top: 20px;
-            right: 20px;
-            background: white;
-            color: black;
-            border: none;
-            border-radius: 50%;
-            width: 40px;
-            height: 40px;
-            font-size: 20px;
-            cursor: pointer;
-        }
-
-        /* Стили для заявок */
-        .request-card {
-            border: 1px solid #ddd;
-            border-radius: 8px;
-            padding: 15px;
-            margin-bottom: 15px;
-            background: white;
-        }
-        .request-badge {
-            background: #dc3545;
-            color: white;
-            border-radius: 10px;
-            padding: 2px 6px;
-            font-size: 12px;
-            margin-left: 5px;
-        }
-    </style>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <link rel="stylesheet" href="{{ url_for('static', filename='defaults/style.css') }}">
     <link rel="icon" type="image/png" href="{{ url_for('static', filename='uploads/favicon.png') }}">
 </head>
 <body>
-    <div style="padding: 20px; max-width: 800px; margin: 0 auto;">
-        <div style="margin-bottom: 20px;">
-            <a href="/groups" style="margin-right: 10px;">← Группы</a>
-            <a href="/home">Главная</a>
-        </div>
-
-        <div class="group-header">
-            <div style="display: flex; align-items: center; gap: 20px;">
-                <img src="{{ url_for('static', filename='uploads/groups/' + group.avatar) if group.avatar else 'https://via.placeholder.com/120?text=Group' }}"
-                     class="group-avatar-large"
-                     onerror="this.src='/static/defaults/for_groups.png'">
-
-                <div>
-                    <h1 style="margin: 0 0 10px 0;">{{ group.name }}</h1>
-                    <p style="margin: 0 0 10px 0; opacity: 0.9;">{{ group.description or 'Нет описания' }}</p>
-                    <div style="display: flex; gap: 15px; font-size: 14px;">
-                        <span>👥 {{ group.members_count }} участников</span>
-                        <span>📝 {{ group.posts_count }} постов</span>
-                        <span>📅 Создан {{ group.created_at[:10]|replace('-', '.') }}</span>
+        <header>
+        <div class="container">
+            <div class="header-content">
+                <div class="logo">LinkA</div>
+                <div class="user-menu-wrap">
+                    <button class="user-menu-btn" onclick="toggleUserMenu()" aria-label="Меню пользователя">
+                        {% set _avatar = current_user_avatar() %}
+                        {% if _avatar %}
+                            <img src="{{ url_for('static', filename='uploads/avatars/' + _avatar) }}"
+                                 onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';"
+                                 alt="Аватар">
+                            <i class="fas fa-user" style="display:none;"></i>
+                        {% else %}
+                            <i class="fas fa-user"></i>
+                        {% endif %}
+                    </button>
+                    <div class="user-dropdown" id="userDropdown">
+                        <a href="/settings">
+                            <i class="fas fa-cog"></i> Настройки
+                        </a>
+                        <div class="divider"></div>
+                        <a href="/logout" class="logout-item">
+                            <i class="fas fa-sign-out-alt"></i> Выйти
+                        </a>
                     </div>
-                    {% if not group.is_public %}
-                    <div style="margin-top: 10px; font-size: 14px; opacity: 0.9;">
-                        🔒 Приватная группа
-                    </div>
-                    {% endif %}
                 </div>
             </div>
+        </div>
+    </header>
 
-            <div class="group-actions">
-                {% if role == 'admin' %}
-                <a href="/group/{{ group.id }}/settings"
-                   style="background: white; color: #333; padding: 10px 15px; border-radius: 5px; text-decoration: none; margin-right: 10px;">
-                    Настройки
+    <div class="container">
+        <div class="main-content">
+            <div class="sidebar-left">
+                <h3>Меню</h3>
+                <ul>
+                    <li><a href="/profile"><i class="fas fa-user-circle"></i> Мой профиль</a></li>
+                    <li><a href="/friends"><i class="fas fa-users"></i> Друзья</a></li>
+                    <li><a href="/find_friends"><i class="fas fa-search"></i> Найти друзей</a></li>
+                    <li><a href="/my_posts"><i class="fas fa-newspaper"></i> Мои посты</a></li>
+                    <li><a href="/groups"><i class="fas fa-layer-group"></i> Группы</a></li>
+                    <li><a href="/home"><i class="fas fa-home"></i> Главная</a></li>
+                </ul>
+            </div>
+
+            <div class="feed">
+                <a href="/groups" class="back-link" style="display:inline-flex;margin-bottom:4px;">
+                    <i class="fas fa-arrow-left"></i>&nbsp; Назад к группам
                 </a>
-                {% endif %}
 
-                {% if is_member %}
-                    <form method="POST"
-                          action="/leave_group/{{ group.id }}"
-                          style="display: inline;"
-                          class="leave-group-form"
-                          data-is-creator="{{ '1' if group.creator_id == session_user_id else '0' }}"
-                          data-group-name="{{ group.name }}">
-                        <button type="submit"
-                            style="background: #dc3545; color: white; border: none; padding: 10px 15px; border-radius: 5px; cursor: pointer;">
-                        Отписаться
+                <!-- Шапка группы -->
+                <div class="card" style="padding:24px;position:relative;">
+
+                    <!-- Три точки — dropdown меню -->
+                    {% if is_member or has_pending_request %}
+                    <div style="position:absolute;top:16px;right:16px;" id="groupMenuWrap">
+                        <button onclick="toggleGroupMenu()" style="width:36px;height:36px;border-radius:50%;border:1px solid var(--border-medium);background:var(--gray-100);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:18px;color:var(--text-secondary);transition:all var(--transition);" id="groupMenuBtn">
+                            <i class="fas fa-ellipsis-v"></i>
                         </button>
-                    </form>
-                {% else %}
-                    {% if has_pending_request %}
-                    <div class="request-pending">
-                        ⏳ Заявка на вступление отправлена
-                    </div>
-                    {% else %}
-                    <form method="POST" action="/join_group/{{ group.id }}" style="display: inline;">
-                        <button type="submit" style="background: #28a745; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer;">
-                            {% if group.is_public %}Подписаться{% else %}Подать заявку{% endif %}
-                        </button>
-                    </form>
-                    {% endif %}
-                {% endif %}
-            </div>
-        </div>
-
-        <!-- Вкладки -->
-        <div style="display: flex; border-bottom: 1px solid #ddd; margin-bottom: 20px;">
-            <div class="tab-btn active" onclick="switchTab('posts')">
-                Посты
-            </div>
-            <div class="tab-btn" onclick="switchTab('members')">
-                Участники
-            </div>
-            <div class="tab-btn" onclick="switchTab('about')">
-                О паблике
-            </div>
-            {% if show_requests_tab %}
-            <div class="tab-btn" onclick="switchTab('requests')">
-                Заявки
-                {% if pending_requests_count > 0 %}
-                <span style="background: #dc3545; color: white; border-radius: 10px; padding: 2px 6px; font-size: 12px;">
-                    {{ pending_requests_count }}
-                </span>
-                {% endif %}
-            </div>
-            {% endif %}
-        </div>
-
-        <!-- Контент вкладки "Посты" -->
-        <div id="tab-posts" class="tab-content active">
-            <!-- Форма создания поста -->
-            {% if is_member and can_post %}
-            <div class="post-form">
-                <h3>Создать пост</h3>
-                <form method="POST" action="/group/{{ group.id }}/create_post" enctype="multipart/form-data" id="create-post-form">
-                    <textarea name="content" placeholder="Что нового в группе?"
-                              style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px; height: 100px;"></textarea>
-
-                    <!-- Поле для загрузки файлов -->
-                    <div style="margin-top: 15px; margin-bottom: 15px;">
-                        <label style="display: block; margin-bottom: 8px; font-weight: bold;">
-                            📎 Добавить файлы
-                        </label>
-                        <input type="file" id="media-files" name="media_files"
-                               accept="image/*,video/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.zip,.rar,.7z"
-                               multiple style="display:none;">
-                        <button type="button" onclick="document.getElementById('media-files').click()"
-                                style="padding: 8px 18px; background: #f0f0f0; border: 1px solid #ccc;
-                                       border-radius: 5px; cursor: pointer; font-size: 14px;">
-                            📂 Выбрать файлы
-                        </button>
-                        <span id="files-count" style="margin-left:10px;font-size:13px;color:#666;"></span>
-                        <p style="margin-top: 6px; color: #888; font-size: 12px;">
-                            Фото, видео, документы (PDF, Word, Excel и др.) · До 10 файлов · Макс. 50MB каждый<br>
-                            Нажимайте кнопку несколько раз — файлы будут добавляться к уже выбранным.
-                        </p>
-
-                        <!-- Превью загружаемых файлов -->
-                        <div id="media-preview" class="media-preview-container">
+                        <div id="groupMenuDropdown" style="display:none;position:absolute;top:calc(100% + 8px);right:0;background:var(--bg-card);border:1px solid var(--border-light);border-radius:var(--radius-lg);box-shadow:var(--shadow-lg);min-width:200px;z-index:50;overflow:hidden;">
+                            {% if is_member %}
+                                {% if role == 'admin' %}
+                                <a href="/group/{{ group.id }}/settings" style="display:flex;align-items:center;gap:10px;padding:11px 16px;font-size:14px;font-weight:600;color:var(--text-primary);text-decoration:none;transition:background var(--transition);" onmouseover="this.style.background='var(--amber-50)'" onmouseout="this.style.background='none'">
+                                    <i class="fas fa-cog" style="width:18px;text-align:center;color:var(--amber-500);"></i> Настройки
+                                </a>
+                                <div style="height:1px;background:var(--border-light);"></div>
+                                <button onclick="openGroupInviteModal()" style="display:flex;align-items:center;gap:10px;padding:11px 16px;font-size:14px;font-weight:400;color:var(--text-primary);background:none;border:none;width:100%;text-align:left;cursor:pointer;transition:background var(--transition);" onmouseover="this.style.background='var(--amber-50)'" onmouseout="this.style.background='none'">
+                                    <i class="fas fa-user-plus" style="width:18px;text-align:center;color:var(--amber-500);"></i> Пригласить
+                                </button>
+                                <div style="height:1px;background:var(--border-light);"></div>
+                                {% elif role == 'moderator' %}
+                                <button onclick="openGroupInviteModal()" style="display:flex;align-items:center;gap:10px;padding:11px 16px;font-size:14px;font-weight:400;color:var(--text-primary);background:none;border:none;width:100%;text-align:left;cursor:pointer;transition:background var(--transition);" onmouseover="this.style.background='var(--amber-50)'" onmouseout="this.style.background='none'">
+                                    <i class="fas fa-user-plus" style="width:18px;text-align:center;color:var(--amber-500);"></i> Пригласить
+                                </button>
+                                <div style="height:1px;background:var(--border-light);"></div>
+                                {% else %}
+                                <button onclick="openGroupInviteModal()" style="display:flex;align-items:center;gap:10px;padding:11px 16px;font-size:14px;font-weight:400;color:var(--text-primary);background:none;border:none;width:100%;text-align:left;cursor:pointer;transition:background var(--transition);" onmouseover="this.style.background='var(--amber-50)'" onmouseout="this.style.background='none'">
+                                    <i class="fas fa-user-plus" style="width:18px;text-align:center;color:var(--amber-500);"></i> Пригласить
+                                </button>
+                                <div style="height:1px;background:var(--border-light);"></div>
+                                {% endif %}
+                                <form method="POST" action="/leave_group/{{ group.id }}"
+                                      class="leave-group-form"
+                                      data-is-creator="{{ '1' if role == 'admin' else '0' }}"
+                                      data-group-name="{{ group.name }}">
+                                    <button type="submit" style="display:flex;align-items:center;gap:10px;padding:11px 16px;font-size:14px;font-weight:600;color:#dc2626;background:none;border:none;width:100%;text-align:left;cursor:pointer;transition:background var(--transition);" onmouseover="this.style.background='#fef2f2'" onmouseout="this.style.background='none'">
+                                        <i class="fas fa-sign-out-alt" style="width:18px;text-align:center;"></i> Отписаться
+                                    </button>
+                                </form>
+                            {% endif %}
+                            {% if has_pending_request %}
+                                <div style="padding:11px 16px;font-size:14px;font-weight:600;color:var(--amber-700);">
+                                    <i class="fas fa-clock" style="width:18px;text-align:center;"></i> Заявка отправлена
+                                </div>
+                            {% endif %}
                         </div>
                     </div>
+                    {% else %}
+                    <!-- Не участник — кнопка подписаться -->
+                    <div style="position:absolute;top:16px;right:16px;">
+                        <form method="POST" action="/join_group/{{ group.id }}" style="display:inline;">
+                            <button type="submit" class="btn btn-primary btn-sm">
+                                <i class="fas fa-plus-circle"></i>
+                                {% if group.is_public %}Подписаться{% else %}Подать заявку{% endif %}
+                            </button>
+                        </form>
+                    </div>
+                    {% endif %}
 
-                    <button type="submit" style="margin-top: 10px; padding: 10px 20px; background: #007bff; color: white; border: none; border-radius: 4px;">
-                        Опубликовать
-                    </button>
-                </form>
-            </div>
-            {% elif is_member and not can_post %}
-            <div style="background: #fff3cd; padding: 15px; border-radius: 5px; margin-bottom: 20px;">
-                <p style="margin: 0; color: #856404;">
-                    <strong>
-                        {% if group.post_permissions == 'admins' %}
-                            Только администраторы могут создавать посты в этой группе.
-                        {% elif group.post_permissions == 'moderators' %}
-                            Только администраторы и модераторы могут создавать посты в этой группе.
-                        {% else %}
-                            У вас нет прав для создания постов в этой группе.
-                        {% endif %}
-                    </strong>
-                </p>
-            </div>
-            {% endif %}
+                    <div style="display:flex;align-items:flex-start;gap:20px;overflow:hidden;padding-right:52px;">
+                        <img src="{{ url_for('static', filename='uploads/groups/' + group.avatar) if group.avatar else '/static/defaults/for_groups.png' }}"
+                             style="width:100px;height:100px;border-radius:var(--radius-md);object-fit:cover;border:3px solid var(--amber-300);flex-shrink:0;"
+                             onerror="this.src='/static/defaults/for_groups.png'">
 
-            {% if posts %}
-                {% for post in posts %}
-                <div id="post-{{ post.id }}" class="post-container {% if post.is_editing %}edit-mode{% endif %}" style="border: 1px solid #ddd; border-radius: 8px; padding: 15px; margin-bottom: 15px; background: white;">
-                    <div style="display: flex; align-items: center; margin-bottom: 10px;">
-                        <img src="{{ url_for('static', filename='uploads/avatars/' + post.author_avatar) if post.author_avatar else 'https://via.placeholder.com/30?text=Avatar' }}"
-                             style="width: 30px; height: 30px; border-radius: 50%; margin-right: 10px;"
-                             onerror="this.src='/static/defaults/for_users.png'">
-                        <div style="flex: 1;">
-                            <div>
-                                <strong>{{ post.author_name or post.author_username }}</strong>
-                                {% if post.author_role == 'admin' %}
-                                <span style="font-size: 10px; color: #dc3545; margin-left: 5px;">Администратор</span>
-                                {% elif post.author_role == 'moderator' %}
-                                <span style="font-size: 10px; color: #17a2b8; margin-left: 5px;">Модератор</span>
-                                {% else %}
-                                <span style="font-size: 10px; color: #6c757d; margin-left: 5px;">Участник</span>
+                        <div style="flex:1;min-width:0;overflow:hidden;">
+                            <h1 style="font-family:var(--font-display);font-size:22px;margin:0 0 8px;">
+                                {{ group.name }}
+                                {% if not group.is_public %}
+                                <span class="badge badge-secondary" style="font-size:11px;margin-left:8px;">
+                                    <i class="fas fa-lock"></i> Приватная
+                                </span>
                                 {% endif %}
-                                <div style="font-size: 12px; color: #666;">{{ datetime_format(post.created_at) }}</div>
+                            </h1>
+                            <p style="color:var(--text-secondary);font-size:14px;margin:0 0 12px;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;word-break:break-word;">{{ group.description or 'Нет описания' }}</p>
+                            <div style="display:flex;gap:16px;font-size:13px;color:var(--text-muted);flex-wrap:wrap;">
+                                <span><i class="fas fa-users" style="color:var(--amber-500);"></i> {{ group.members_count }} участников</span>
+                                <span><i class="fas fa-file-alt" style="color:var(--amber-500);"></i> {{ group.posts_count }} постов</span>
+                                <span><i class="fas fa-calendar" style="color:var(--amber-500);"></i> {{ group.created_at[:10]|replace('-', '.') }}</span>
                             </div>
                         </div>
-
-                        <!-- Кнопки редактирования/удаления с проверкой прав -->
-                        {% set can_edit_post = false %}
-                        {% set can_delete_post = false %}
-
-                        <!-- Проверка прав на редактирование и удаление -->
-                        {% if post.author_id == session_user_id %}
-                            <!-- Автор может редактировать и удалять свой пост -->
-                            {% set can_edit_post = true %}
-                            {% set can_delete_post = true %}
-                        {% elif role == 'admin' %}
-                            <!-- Админ может редактировать и удалять любые посты -->
-                            {% set can_edit_post = true %}
-                            {% set can_delete_post = true %}
-                        {% elif role == 'moderator' %}
-                            <!-- Модератор может редактировать и удалять только посты обычных пользователей -->
-                            {% if post.author_role == 'member' %}
-                                {% set can_edit_post = true %}
-                                {% set can_delete_post = true %}
-                            {% endif %}
-                        {% endif %}
-
-                        {% if can_edit_post or can_delete_post %}
-                        <div class="post-actions">
-                            {% if can_edit_post %}
-                            <button onclick="editPost(this.dataset.postId)"
-                                    data-post-id="{{ post.id }}"
-                                    style="background: none; border: none; color: #007bff; cursor: pointer; padding: 5px;"
-                                    title="Редактировать">
-                                ✏️
-                            </button>
-                            {% endif %}
-
-                            {% if can_delete_post %}
-                            <button onclick="deleteGroupPost(this.dataset.postId)"
-                                    data-post-id="{{ post.id }}"
-                                    style="background: none; border: none; color: #dc3545; cursor: pointer; padding: 5px;"
-                                    title="Удалить">
-                                🗑️
-                            </button>
-                            {% endif %}
-                        </div>
-                        {% endif %}
                     </div>
+                </div>
 
-                    {% if post.is_editing %}
-                    <textarea id="edit-content-{{ post.id }}" class="edit-textarea">{{ post.content }}</textarea>
-                    <div style="margin-top: 10px;">
-                        <button onclick="saveEdit(this.dataset.postId)"
-                                data-post-id="{{ post.id }}"
-                                style="padding: 8px 15px; background: #28a745; color: white; border: none; border-radius: 4px; margin-right: 10px;">
-                            Сохранить
-                        </button>
-                        <button onclick="cancelEdit(this.dataset.postId)"
-                                data-post-id="{{ post.id }}"
-                                style="padding: 8px 15px; background: #6c757d; color: white; border: none; border-radius: 4px;">
-                            Отмена
-                        </button>
+                <!-- Вкладки -->
+                <div style="display:flex;border-bottom:2px solid var(--border-light);background:var(--bg-card);border-radius:var(--radius-lg) var(--radius-lg) 0 0;padding:0 16px;">
+                    <button class="tab-btn active" onclick="switchTab('posts')" style="padding:14px 20px;font-weight:700;font-size:14px;background:none;border:none;border-bottom:2px solid var(--amber-500);color:var(--amber-600);cursor:pointer;margin-bottom:-2px;">
+                        <i class="fas fa-file-alt"></i> Посты
+                    </button>
+                    <button class="tab-btn" onclick="switchTab('members')" style="padding:14px 20px;font-weight:700;font-size:14px;background:none;border:none;border-bottom:2px solid transparent;color:var(--text-muted);cursor:pointer;margin-bottom:-2px;">
+                        <i class="fas fa-users"></i> Участники
+                    </button>
+                    <button class="tab-btn" onclick="switchTab('about')" style="padding:14px 20px;font-weight:700;font-size:14px;background:none;border:none;border-bottom:2px solid transparent;color:var(--text-muted);cursor:pointer;margin-bottom:-2px;">
+                        <i class="fas fa-info-circle"></i> О группе
+                    </button>
+                    {% if show_requests_tab %}
+                    <button class="tab-btn" onclick="switchTab('requests')" style="padding:14px 20px;font-weight:700;font-size:14px;background:none;border:none;border-bottom:2px solid transparent;color:var(--text-muted);cursor:pointer;margin-bottom:-2px;">
+                        <i class="fas fa-user-clock"></i> Заявки
+                        {% if pending_requests_count > 0 %}
+                        <span style="background:var(--orange-500);color:#fff;border-radius:var(--radius-full);padding:2px 7px;font-size:11px;margin-left:4px;">{{ pending_requests_count }}</span>
+                        {% endif %}
+                    </button>
+                    {% endif %}
+                </div>
+
+                <!-- Посты -->
+                <div id="tab-posts" class="tab-content" style="display:block;">
+                    {% if is_member and can_post %}
+                    <div class="create-post">
+                        <h3>Создать пост</h3>
+                        <form method="POST" action="/group/{{ group.id }}/create_post" enctype="multipart/form-data" id="create-post-form">
+                            <textarea name="content" placeholder="Что нового в группе?"></textarea>
+                            <div class="media-upload">
+                                <label for="media-files" class="upload-btn">
+                                    <i class="fas fa-paperclip"></i> Добавить файлы
+                                </label>
+                                <input type="file" id="media-files" name="media_files"
+                                       accept="image/*,video/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.zip,.rar,.7z"
+                                       multiple style="display:none;">
+                                <span id="files-count" style="margin-left:10px;font-size:13px;color:var(--text-muted);"></span>
+                                <div id="media-preview" class="media-preview-container"></div>
+                                <small class="upload-info">До 10 файлов · Макс. 50 МБ каждый</small>
+                            </div>
+                            <button type="submit" class="submit-post">
+                                <i class="fas fa-paper-plane"></i> Опубликовать
+                            </button>
+                        </form>
                     </div>
-                    {% else %}
-                    <p id="post-content-{{ post.id }}" style="margin: 10px 0; white-space: pre-wrap;">{{ post.content }}</p>
+                    {% elif is_member and not can_post %}
+                    <div class="alert alert-warning">
+                        <i class="fas fa-lock"></i>
+                        {% if group.post_permissions == 'admins' %}Только администраторы могут создавать посты.
+                        {% elif group.post_permissions == 'moderators' %}Только администраторы и модераторы могут создавать посты.
+                        {% else %}У вас нет прав для создания постов.{% endif %}
+                    </div>
+                    {% endif %}
 
-                    <!-- Отображение медиафайлов -->
-                    {% if post.media_files %}
-                    <div class="post-media-grid">
-                        {% for media in post.media_files %}
-                            {% if media.file_type == 'document' %}
-                                {% set doc_ext = media.filename.rsplit('.', 1)[-1].lower() %}
-                                {% set doc_name = media.original_filename if media.original_filename else media.filename %}
-                                <div class="media-item doc-item"
-                                     onclick="openDocViewer('{{ media.id }}', '{{ doc_ext }}', '{{ doc_name }}')"
-                                     style="cursor:pointer;">
-                                    <div style="display:flex;flex-direction:column;align-items:center;
-                                                justify-content:center;height:100%;min-height:110px;
-                                                padding:14px;background:#f8f9fa;border-radius:8px;
-                                                border:1px solid #ddd;transition:background 0.15s;"
-                                         onmouseover="this.style.background='#e9ecef'"
-                                         onmouseout="this.style.background='#f8f9fa'">
-                                        <span style="font-size:40px;line-height:1;">
-                                            {% if doc_ext == 'pdf' %}📄
-                                            {% elif doc_ext in ['doc','docx'] %}📝
-                                            {% elif doc_ext in ['xls','xlsx'] %}📊
-                                            {% elif doc_ext in ['ppt','pptx'] %}📑
-                                            {% elif doc_ext == 'txt' %}📃
-                                            {% elif doc_ext in ['zip','rar','7z'] %}🗜️
-                                            {% else %}📎{% endif %}
-                                        </span>
-                                        <span style="margin-top:8px;word-break:break-all;font-weight:500;
-                                                     max-width:170px;text-align:center;font-size:12px;color:#333;">
-                                            {{ doc_name }}
-                                        </span>
-                                        <span style="margin-top:5px;font-size:11px;color:#007bff;">
-                                            {% if doc_ext in ['zip','rar','7z'] %}Скачать{% else %}Открыть{% endif %}
-                                        </span>
-                                    </div>
+                    {% if posts %}
+                        {% for post in posts %}
+                        <div id="post-{{ post.id }}" class="post">
+                            <div class="post-header">
+                                <img src="{{ url_for('static', filename='uploads/avatars/' + post.author_avatar) if post.author_avatar else '/static/defaults/for_users.png' }}"
+                                     class="author-avatar"
+                                     onerror="this.src='/static/defaults/for_users.png'">
+                                <div class="post-info">
+                                    <strong class="post-author">
+                                        {{ post.author_name or post.author_username }}
+                                        {% if post.author_role == 'admin' %}
+                                        <span class="badge badge-danger" style="font-size:10px;">Админ</span>
+                                        {% elif post.author_role == 'moderator' %}
+                                        <span class="badge badge-primary" style="font-size:10px;">Модер</span>
+                                        {% endif %}
+                                    </strong>
+                                    <small class="post-time">{{ datetime_format(post.created_at) }}</small>
                                 </div>
-                            {% else %}
-                                <div class="media-item"
-                                     data-media-url="{{ url_for('static', filename='uploads/posts/' + media.filename) }}"
-                                     data-media-type="{{ media.file_type }}"
-                                     onclick="openMediaViewer(this.dataset.mediaUrl, this.dataset.mediaType)">
-                                    {% if media.file_type == 'image' %}
-                                    <img src="{{ url_for('static', filename='uploads/posts/' + media.filename) }}"
-                                         onerror="this.src='/static/defaults/for_groups.png'">
-                                    {% elif media.file_type == 'video' %}
-                                    <video>
-                                        <source src="{{ url_for('static', filename='uploads/posts/' + media.filename) }}">
-                                    </video>
-                                    <div class="video-icon">▶️ ВИДЕО</div>
+
+                                {% set can_edit_post = false %}
+                                {% set can_delete_post = false %}
+                                {% if post.author_id == session_user_id %}
+                                    {% set can_edit_post = true %}
+                                    {% set can_delete_post = true %}
+                                {% elif role == 'admin' %}
+                                    {% set can_edit_post = true %}
+                                    {% set can_delete_post = true %}
+                                {% elif role == 'moderator' and post.author_role == 'member' %}
+                                    {% set can_edit_post = true %}
+                                    {% set can_delete_post = true %}
+                                {% endif %}
+
+                                {% if can_edit_post or can_delete_post %}
+                                <div class="post-actions" style="margin-left:auto;padding:0;border:none;">
+                                    {% if can_edit_post %}
+                                    <button onclick="editPost(this.dataset.postId)" data-post-id="{{ post.id }}"
+                                            class="action-btn" style="padding:4px 10px;">
+                                        <i class="fas fa-edit"></i>
+                                    </button>
+                                    {% endif %}
+                                    {% if can_delete_post %}
+                                    <button onclick="deleteGroupPost(this.dataset.postId)" data-post-id="{{ post.id }}"
+                                            class="action-btn" style="padding:4px 10px;color:#dc2626;border-color:#fca5a5;">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
                                     {% endif %}
                                 </div>
+                                {% endif %}
+                            </div>
+
+                            <p id="post-content-{{ post.id }}" class="post-content">{{ post.content }}</p>
+
+                            {% if post.media_files %}
+                            <div class="post-media-grid">
+                                {% for media in post.media_files %}
+                                    {% if media.file_type == 'document' %}
+                                        {% set doc_ext = media.filename.rsplit('.', 1)[-1].lower() %}
+                                        {% set doc_name = media.original_filename if media.original_filename else media.filename %}
+                                        <div style="background:var(--gray-50);border:1px solid var(--border-light);border-radius:var(--radius-md);padding:14px;display:flex;flex-direction:column;align-items:center;cursor:pointer;"
+                                             onclick="openDocViewer('{{ media.id }}', '{{ doc_ext }}', '{{ doc_name }}')">
+                                            <span style="font-size:36px;">
+                                                {% if doc_ext == 'pdf' %}📄{% elif doc_ext in ['doc','docx'] %}📝{% elif doc_ext in ['xls','xlsx'] %}📊{% elif doc_ext in ['ppt','pptx'] %}📑{% elif doc_ext == 'txt' %}📃{% elif doc_ext in ['zip','rar','7z'] %}🗜️{% else %}📎{% endif %}
+                                            </span>
+                                            <span style="font-size:12px;color:var(--text-secondary);margin-top:6px;text-align:center;word-break:break-all;">{{ doc_name }}</span>
+                                            <span style="font-size:11px;color:var(--amber-600);margin-top:4px;">{% if doc_ext in ['zip','rar','7z'] %}Скачать{% else %}Открыть{% endif %}</span>
+                                        </div>
+                                    {% else %}
+                                        <div style="border-radius:var(--radius-md);overflow:hidden;cursor:pointer;"
+                                             onclick="openMediaViewer('{{ url_for('static', filename='uploads/posts/' + media.filename) }}', '{{ media.file_type }}')">
+                                            {% if media.file_type == 'image' %}
+                                            <img src="{{ url_for('static', filename='uploads/posts/' + media.filename) }}"
+                                                 style="width:100%;height:200px;object-fit:cover;"
+                                                 onerror="this.src='/static/defaults/for_groups.png'">
+                                            {% elif media.file_type == 'video' %}
+                                            <div style="position:relative;">
+                                                <video style="width:100%;height:200px;object-fit:cover;">
+                                                    <source src="{{ url_for('static', filename='uploads/posts/' + media.filename) }}">
+                                                </video>
+                                                <div style="position:absolute;top:8px;left:8px;background:rgba(0,0,0,0.7);color:#fff;padding:4px 10px;border-radius:var(--radius-sm);font-size:12px;">▶ ВИДЕО</div>
+                                            </div>
+                                            {% endif %}
+                                        </div>
+                                    {% endif %}
+                                {% endfor %}
+                            </div>
                             {% endif %}
-                        {% endfor %}
-                    </div>
-                    {% endif %}
 
-                    <div style="margin-top: 10px; padding-top: 10px; border-top: 1px solid #eee;">
-                        <button class="like-post-btn"
-                                onclick="likeGroupPost(this.dataset.postId)"
-                                data-post-id="{{ post.id }}"
-                                style="background: none; border: none; color: #666; cursor: pointer; padding: 5px 10px;">
-                            👍 {{ post.likes_count or 0 }}
-                        </button>
-                        <button onclick="commentOnPost(this.dataset.postId)"
-                                data-post-id="{{ post.id }}"
-                                style="background: none; border: none; color: #666; cursor: pointer; padding: 5px 10px;">
-                            💬 Комментировать
-                        </button>
-                    </div>
-                    {% endif %}
-                </div>
-                {% endfor %}
-            {% else %}
-            <div style="text-align: center; padding: 40px; color: #666;">
-                <h3>Пока нет постов</h3>
-                <p>
-                    {% if is_member %}
-                        {% if can_post %}
-                            Создайте первый пост!
-                        {% else %}
-                            В этой группе пока нет постов.
-                        {% endif %}
-                    {% else %}
-                        Вступите в паблик, чтобы видеть посты
-                    {% endif %}
-                </p>
-            </div>
-            {% endif %}
-        </div>
-
-        <!-- Контент вкладки "Участники" -->
-        <div id="tab-members" class="tab-content">
-            <h3>Участники ({{ members|length }})</h3>
-            <div class="member-list">
-                {% for member in members %}
-                <div style="text-align: center; min-width: 80px;">
-                    <a href="/profile/{{ member.id }}" style="text-decoration: none; color: inherit;">
-                        <img src="{{ url_for('static', filename='uploads/avatars/' + member.avatar) if member.avatar else 'https://via.placeholder.com/40?text=Avatar' }}"
-                            class="member-avatar"
-                            onerror="this.src='/static/defaults/for_users.png'">
-                        <div style="font-size: 12px; margin-top: 5px; word-break: break-word;">
-                            {{ member.username }}
-                        </div>
-                        {% if member.role == 'admin' %}
-                        <div style="font-size: 10px; color: #dc3545; margin-top: 2px;">Админ</div>
-                        {% elif member.role == 'moderator' %}
-                        <div style="font-size: 10px; color: #17a2b8; margin-top: 2px;">Модератор</div>
-                        {% endif %}
-                    </a>
-                </div>
-                {% endfor %}
-            </div>
-        </div>
-
-        <!-- Контент вкладки "О паблике" -->
-        <div id="tab-about" class="tab-content">
-            <h3>О паблике</h3>
-            <div style="background: #f8f9fa; padding: 20px; border-radius: 8px;">
-                <p><strong>Создатель:</strong>
-                    <a href="/profile/{{ creator.id }}" style="color: #007bff; text-decoration: none;">
-                        {{ creator.full_name or creator.username }}
-                    </a>
-                </p>
-                <p><strong>Дата создания:</strong> {{ group.created_at[:10]|replace('-', '.') }}</p>
-                <p><strong>Статус:</strong> {{ 'Публичный' if group.is_public else 'Приватный (только по заявке)' }}</p>
-                <p><strong>Публикации:</strong>
-                    {% if group.post_permissions == 'admins' %}
-                        Только администраторы
-                    {% elif group.post_permissions == 'moderators' %}
-                        Администраторы и модераторы
-                    {% else %}
-                        Все участники
-                    {% endif %}
-                </p>
-                {% if group.description %}
-                <p><strong>Описание:</strong><br>{{ group.description }}</p>
-                {% endif %}
-            </div>
-        </div>
-
-        <!-- Контент вкладки "Заявки" -->
-        {% if show_requests_tab %}
-        <div id="tab-requests" class="tab-content">
-            <h3>Заявки на вступление</h3>
-
-            {% if pending_requests %}
-            <div class="requests-list">
-                {% for request in pending_requests %}
-                <div class="request-card">
-                    <div style="display: flex; align-items: center; margin-bottom: 10px;">
-                        <img src="{{ url_for('static', filename='uploads/avatars/' + request.avatar) if request.avatar else 'https://via.placeholder.com/50?text=Avatar' }}"
-                             style="width: 50px; height: 50px; border-radius: 50%; margin-right: 15px;"
-                             onerror="this.src='/static/defaults/for_users.png'">
-
-                        <div style="flex: 1;">
-                            <h4 style="margin: 0 0 5px 0;">
-                                {{ request.full_name or request.username }}
-                            </h4>
-                            <p style="margin: 0; color: #666;">@{{ request.username }}</p>
-                            <div style="font-size: 12px; color: #999; margin-top: 5px;">
-                                Подал(а) заявку: {{ datetime_format(request.created_at) }}
+                            <div class="post-actions">
+                                <button class="action-btn like-post-btn"
+                                        onclick="likeGroupPost(this.dataset.postId)"
+                                        data-post-id="{{ post.id }}">
+                                    <i class="fas fa-thumbs-up"></i> {{ post.likes_count or 0 }}
+                                </button>
+                                <button class="action-btn" onclick="commentOnPost(this.dataset.postId)" data-post-id="{{ post.id }}">
+                                    <i class="fas fa-comment"></i> Комментировать
+                                </button>
                             </div>
                         </div>
+                        {% endfor %}
+                    {% else %}
+                    <div class="empty-feed">
+                        <i class="fas fa-file-alt fa-3x"></i>
+                        <h3>Пока нет постов</h3>
+                        <p>{% if is_member and can_post %}Создайте первый пост!{% else %}В этой группе пока нет постов.{% endif %}</p>
+                    </div>
+                    {% endif %}
+                </div>
 
-                        <div style="display: flex; gap: 10px;">
-                            <button onclick="approveRequest(this.dataset.requestId, this.dataset.username)"
-                                    data-request-id="{{ request.request_id }}"
-                                    data-username="{{ request.username }}"
-                                    style="padding: 8px 15px; background: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer;">
-                                Принять
-                            </button>
-                            <button onclick="rejectRequest(this.dataset.requestId, this.dataset.username)"
-                                    data-request-id="{{ request.request_id }}"
-                                    data-username="{{ request.username }}"
-                                    style="padding: 8px 15px; background: #dc3545; color: white; border: none; border-radius: 4px; cursor: pointer;">
-                                Отклонить
-                            </button>
+                <!-- Участники -->
+                <div id="tab-members" class="tab-content" style="display:none;">
+                    <div class="card">
+                        <h3 style="font-family:var(--font-display);font-size:13px;text-transform:uppercase;letter-spacing:1px;color:var(--amber-600);margin-bottom:16px;">
+                            Участники ({{ members|length }})
+                        </h3>
+                        <div style="display:flex;flex-wrap:wrap;gap:16px;">
+                            {% for member in members %}
+                            <a href="/profile/{{ member.id }}" style="display:flex;flex-direction:column;align-items:center;text-align:center;text-decoration:none;color:inherit;width:72px;">
+                                <img src="{{ url_for('static', filename='uploads/avatars/' + member.avatar) if member.avatar else '/static/defaults/for_users.png' }}"
+                                     style="width:48px;height:48px;border-radius:50%;object-fit:cover;border:2px solid var(--amber-200);"
+                                     onerror="this.src='/static/defaults/for_users.png'">
+                                <div style="font-size:12px;margin-top:4px;color:var(--text-primary);font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ member.username }}</div>
+                                {% if member.role == 'admin' %}
+                                <div style="font-size:10px;color:var(--orange-500);font-weight:700;">Админ</div>
+                                {% elif member.role == 'moderator' %}
+                                <div style="font-size:10px;color:var(--amber-600);font-weight:700;">Модер</div>
+                                {% endif %}
+                            </a>
+                            {% endfor %}
                         </div>
                     </div>
                 </div>
-                {% endfor %}
+
+                <!-- О группе -->
+                <div id="tab-about" class="tab-content" style="display:none;">
+                    <div class="card">
+                        <h3 style="font-family:var(--font-display);font-size:13px;text-transform:uppercase;letter-spacing:1px;color:var(--amber-600);margin-bottom:16px;">О группе</h3>
+                        <div style="display:flex;flex-direction:column;gap:12px;font-size:14px;">
+                            <div><span style="color:var(--text-muted);font-weight:700;">Создатель:</span>
+                                <a href="/profile/{{ creator.id }}" style="color:var(--amber-600);font-weight:700;margin-left:8px;">{{ creator.full_name or creator.username }}</a>
+                            </div>
+                            <div><span style="color:var(--text-muted);font-weight:700;">Дата создания:</span>
+                                <span style="margin-left:8px;">{{ group.created_at[:10]|replace('-', '.') }}</span>
+                            </div>
+                            <div><span style="color:var(--text-muted);font-weight:700;">Статус:</span>
+                                <span style="margin-left:8px;">{{ 'Публичная' if group.is_public else 'Приватная (только по заявке)' }}</span>
+                            </div>
+                            <div><span style="color:var(--text-muted);font-weight:700;">Публикации:</span>
+                                <span style="margin-left:8px;">
+                                    {% if group.post_permissions == 'admins' %}Только администраторы
+                                    {% elif group.post_permissions == 'moderators' %}Администраторы и модераторы
+                                    {% else %}Все участники{% endif %}
+                                </span>
+                            </div>
+                            {% if group.description %}
+                            <div><span style="color:var(--text-muted);font-weight:700;">Описание:</span>
+                                <p style="margin:6px 0 0;color:var(--text-primary);line-height:1.6;word-break:break-word;overflow-wrap:break-word;">{{ group.description }}</p>
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Заявки -->
+                {% if show_requests_tab %}
+                <div id="tab-requests" class="tab-content" style="display:none;">
+                    <div class="card">
+                        <h3 style="font-family:var(--font-display);font-size:13px;text-transform:uppercase;letter-spacing:1px;color:var(--amber-600);margin-bottom:16px;">
+                            Заявки на вступление
+                        </h3>
+                        {% if pending_requests %}
+                        <div class="friends-list">
+                            {% for request in pending_requests %}
+                            <div class="request-card" style="border-color:var(--border-light);background:var(--bg-card);">
+                                <img src="{{ url_for('static', filename='uploads/avatars/' + request.avatar) if request.avatar else '/static/defaults/for_users.png' }}"
+                                     style="width:48px;height:48px;border-radius:50%;object-fit:cover;border:2px solid var(--amber-200);flex-shrink:0;"
+                                     onerror="this.src='/static/defaults/for_users.png'">
+                                <div style="flex:1;">
+                                    <div style="font-weight:700;font-size:14px;">{{ request.full_name or request.username }}</div>
+                                    <div style="font-size:12px;color:var(--text-muted);">@{{ request.username }}</div>
+                                    <div style="font-size:11px;color:var(--text-muted);margin-top:2px;">{{ datetime_format(request.created_at) }}</div>
+                                </div>
+                                <div class="actions">
+                                    <button onclick="approveRequest(this.dataset.requestId, this.dataset.username)"
+                                            data-request-id="{{ request.request_id }}"
+                                            data-username="{{ request.username }}"
+                                            class="btn btn-success btn-sm">
+                                        <i class="fas fa-check"></i> Принять
+                                    </button>
+                                    <button onclick="rejectRequest(this.dataset.requestId, this.dataset.username)"
+                                            data-request-id="{{ request.request_id }}"
+                                            data-username="{{ request.username }}"
+                                            class="btn btn-danger btn-sm">
+                                        <i class="fas fa-times"></i> Отклонить
+                                    </button>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                        {% else %}
+                        <div class="empty-state">
+                            <i class="fas fa-user-check fa-3x"></i>
+                            <h3 style="margin:16px 0 8px;color:var(--text-primary);">Нет ожидающих заявок</h3>
+                            <p>Все заявки обработаны</p>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+                {% endif %}
+
             </div>
-            {% else %}
-            <div style="text-align: center; padding: 40px; color: #666;">
-                <h4>Нет ожидающих заявок</h4>
-                <p>Все заявки на вступление обработаны</p>
-            </div>
-            {% endif %}
         </div>
-        {% endif %}
     </div>
 
     <script>
-        // ================================================================
-        // НАКОПИТЕЛЬНЫЙ ВЫБОР ФАЙЛОВ + ОТПРАВКА ЧЕРЕЗ FETCH
-        // ================================================================
-        let selectedFiles = [];
-
-        const FILE_ICONS = {
-            pdf:'📄', doc:'📝', docx:'📝',
-            xls:'📊', xlsx:'📊', ppt:'📑', pptx:'📑',
-            txt:'📃', zip:'🗜️', rar:'🗜️', '7z':'🗜️'
-        };
-
-        function getFileIcon(file) {
-            const ext = file.name.split('.').pop().toLowerCase();
-            return FILE_ICONS[ext] || '📎';
+        // Вкладки
+        function toggleGroupMenu() {
+            const dd = document.getElementById('groupMenuDropdown');
+            dd.style.display = dd.style.display === 'none' ? 'block' : 'none';
         }
+        document.addEventListener('click', function(e) {
+            const wrap = document.getElementById('groupMenuWrap');
+            if (wrap && !wrap.contains(e.target)) {
+                const dd = document.getElementById('groupMenuDropdown');
+                if (dd) dd.style.display = 'none';
+            }
+        });
+        function openGroupInviteModal() {
+            document.getElementById('groupMenuDropdown').style.display = 'none';
+            document.getElementById('groupInviteModal').style.display = 'block';
+            document.body.style.overflow = 'hidden';
+            switchInvTab('friends');
+            invLoadFriends();
+            document.getElementById('invLinkInput').value = window.location.origin + '/group/{{ group.id }}';
+        }
+
+        function closeGroupInviteModal() {
+            document.getElementById('groupInviteModal').style.display = 'none';
+            document.body.style.overflow = '';
+            invFriendsData = [];
+            invMemberIds = [];
+            document.getElementById('invSearchInput').value = '';
+            document.getElementById('invSelectedCount').textContent = '0';
+        }
+
+        document.addEventListener('DOMContentLoaded', function() {
+            const m = document.getElementById('groupInviteModal');
+            if (m) m.addEventListener('click', function(e) {
+                if (e.target === this) closeGroupInviteModal();
+            });
+        });
+
+        function switchInvTab(tab) {
+            const isFriends = tab === 'friends';
+            document.getElementById('invFriendsSection').style.display = isFriends ? 'block' : 'none';
+            document.getElementById('invLinkSection').style.display   = isFriends ? 'none'  : 'block';
+            document.getElementById('invTabFriendsBtn').className = 'btn btn-sm ' + (isFriends ? 'btn-primary' : 'btn-secondary');
+            document.getElementById('invTabLinkBtn').className    = 'btn btn-sm ' + (isFriends ? 'btn-secondary' : 'btn-primary');
+        }
+
+        let invFriendsData = [];
+        let invMemberIds   = [];
+
+        function invLoadFriends() {
+            const list = document.getElementById('invFriendsList');
+            list.innerHTML = '<div style="text-align:center;padding:24px;color:var(--text-muted);"><i class="fas fa-spinner fa-spin"></i> Загрузка...</div>';
+
+            const safeJson = r => {
+                const ct = r.headers.get('content-type') || '';
+                if (!ct.includes('application/json')) throw new Error('Перезагрузите страницу — сессия истекла');
+                return r.json();
+            };
+
+            const fetchFriends = fetch('/friends/list').then(safeJson);
+            const fetchMembers = fetch('/group/{{ group.id }}/members').then(safeJson)
+                .catch(() => ({ success: false, member_ids: [] }));
+
+            Promise.all([fetchFriends, fetchMembers])
+                .then(([friendsData, membersData]) => {
+                    invMemberIds = (membersData && membersData.member_ids) ? membersData.member_ids : [];
+                    if (friendsData.success) {
+                        invFriendsData = friendsData.friends;
+                        invRenderFriends();
+                    } else {
+                        list.innerHTML = '<div style="text-align:center;padding:24px;color:var(--text-muted);">Не удалось загрузить список друзей</div>';
+                    }
+                })
+                .catch(err => {
+                    list.innerHTML = `<div style="text-align:center;padding:24px;color:#dc2626;font-size:13px;">${err.message || 'Ошибка загрузки'}</div>`;
+                });
+        }
+
+        function invFilterFriends() { invRenderFriends(); }
+
+        function invRenderFriends() {
+            const list   = document.getElementById('invFriendsList');
+            const search = document.getElementById('invSearchInput').value.toLowerCase().trim();
+            const filtered = search
+                ? invFriendsData.filter(f => f.username.toLowerCase().includes(search) || (f.full_name||'').toLowerCase().includes(search))
+                : invFriendsData;
+
+            if (!filtered.length) {
+                list.innerHTML = '<div style="text-align:center;padding:24px;color:var(--text-muted);">' +
+                    (invFriendsData.length ? 'Ничего не найдено' : 'У вас пока нет друзей для приглашения') + '</div>';
+                return;
+            }
+
+            list.innerHTML = '';
+            filtered.forEach(friend => {
+                const isMember = invMemberIds.includes(friend.id);
+                const avatarUrl = friend.avatar ? `/static/uploads/avatars/${friend.avatar}` : '/static/defaults/for_users.png';
+                const row = document.createElement('div');
+                row.style.cssText = `display:flex;align-items:center;gap:12px;padding:10px 12px;border-radius:var(--radius-md);border:1px solid var(--border-light);opacity:${isMember ? '0.5' : '1'};`;
+                row.innerHTML = `
+                    <img src="${avatarUrl}" style="width:40px;height:40px;border-radius:50%;object-fit:cover;border:2px solid var(--amber-200);flex-shrink:0;"
+                         onerror="this.src='/static/defaults/for_users.png'">
+                    <div style="flex:1;min-width:0;">
+                        <div style="font-size:14px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
+                            ${friend.full_name || friend.username}
+                            ${isMember ? '<span style="font-size:11px;font-weight:400;color:var(--text-muted);margin-left:6px;">уже в группе</span>' : ''}
+                        </div>
+                        <div style="font-size:12px;color:var(--text-muted);">@${friend.username}</div>
+                    </div>
+                    ${!isMember ? `<input type="checkbox" class="inv-friend-cb" value="${friend.id}" onchange="invUpdateCounter()"
+                        style="width:18px;height:18px;accent-color:var(--amber-500);cursor:pointer;flex-shrink:0;">` : ''}
+                `;
+                list.appendChild(row);
+            });
+            invUpdateCounter();
+        }
+
+        function invUpdateCounter() {
+            const checked = document.querySelectorAll('.inv-friend-cb:checked').length;
+            document.getElementById('invSelectedCount').textContent = checked;
+            const btn = document.getElementById('invSendBtn');
+            btn.disabled = checked === 0;
+            btn.innerHTML = checked > 0 ? `<i class="fas fa-paper-plane"></i> Отправить (${checked})` : '<i class="fas fa-paper-plane"></i> Отправить';
+        }
+
+        function invSendInvitations() {
+            const ids = Array.from(document.querySelectorAll('.inv-friend-cb:checked')).map(cb => parseInt(cb.value));
+            if (!ids.length) return;
+            const btn = document.getElementById('invSendBtn');
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Отправка...';
+            fetch('/group/{{ group.id }}/invite', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({user_ids: ids})
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    invShowToast(`✅ Приглашения отправлены: ${data.sent_count}`);
+                    if (data.sent_ids) invMemberIds = [...invMemberIds, ...data.sent_ids];
+                    invRenderFriends();
+                    closeGroupInviteModal();
+                } else {
+                    invShowToast('❌ ' + (data.error || 'Неизвестная ошибка'), true);
+                }
+            })
+            .catch(() => invShowToast('❌ Ошибка сети', true))
+            .finally(() => { btn.disabled = false; invUpdateCounter(); });
+        }
+
+        function invCopyLink() {
+            const input = document.getElementById('invLinkInput');
+            input.select(); input.setSelectionRange(0, 99999);
+            try {
+                document.execCommand('copy');
+                const btn = document.getElementById('invCopyBtn');
+                btn.innerHTML = '<i class="fas fa-check"></i>';
+                setTimeout(() => btn.innerHTML = '<i class="fas fa-copy"></i>', 2000);
+                invShowToast('✅ Ссылка скопирована!');
+            } catch { alert('Не удалось скопировать'); }
+        }
+
+        function invShowToast(msg, isError) {
+            const div = document.createElement('div');
+            div.style.cssText = `position:fixed;top:20px;right:20px;background:${isError ? '#dc2626' : 'var(--accent-gradient)'};color:${isError ? '#fff' : '#111'};padding:14px 22px;border-radius:var(--radius-lg);box-shadow:var(--shadow-md);z-index:2000;font-weight:700;font-size:14px;`;
+            div.textContent = msg;
+            document.body.appendChild(div);
+            setTimeout(() => div.remove(), 3000);
+        }
+
+        function switchTab(tabName) {
+            document.querySelectorAll('.tab-btn').forEach(b => {
+                b.style.borderBottomColor = 'transparent';
+                b.style.color = 'var(--text-muted)';
+                b.classList.remove('active');
+            });
+            if (event && event.currentTarget) {
+                event.currentTarget.style.borderBottomColor = 'var(--amber-500)';
+                event.currentTarget.style.color = 'var(--amber-600)';
+                event.currentTarget.classList.add('active');
+            }
+            document.querySelectorAll('.tab-content').forEach(c => c.style.display = 'none');
+            document.getElementById(`tab-${tabName}`).style.display = 'block';
+        }
+
+        // Выход из группы
+        document.querySelectorAll('.leave-group-form').forEach(form => {
+            form.addEventListener('submit', function(e) {
+                e.stopPropagation();
+                const isCreator = this.dataset.isCreator === '1';
+                const name = this.dataset.groupName || '';
+                const msg = isCreator
+                    ? `ВНИМАНИЕ! Вы создатель группы "${name}".\n\nГруппа будет УДАЛЕНА вместе со всеми данными!\n\nВы уверены?`
+                    : `Покинуть группу "${name}"?`;
+                if (!confirm(msg)) e.preventDefault();
+            });
+        });
+
+        // Накопительный выбор файлов
+        let selectedFiles = [];
+        const FILE_ICONS = {pdf:'📄',doc:'📝',docx:'📝',xls:'📊',xlsx:'📊',ppt:'📑',pptx:'📑',txt:'📃',zip:'🗜️',rar:'🗜️','7z':'🗜️'};
 
         function renderPreviews() {
             const container = document.getElementById('media-preview');
-            const counter  = document.getElementById('files-count');
+            const counter = document.getElementById('files-count');
             container.innerHTML = '';
-            counter.textContent  = selectedFiles.length ? `Выбрано: ${selectedFiles.length}` : '';
-
+            counter.textContent = selectedFiles.length ? `Выбрано: ${selectedFiles.length}` : '';
             selectedFiles.forEach((file, index) => {
-                const type = file.type.split('/')[0]; // image | video | application | ...
+                const type = file.type.split('/')[0];
                 const item = document.createElement('div');
-                item.className = 'media-preview-item';
-                item.style.cssText = 'display:flex;flex-direction:column;align-items:center;justify-content:center;padding:6px;box-sizing:border-box;';
-
+                item.style.cssText = 'position:relative;width:100px;height:100px;border-radius:var(--radius-md);overflow:hidden;border:2px solid var(--amber-200);display:flex;flex-direction:column;align-items:center;justify-content:center;background:var(--gray-50);';
                 if (type === 'image') {
                     const img = document.createElement('img');
                     img.src = URL.createObjectURL(file);
-                    img.style.cssText = 'width:100%;height:70px;object-fit:cover;border-radius:4px;';
+                    img.style.cssText = 'width:100%;height:80px;object-fit:cover;';
                     item.appendChild(img);
                 } else if (type === 'video') {
                     const vid = document.createElement('video');
                     vid.src = URL.createObjectURL(file);
-                    vid.muted = true;
-                    vid.style.cssText = 'width:100%;height:70px;object-fit:cover;border-radius:4px;';
+                    vid.style.cssText = 'width:100%;height:80px;object-fit:cover;';
                     item.appendChild(vid);
                 } else {
-                    // документ
                     const icon = document.createElement('div');
-                    icon.style.cssText = 'font-size:32px;line-height:1;margin-top:6px;';
-                    icon.textContent = getFileIcon(file);
+                    icon.style.cssText = 'font-size:32px;';
+                    const ext = file.name.split('.').pop().toLowerCase();
+                    icon.textContent = FILE_ICONS[ext] || '📎';
                     item.appendChild(icon);
                 }
-
                 const name = document.createElement('div');
-                name.style.cssText = 'font-size:10px;color:#555;margin-top:4px;word-break:break-all;text-align:center;max-width:92px;';
-                name.textContent = file.name.length > 14 ? file.name.slice(0,12)+'…' : file.name;
+                name.style.cssText = 'font-size:10px;color:var(--text-muted);padding:2px 4px;text-align:center;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;width:96px;';
+                name.textContent = file.name.length > 12 ? file.name.slice(0,10)+'…' : file.name;
                 item.appendChild(name);
-
-                const removeBtn = document.createElement('button');
-                removeBtn.type = 'button';
-                removeBtn.className = 'remove-media-btn';
-                removeBtn.innerHTML = '×';
-                removeBtn.addEventListener('click', () => {
-                    selectedFiles.splice(index, 1);
-                    renderPreviews();
-                });
-                item.appendChild(removeBtn);
+                const btn = document.createElement('button');
+                btn.type = 'button';
+                btn.style.cssText = 'position:absolute;top:3px;right:3px;background:var(--orange-500);color:#fff;border:none;border-radius:50%;width:20px;height:20px;cursor:pointer;font-size:13px;line-height:1;';
+                btn.innerHTML = '×';
+                btn.onclick = () => { selectedFiles.splice(index, 1); renderPreviews(); };
+                item.appendChild(btn);
                 container.appendChild(item);
             });
         }
 
         document.getElementById('media-files').addEventListener('change', function() {
             Array.from(this.files).forEach(f => {
-                const dup = selectedFiles.some(s => s.name === f.name && s.size === f.size);
-                if (!dup) {
+                if (!selectedFiles.some(s => s.name === f.name && s.size === f.size)) {
                     if (selectedFiles.length < 10) selectedFiles.push(f);
                     else alert('Максимум 10 файлов.');
                 }
             });
             renderPreviews();
-            this.value = ''; // сброс, чтобы можно было выбрать те же файлы снова
+            this.value = '';
         });
 
-        // Отправка через fetch, чтобы файлы из selectedFiles попали в запрос
         document.getElementById('create-post-form').addEventListener('submit', function(e) {
             e.preventDefault();
             const content = this.querySelector('textarea[name="content"]').value.trim();
-
-            if (!content && selectedFiles.length === 0) {
-                alert('Пост не может быть пустым. Добавьте текст или файлы.');
-                return;
-            }
-
-            const maxSize = 50 * 1024 * 1024;
+            if (!content && selectedFiles.length === 0) { alert('Пост не может быть пустым.'); return; }
             for (const f of selectedFiles) {
-                if (f.size > maxSize) {
-                    alert(`Файл "${f.name}" слишком большой. Максимум 50MB.`);
-                    return;
-                }
+                if (f.size > 50 * 1024 * 1024) { alert(`Файл "${f.name}" слишком большой. Макс. 50МБ.`); return; }
             }
-
             const fd = new FormData();
             fd.append('content', content);
             selectedFiles.forEach(f => fd.append('media_files', f));
-
             const btn = this.querySelector('button[type="submit"]');
-            btn.disabled = true;
-            btn.textContent = 'Публикация...';
-
-            fetch(this.action, { method: 'POST', body: fd })
+            btn.disabled = true; btn.textContent = 'Публикация...';
+            fetch(this.action, {method:'POST', body: fd})
                 .then(r => { window.location.href = r.url; })
-                .catch(err => {
-                    alert('Ошибка: ' + err);
-                    btn.disabled = false;
-                    btn.textContent = 'Опубликовать';
-                });
+                .catch(err => { alert('Ошибка: ' + err); btn.disabled = false; btn.textContent = 'Опубликовать'; });
         });
 
-        // ================================================================
-        // ВКЛАДКИ
-        // ================================================================
-        function switchTab(tabName) {
-            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-            if (window.event && window.event.target) window.event.target.classList.add('active');
-            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
-            document.getElementById(`tab-${tabName}`).classList.add('active');
-        }
-
-        // ================================================================
-        // ВЫХОД ИЗ ГРУППЫ
-        // ================================================================
-        function confirmLeaveGroup(isCreator, groupName) {
-            if (isCreator) {
-                return confirm(`ВНИМАНИЕ! Вы являетесь создателем группы "${groupName}".\n\nЕсли вы покинете группу, она будет автоматически УДАЛЕНА вместе со всеми постами и участниками!\n\nВы уверены?`);
-            }
-            return confirm(`Вы уверены, что хотите покинуть группу "${groupName}"?`);
-        }
-
-        document.querySelectorAll('.leave-group-form').forEach(form => {
-            form.addEventListener('submit', function(e) {
-                if (!confirmLeaveGroup(this.dataset.isCreator === '1', this.dataset.groupName || ''))
-                    e.preventDefault();
-            });
-        });
-
-        // ================================================================
-        // УДАЛЕНИЕ ПОСТА
-        // ================================================================
+        // Удаление поста
         function deleteGroupPost(postId) {
-            if (confirm('Удалить этот пост?')) {
-                fetch(`/group_post/delete/${postId}`, { method:'POST', headers:{'Content-Type':'application/json'} })
+            if (!confirm('Удалить этот пост?')) return;
+            fetch(`/group_post/delete/${postId}`, {method:'POST', headers:{'Content-Type':'application/json'}})
                 .then(r => r.json())
-                .then(d => { if (d.success) location.reload(); else alert('Ошибка: '+d.error); })
-                .catch(err => alert('Ошибка сети: '+err));
-            }
+                .then(d => { if (d.success) location.reload(); else alert('Ошибка: ' + d.error); })
+                .catch(err => alert('Ошибка: ' + err));
         }
 
-        // ================================================================
-        // РЕДАКТИРОВАНИЕ ПОСТА
-        // ================================================================
+        // Редактирование поста
         function editPost(postId) {
-            const postContainer = document.getElementById(`post-${postId}`);
-            const postContent   = document.getElementById(`post-content-${postId}`);
-
+            const postEl = document.getElementById(`post-${postId}`);
+            const contentEl = document.getElementById(`post-content-${postId}`);
             const ta = document.createElement('textarea');
             ta.id = `edit-content-${postId}`;
-            ta.className = 'edit-textarea';
-            ta.value = postContent.textContent;
-
+            ta.className = 'form-control';
+            ta.style.cssText = 'min-height:100px;margin:10px 0;';
+            ta.value = contentEl.textContent;
             const btnWrap = document.createElement('div');
-            btnWrap.style.marginTop = '10px';
-
+            btnWrap.style.cssText = 'display:flex;gap:8px;margin-top:8px;';
             const saveBtn = document.createElement('button');
-            saveBtn.textContent = 'Сохранить';
-            Object.assign(saveBtn.style, {padding:'8px 15px',background:'#28a745',color:'white',border:'none',borderRadius:'4px',marginRight:'10px'});
+            saveBtn.className = 'btn btn-success btn-sm';
+            saveBtn.innerHTML = '<i class="fas fa-save"></i> Сохранить';
             saveBtn.onclick = () => saveEdit(postId);
-
             const cancelBtn = document.createElement('button');
+            cancelBtn.className = 'btn btn-secondary btn-sm';
             cancelBtn.textContent = 'Отмена';
-            Object.assign(cancelBtn.style, {padding:'8px 15px',background:'#6c757d',color:'white',border:'none',borderRadius:'4px'});
             cancelBtn.onclick = () => cancelEdit(postId);
-
-            btnWrap.appendChild(saveBtn);
-            btnWrap.appendChild(cancelBtn);
-
-            postContent.style.display = 'none';
-            const actDiv = postContainer.querySelector('div[style*="border-top: 1px solid #eee"]');
-            if (actDiv) actDiv.style.display = 'none';
-            const grid = postContainer.querySelector('.post-media-grid');
-            if (grid) grid.style.display = 'none';
-
-            postContainer.appendChild(ta);
-            postContainer.appendChild(btnWrap);
-            postContainer.classList.add('edit-mode');
+            btnWrap.appendChild(saveBtn); btnWrap.appendChild(cancelBtn);
+            contentEl.style.display = 'none';
+            postEl.appendChild(ta); postEl.appendChild(btnWrap);
         }
 
         function saveEdit(postId) {
             const newContent = document.getElementById(`edit-content-${postId}`).value.trim();
             if (!newContent) { alert('Пост не может быть пустым'); return; }
-
             fetch(`/group_post/edit/${postId}`, {
                 method:'POST', headers:{'Content-Type':'application/json'},
                 body: JSON.stringify({content: newContent})
             })
             .then(r => r.json())
             .then(d => {
-                if (d.success) {
-                    document.getElementById(`post-content-${postId}`).textContent = newContent;
-                    cancelEdit(postId);
-                    alert('Пост успешно обновлён!');
-                } else alert('Ошибка: '+d.error);
-            })
-            .catch(err => alert('Ошибка сети: '+err));
+                if (d.success) { document.getElementById(`post-content-${postId}`).textContent = newContent; cancelEdit(postId); }
+                else alert('Ошибка: ' + d.error);
+            });
         }
 
         function cancelEdit(postId) {
-            const postContainer = document.getElementById(`post-${postId}`);
-            const ta  = document.getElementById(`edit-content-${postId}`);
-            const btnWrap = ta.nextElementSibling;
-            ta.remove(); btnWrap.remove();
-
+            const postEl = document.getElementById(`post-${postId}`);
+            const ta = document.getElementById(`edit-content-${postId}`);
+            if (ta) { ta.nextElementSibling.remove(); ta.remove(); }
             document.getElementById(`post-content-${postId}`).style.display = 'block';
-            const actDiv = postContainer.querySelector('div[style*="border-top: 1px solid #eee"]');
-            if (actDiv) actDiv.style.display = 'block';
-            const grid = postContainer.querySelector('.post-media-grid');
-            if (grid) grid.style.display = 'grid';
-            postContainer.classList.remove('edit-mode');
         }
 
-        // ================================================================
-        // ЛАЙК
-        // ================================================================
+        // Лайк
         function likeGroupPost(postId) {
-            fetch(`/like_post/${postId}?type=group`, { method:'POST', headers:{'Content-Type':'application/json'} })
-            .then(r => r.json())
-            .then(d => {
-                if (d.success)
-                    document.querySelectorAll(`button.like-post-btn[data-post-id="${postId}"]`)
-                             .forEach(b => b.innerHTML = `👍 ${d.likes_count}`);
-            })
-            .catch(err => console.error('Ошибка:', err));
+            fetch(`/like_post/${postId}?type=group`, {method:'POST', headers:{'Content-Type':'application/json'}})
+                .then(r => r.json())
+                .then(d => {
+                    if (d.success) document.querySelectorAll(`button.like-post-btn[data-post-id="${postId}"]`)
+                        .forEach(b => b.innerHTML = `<i class="fas fa-thumbs-up"></i> ${d.likes_count}`);
+                });
         }
 
-        // ================================================================
-        // ПРОСМОТР КАРТИНОК / ВИДЕО — модальное окно поверх страницы
-        // ================================================================
+        // Просмотр медиа
         function openMediaViewer(src, type) {
             const viewer = document.createElement('div');
-            viewer.className = 'media-viewer';
-
+            viewer.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.9);z-index:1000;display:flex;justify-content:center;align-items:center;';
             if (type === 'image') {
                 const img = document.createElement('img');
-                img.src = src;
+                img.src = src; img.style.cssText = 'max-width:90%;max-height:90%;border-radius:var(--radius-lg);';
                 viewer.appendChild(img);
-            } else if (type === 'video') {
+            } else {
                 const vid = document.createElement('video');
                 vid.src = src; vid.controls = true; vid.autoplay = true;
                 vid.style.cssText = 'max-width:90%;max-height:90%;';
                 viewer.appendChild(vid);
             }
-
             const close = document.createElement('button');
-            close.className = 'media-viewer-close';
+            close.style.cssText = 'position:absolute;top:20px;right:20px;background:#fff;color:#000;border:none;border-radius:50%;width:40px;height:40px;font-size:20px;cursor:pointer;';
             close.innerHTML = '×';
             close.onclick = () => document.body.removeChild(viewer);
-            viewer.appendChild(close);
             viewer.onclick = e => { if (e.target === viewer) document.body.removeChild(viewer); };
+            viewer.appendChild(close);
             document.body.appendChild(viewer);
         }
 
-        // ================================================================
-        // ПРОСМОТР ДОКУМЕНТОВ — модальное окно с iframe поверх страницы
-        // ================================================================
         function openDocViewer(mediaId, ext, filename) {
             if (['zip','rar','7z'].includes(ext)) {
-                var a = document.createElement('a');
-                a.href = '/view_document/' + mediaId;
-                a.download = filename;
-                document.body.appendChild(a);
-                a.click();
-                document.body.removeChild(a);
+                const a = document.createElement('a');
+                a.href = '/view_document/' + mediaId; a.download = filename;
+                document.body.appendChild(a); a.click(); document.body.removeChild(a);
                 return;
             }
-
-            var old = document.getElementById('doc-overlay');
-            if (old) old.remove();
-
-            var overlay = document.createElement('div');
-            overlay.id = 'doc-overlay';
-            overlay.className = 'media-viewer';
-
-            var closeBtn = document.createElement('button');
-            closeBtn.className = 'media-viewer-close';
-            closeBtn.innerHTML = '&times;';
-            closeBtn.onclick = function() { overlay.remove(); };
-
-            var container = document.createElement('div');
-            container.style.cssText = 'background:white;border-radius:10px;width:90%;max-width:860px;min-height:60vh;height:80vh;overflow-y:auto;padding:30px;box-sizing:border-box;';
-            container.innerHTML = '<div style="text-align:center;padding:20px;color:#666;">Загрузка...</div>';
-
-            overlay.appendChild(container);
-            overlay.appendChild(closeBtn);
-            overlay.onclick = function(e) { if (e.target === overlay) overlay.remove(); };
-            document.body.appendChild(overlay);
-
-            document.addEventListener('keydown', function escClose(e) {
-                if (e.key === 'Escape') { overlay.remove(); document.removeEventListener('keydown', escClose); }
-            });
-
-            fetch('/view_document_content/' + mediaId)
-                .then(function(r) { return r.text(); })
-                .then(function(html) { container.innerHTML = html; })
-                .catch(function(err) { container.innerHTML = '<div style="padding:24px;color:red;">Ошибка: ' + err + '</div>'; });
+            const viewer = document.createElement('div');
+            viewer.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.85);z-index:1000;display:flex;flex-direction:column;align-items:center;justify-content:center;';
+            const iframe = document.createElement('iframe');
+            iframe.src = '/view_document/' + mediaId;
+            iframe.style.cssText = 'width:90%;height:85vh;border:none;border-radius:var(--radius-lg);';
+            const close = document.createElement('button');
+            close.className = 'btn btn-secondary btn-sm';
+            close.style.cssText = 'position:absolute;top:16px;right:16px;';
+            close.innerHTML = '× Закрыть';
+            close.onclick = () => document.body.removeChild(viewer);
+            viewer.appendChild(iframe); viewer.appendChild(close);
+            document.body.appendChild(viewer);
         }
 
-
-        // ================================================================
-        // ЗАЯВКИ
-        // ================================================================
+        // Заявки
         function approveRequest(requestId, username) {
-            if (confirm(`Принять пользователя @${username} в группу?`)) {
-                fetch(`/group/{{ group.id }}/request/${requestId}/approve`, { method:'GET' })
+            if (!confirm(`Принять ${username} в группу?`)) return;
+            fetch(`/group_request/${requestId}/approve`, {method:'POST', headers:{'Content-Type':'application/json'}})
                 .then(r => r.json())
-                .then(d => { if (d.success) location.reload(); else alert('Ошибка: '+d.error); })
-                .catch(err => alert('Ошибка сети: '+err));
-            }
+                .then(d => { if (d.success) location.reload(); else alert('Ошибка: ' + d.error); });
         }
 
         function rejectRequest(requestId, username) {
-            if (confirm(`Отклонить заявку пользователя @${username}?`)) {
-                fetch(`/group/{{ group.id }}/request/${requestId}/reject`, { method:'GET' })
+            if (!confirm(`Отклонить заявку от ${username}?`)) return;
+            fetch(`/group_request/${requestId}/reject`, {method:'POST', headers:{'Content-Type':'application/json'}})
                 .then(r => r.json())
-                .then(d => { if (d.success) location.reload(); else alert('Ошибка: '+d.error); })
-                .catch(err => alert('Ошибка сети: '+err));
-            }
+                .then(d => { if (d.success) location.reload(); else alert('Ошибка: ' + d.error); });
         }
 
-        function commentOnPost(postId) {
-            alert('Функция комментариев будет реализована позже');
+        function commentOnPost(postId) { window.location.href = `/post/${postId}`; }
+    </script>
+
+
+    <!-- Модальное окно приглашения -->
+    <div id="groupInviteModal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:1000;overflow-y:auto;">
+        <div style="position:relative;background:var(--bg-card);margin:60px auto;padding:32px;border-radius:var(--radius-xl);width:520px;max-width:90%;border-top:3px solid var(--amber-400);box-shadow:var(--shadow-lg);">
+            <h2 style="font-family:var(--font-display);font-size:18px;margin-bottom:20px;">
+                <i class="fas fa-user-plus" style="color:var(--amber-500);"></i> Пригласить в группу
+            </h2>
+            <div style="display:flex;gap:8px;margin-bottom:16px;">
+                <button id="invTabFriendsBtn" class="btn btn-primary btn-sm" onclick="switchInvTab('friends')">
+                    <i class="fas fa-users"></i> Друзья (<span id="invSelectedCount">0</span>)
+                </button>
+                <button id="invTabLinkBtn" class="btn btn-secondary btn-sm" onclick="switchInvTab('link')">
+                    <i class="fas fa-link"></i> Ссылка-приглашение
+                </button>
+            </div>
+            <div id="invFriendsSection">
+                <input type="text" id="invSearchInput" class="form-control"
+                       placeholder="Поиск по имени или @никнейму..."
+                       oninput="invFilterFriends()"
+                       style="margin-bottom:12px;">
+                <div id="invFriendsList" style="max-height:320px;overflow-y:auto;display:flex;flex-direction:column;gap:6px;">
+                    <div style="text-align:center;padding:24px;color:var(--text-muted);">
+                        <i class="fas fa-spinner fa-spin"></i> Загрузка...
+                    </div>
+                </div>
+                <div style="margin-top:16px;display:flex;justify-content:flex-end;gap:10px;">
+                    <button class="btn btn-secondary" onclick="closeGroupInviteModal()">Отмена</button>
+                    <button id="invSendBtn" class="btn btn-primary" onclick="invSendInvitations()" disabled>
+                        <i class="fas fa-paper-plane"></i> Отправить
+                    </button>
+                </div>
+            </div>
+            <div id="invLinkSection" style="display:none;">
+                <p style="font-size:13px;color:var(--text-muted);margin-bottom:12px;">
+                    Поделитесь ссылкой — любой сможет найти и вступить в группу:
+                </p>
+                <div style="display:flex;gap:8px;">
+                    <input type="text" id="invLinkInput" class="form-control" readonly style="background:var(--gray-50);font-size:13px;">
+                    <button class="btn btn-secondary" onclick="invCopyLink()" id="invCopyBtn" style="flex-shrink:0;">
+                        <i class="fas fa-copy"></i>
+                    </button>
+                </div>
+                <div style="margin-top:16px;text-align:right;">
+                    <button class="btn btn-secondary" onclick="closeGroupInviteModal()">Закрыть</button>
+                </div>
+            </div>
+            <button onclick="closeGroupInviteModal()"
+                    style="position:absolute;top:14px;right:16px;background:none;border:none;font-size:22px;cursor:pointer;color:var(--text-muted);line-height:1;">×</button>
+        </div>
+    </div>
+
+    <!-- Футер -->
+    <footer style="
+        margin-top:auto; padding:20px 24px;
+        border-top:1px solid var(--border-light);
+        background:var(--bg-card);
+        text-align:center;
+        font-size:13px;
+        color:var(--text-muted);">
+        <div style="max-width:1200px; margin:0 auto; display:flex; align-items:center; justify-content:center; gap:20px; flex-wrap:wrap;">
+            <span style="font-family:var(--font-display);font-size:13px;background:var(--accent-gradient);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;">LinkA</span>
+            <span style="color:var(--border-medium);">·</span>
+            <a href="/faq" style="color:var(--text-muted);font-weight:600;transition:color 0.2s;" onmouseover="this.style.color='var(--amber-600)'" onmouseout="this.style.color='var(--text-muted)'">
+                <i class="fas fa-question-circle"></i> FAQ
+            </a>
+            <span style="color:var(--border-medium);">·</span>
+            <a href="/terms" style="color:var(--text-muted);font-weight:600;transition:color 0.2s;" onmouseover="this.style.color='var(--amber-600)'" onmouseout="this.style.color='var(--text-muted)'">
+                <i class="fas fa-file-alt"></i> Соглашение
+            </a>
+            <span style="color:var(--border-medium);">·</span>
+            <span>© 2025 LinkA</span>
+        </div>
+    </footer>
+</body>
+
+    <script>
+        function toggleUserMenu() {
+            document.getElementById('userDropdown').classList.toggle('open');
         }
+        document.addEventListener('click', function(e) {
+            const wrap = document.querySelector('.user-menu-wrap');
+            if (wrap && !wrap.contains(e.target)) {
+                const dd = document.getElementById('userDropdown');
+                if (dd) dd.classList.remove('open');
+            }
+        });
     </script>
 </body>
 </html>

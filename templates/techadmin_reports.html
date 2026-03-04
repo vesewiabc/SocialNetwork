@@ -3,206 +3,214 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Жалобы - Панель тех-админа</title>
-    <style>
-        .report-card {
-            border: 1px solid #ddd;
-            border-radius: 8px;
-            padding: 20px;
-            margin-bottom: 20px;
-            background: white;
-        }
-        .report-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 15px;
-            padding-bottom: 10px;
-            border-bottom: 1px solid #eee;
-        }
-        .status-badge {
-            padding: 5px 10px;
-            border-radius: 12px;
-            font-size: 12px;
-            font-weight: bold;
-        }
-        .status-pending { background: #fff3cd; color: #856404; }
-        .status-approved { background: #d4edda; color: #155724; }
-        .status-rejected { background: #f8d7da; color: #721c24; }
-        .user-info {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            margin-bottom: 10px;
-        }
-        .reason-box {
-            background: #f8f9fa;
-            padding: 15px;
-            border-radius: 5px;
-            margin: 15px 0;
-            border-left: 4px solid #17a2b8;
-        }
-        .admin-notes {
-            background: #fff3cd;
-            padding: 15px;
-            border-radius: 5px;
-            margin: 15px 0;
-            border-left: 4px solid #ffc107;
-        }
-        .actions {
-            display: flex;
-            gap: 10px;
-            margin-top: 15px;
-        }
-        .empty-state {
-            background: #f8f9fa;
-            padding: 40px;
-            text-align: center;
-            border-radius: 8px;
-            margin-top: 20px;
-        }
-    </style>
+    <title>Жалобы — Панель тех-админа</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <link rel="stylesheet" href="{{ url_for('static', filename='defaults/style.css') }}">
     <link rel="icon" type="image/png" href="{{ url_for('static', filename='uploads/favicon.png') }}">
 </head>
 <body>
-    <div style="padding: 20px; max-width: 1000px; margin: 0 auto;">
-        <h1>Жалобы пользователей</h1>
-        
-        <div style="margin-bottom: 20px;">
-            <a href="/techadmin" style="margin-right: 10px;">← Назад в панель</a>
-            <a href="/logout">Выйти</a>
-        </div>
-        
-        <div style="background: #e3f2fd; padding: 15px; border-radius: 5px; margin-bottom: 20px;">
-            <h3 style="margin: 0 0 10px 0; color: #0c5460;">Фильтры:</h3>
-            <div style="display: flex; gap: 10px;">
-                <a href="?status=all" 
-                   style="padding: 8px 15px; background: #6c757d; color: white; text-decoration: none; border-radius: 4px;">
-                    Все
-                </a>
-                <a href="?status=pending" 
-                   style="padding: 8px 15px; background: #ffc107; color: black; text-decoration: none; border-radius: 4px;">
-                    Ожидающие
-                </a>
-                <a href="?status=approved" 
-                   style="padding: 8px 15px; background: #28a745; color: white; text-decoration: none; border-radius: 4px;">
-                    Одобренные
-                </a>
-                <a href="?status=rejected" 
-                   style="padding: 8px 15px; background: #dc3545; color: white; text-decoration: none; border-radius: 4px;">
-                    Отклоненные
-                </a>
-            </div>
-        </div>
-        
-        {% if reports %}
-            <p>Найдено жалоб: {{ reports|length }}</p>
-            
-            <div style="margin-top: 20px;">
-                {% for report in reports %}
-                <div class="report-card">
-                    <div class="report-header">
-                        <div>
-                            <h3 style="margin: 0;">Жалоба #{{ report.id }}</h3>
-                            <p style="margin: 5px 0 0 0; color: #666; font-size: 14px;">
-                                Создана: {{ report.created_at[:19] if report.created_at else 'Неизвестно' }}
-                                {% if report.updated_at and report.updated_at != report.created_at %}
-                                | Обновлена: {{ report.updated_at[:19] }}
-                                {% endif %}
-                            </p>
-                        </div>
-                        <span class="status-badge status-{{ report.status }}">
-                            {% if report.status == 'pending' %}
-                                Ожидает рассмотрения
-                            {% elif report.status == 'approved' %}
-                                Одобрена
-                            {% elif report.status == 'rejected' %}
-                                Отклонена
-                            {% endif %}
-                        </span>
+        <header>
+        <div class="container">
+            <div class="header-content">
+                <div class="logo">LinkA</div>
+                <div class="user-menu-wrap">
+                    <button class="user-menu-btn" onclick="toggleUserMenu()" aria-label="Меню пользователя">
+                        {% set _avatar = current_user_avatar() %}
+                        {% if _avatar %}
+                            <img src="{{ url_for('static', filename='uploads/avatars/' + _avatar) }}"
+                                 onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';"
+                                 alt="Аватар">
+                            <i class="fas fa-user" style="display:none;"></i>
+                        {% else %}
+                            <i class="fas fa-user"></i>
+                        {% endif %}
+                    </button>
+                    <div class="user-dropdown" id="userDropdown">
+                        <a href="/settings">
+                            <i class="fas fa-cog"></i> Настройки
+                        </a>
+                        <div class="divider"></div>
+                        <a href="/logout" class="logout-item">
+                            <i class="fas fa-sign-out-alt"></i> Выйти
+                        </a>
                     </div>
-                    
-                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 15px;">
-                        <div>
-                            <h4 style="margin: 0 0 10px 0;">Жалобщик:</h4>
-                            <div class="user-info">
-                                <div>
-                                    <strong>{{ report.reporter_full_name if report.reporter_full_name else report.reporter_username }}</strong><br>
-                                    <small>@{{ report.reporter_username }}</small>
-                                </div>
-                            </div>
-                        </div>
-                        
-                        <div>
-                            <h4 style="margin: 0 0 10px 0;">Нарушитель:</h4>
-                            <div class="user-info">
-                                <div>
-                                    <strong>{{ report.reported_full_name if report.reported_full_name else report.reported_username }}</strong><br>
-                                    <small>@{{ report.reported_username }}</small>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <div class="reason-box">
-                        <h4 style="margin: 0 0 10px 0;">Причина жалобы:</h4>
-                        <p style="margin: 0; white-space: pre-line;">{{ report.reason }}</p>
-                    </div>
-                    
-                    {% if report.admin_notes %}
-                    <div class="admin-notes">
-                        <h4 style="margin: 0 0 10px 0;">Комментарий администратора:</h4>
-                        <p style="margin: 0; white-space: pre-line;">{{ report.admin_notes }}</p>
-                    </div>
-                    {% endif %}
-                    
-                    {% if report.status == 'pending' %}
-                    <div class="actions">
-                        <form method="POST" action="/techadmin/report_action/{{ report.id }}/approve" style="display: inline;">
-                            <textarea name="admin_notes" 
-                                      placeholder="Комментарий администратора..."
-                                      style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px; height: 80px; margin-bottom: 10px;"></textarea>
-                            <button type="submit" 
-                                    onclick="return confirm('Одобрить жалобу и забанить пользователя @{{ report.reported_username }}?')"
-                                    style="padding: 8px 15px; background: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer;">
-                                Одобрить и забанить
-                            </button>
-                        </form>
-                        
-                        <form method="POST" action="/techadmin/report_action/{{ report.id }}/reject" style="display: inline;">
-                            <textarea name="admin_notes" 
-                                      placeholder="Причина отклонения..."
-                                      style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px; height: 80px; margin-bottom: 10px;"></textarea>
-                            <button type="submit" 
-                                    onclick="return confirm('Отклонить жалобу?')"
-                                    style="padding: 8px 15px; background: #dc3545; color: white; border: none; border-radius: 4px; cursor: pointer;">
-                                Отклонить
-                            </button>
-                        </form>
-                        
-                        <form method="POST" action="/techadmin/report_action/{{ report.id }}/delete" style="display: inline;">
-                            <button type="submit" 
-                                    onclick="return confirm('Удалить жалобу?')"
-                                    style="padding: 8px 15px; background: #6c757d; color: white; border: none; border-radius: 4px; cursor: pointer;">
-                                Удалить
-                            </button>
-                        </form>
-                    </div>
-                    {% endif %}
                 </div>
-                {% endfor %}
             </div>
-        {% else %}
-            <div class="empty-state">
+        </div>
+    </header>
+
+    <div class="container">
+        <div style="margin-top:24px;padding-bottom:40px;display:flex;flex-direction:column;gap:16px;">
+
+            <!-- Заголовок -->
+            <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;">
+                <h1 style="font-family:var(--font-display);font-size:20px;margin:0;">
+                    <i class="fas fa-flag" style="color:var(--amber-500);"></i> Жалобы пользователей
+                </h1>
+                <a href="/techadmin" class="back-link">
+                    <i class="fas fa-arrow-left"></i> Назад в панель
+                </a>
+            </div>
+
+            <!-- Фильтры -->
+            <div class="card">
+                <h3 style="font-family:var(--font-display);font-size:12px;text-transform:uppercase;letter-spacing:1px;color:var(--text-muted);margin-bottom:12px;">Фильтры</h3>
+                <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                    <a href="?status=all"      class="btn btn-secondary btn-sm {% if not request.args.get('status') or request.args.get('status') == 'all' %}btn-primary{% endif %}">Все</a>
+                    <a href="?status=pending"  class="btn btn-secondary btn-sm {% if request.args.get('status') == 'pending' %}btn-primary{% endif %}">
+                        <i class="fas fa-clock"></i> Ожидающие
+                    </a>
+                    <a href="?status=approved" class="btn btn-secondary btn-sm {% if request.args.get('status') == 'approved' %}btn-primary{% endif %}">
+                        <i class="fas fa-check"></i> Одобренные
+                    </a>
+                    <a href="?status=rejected" class="btn btn-secondary btn-sm {% if request.args.get('status') == 'rejected' %}btn-primary{% endif %}">
+                        <i class="fas fa-times"></i> Отклонённые
+                    </a>
+                </div>
+            </div>
+
+            {% if reports %}
+            <p style="color:var(--text-muted);font-size:13px;">Найдено жалоб: {{ reports|length }}</p>
+
+            {% for report in reports %}
+            <div class="report-card">
+                <div class="report-header">
+                    <div>
+                        <h3 style="font-family:var(--font-display);font-size:14px;margin:0 0 4px;">
+                            Жалоба #{{ report.id }}
+                        </h3>
+                        <small style="color:var(--text-muted);">
+                            Создана: {{ report.created_at[:19] if report.created_at else 'Неизвестно' }}
+                            {% if report.updated_at and report.updated_at != report.created_at %}
+                            &nbsp;·&nbsp; Обновлена: {{ report.updated_at[:19] }}
+                            {% endif %}
+                        </small>
+                    </div>
+                    <span class="badge
+                        {% if report.status == 'pending' %}badge-warning
+                        {% elif report.status == 'approved' %}badge-success
+                        {% else %}badge-danger{% endif %}">
+                        {% if report.status == 'pending' %}Ожидает
+                        {% elif report.status == 'approved' %}Одобрена
+                        {% else %}Отклонена{% endif %}
+                    </span>
+                </div>
+
+                <!-- Жалобщик / Нарушитель -->
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:14px;">
+                    <div class="card" style="padding:14px;">
+                        <p style="font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--text-muted);margin-bottom:8px;">Жалобщик</p>
+                        <div style="font-weight:700;font-size:14px;">
+                            {{ report.reporter_full_name if report.reporter_full_name else report.reporter_username }}
+                        </div>
+                        <div style="font-size:12px;color:var(--text-muted);">@{{ report.reporter_username }}</div>
+                    </div>
+                    <div class="card" style="padding:14px;">
+                        <p style="font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--text-muted);margin-bottom:8px;">Нарушитель</p>
+                        <div style="font-weight:700;font-size:14px;">
+                            {{ report.reported_full_name if report.reported_full_name else report.reported_username }}
+                        </div>
+                        <div style="font-size:12px;color:var(--text-muted);">@{{ report.reported_username }}</div>
+                    </div>
+                </div>
+
+                <!-- Причина -->
+                <div class="reason-box">
+                    <p style="font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--text-muted);margin-bottom:8px;">Причина жалобы</p>
+                    <p style="margin:0;white-space:pre-line;font-size:14px;">{{ report.reason }}</p>
+                </div>
+
+                <!-- Комментарий админа -->
+                {% if report.admin_notes %}
+                <div class="admin-notes" style="margin-top:12px;">
+                    <p style="font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--amber-600);margin-bottom:8px;">Комментарий администратора</p>
+                    <p style="margin:0;white-space:pre-line;font-size:14px;">{{ report.admin_notes }}</p>
+                </div>
+                {% endif %}
+
+                <!-- Действия (только для pending) -->
+                {% if report.status == 'pending' %}
+                <div style="display:flex;gap:16px;margin-top:16px;flex-wrap:wrap;align-items:flex-start;">
+                    <form method="POST" action="/techadmin/report_action/{{ report.id }}/approve"
+                          style="flex:1;min-width:200px;display:flex;flex-direction:column;gap:8px;">
+                        <textarea name="admin_notes" class="form-control"
+                                  placeholder="Комментарий к решению..." rows="2"></textarea>
+                        <button type="submit"
+                                onclick="return confirm('Одобрить жалобу и забанить @{{ report.reported_username }}?')"
+                                class="btn btn-success btn-sm">
+                            <i class="fas fa-check"></i> Одобрить и забанить
+                        </button>
+                    </form>
+
+                    <form method="POST" action="/techadmin/report_action/{{ report.id }}/reject"
+                          style="flex:1;min-width:200px;display:flex;flex-direction:column;gap:8px;">
+                        <textarea name="admin_notes" class="form-control"
+                                  placeholder="Причина отклонения..." rows="2"></textarea>
+                        <button type="submit"
+                                onclick="return confirm('Отклонить жалобу?')"
+                                class="btn btn-danger btn-sm">
+                            <i class="fas fa-times"></i> Отклонить
+                        </button>
+                    </form>
+
+                    <form method="POST" action="/techadmin/report_action/{{ report.id }}/delete">
+                        <button type="submit"
+                                onclick="return confirm('Удалить жалобу?')"
+                                class="btn btn-secondary btn-sm">
+                            <i class="fas fa-trash"></i> Удалить
+                        </button>
+                    </form>
+                </div>
+                {% endif %}
+            </div>
+            {% endfor %}
+
+            {% else %}
+            <div class="empty-feed">
+                <i class="fas fa-flag fa-3x"></i>
                 <h3>Жалобы не найдены</h3>
                 <p>На данный момент нет жалоб для рассмотрения.</p>
-                <p style="color: #666; margin-top: 10px;">
-                    Все жалобы от пользователей будут отображаться здесь.
-                </p>
             </div>
-        {% endif %}
+            {% endif %}
+
+        </div>
     </div>
+
+    <!-- Футер -->
+    <footer style="
+        margin-top:auto; padding:20px 24px;
+        border-top:1px solid var(--border-light);
+        background:var(--bg-card);
+        text-align:center;
+        font-size:13px;
+        color:var(--text-muted);">
+        <div style="max-width:1200px; margin:0 auto; display:flex; align-items:center; justify-content:center; gap:20px; flex-wrap:wrap;">
+            <span style="font-family:var(--font-display);font-size:13px;background:var(--accent-gradient);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;">LinkA</span>
+            <span style="color:var(--border-medium);">·</span>
+            <a href="/faq" style="color:var(--text-muted);font-weight:600;transition:color 0.2s;" onmouseover="this.style.color='var(--amber-600)'" onmouseout="this.style.color='var(--text-muted)'">
+                <i class="fas fa-question-circle"></i> FAQ
+            </a>
+            <span style="color:var(--border-medium);">·</span>
+            <a href="/terms" style="color:var(--text-muted);font-weight:600;transition:color 0.2s;" onmouseover="this.style.color='var(--amber-600)'" onmouseout="this.style.color='var(--text-muted)'">
+                <i class="fas fa-file-alt"></i> Соглашение
+            </a>
+            <span style="color:var(--border-medium);">·</span>
+            <span>© 2025 LinkA</span>
+        </div>
+    </footer>
+</body>
+
+    <script>
+        function toggleUserMenu() {
+            document.getElementById('userDropdown').classList.toggle('open');
+        }
+        document.addEventListener('click', function(e) {
+            const wrap = document.querySelector('.user-menu-wrap');
+            if (wrap && !wrap.contains(e.target)) {
+                const dd = document.getElementById('userDropdown');
+                if (dd) dd.classList.remove('open');
+            }
+        });
+    </script>
 </body>
 </html>
