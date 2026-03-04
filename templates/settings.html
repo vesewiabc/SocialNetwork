@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Настройки аккаунта</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: #f0f2f5;
+            color: #1c1e21;
+            min-height: 100vh;
+        }
+
+        .page-wrapper {
+            max-width: 680px;
+            margin: 0 auto;
+            padding: 32px 16px;
+        }
+
+        .back-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            color: #65676b;
+            text-decoration: none;
+            font-size: 14px;
+            margin-bottom: 20px;
+            transition: color .2s;
+        }
+        .back-link:hover { color: #1877f2; }
+
+        h1 {
+            font-size: 24px;
+            font-weight: 700;
+            margin-bottom: 24px;
+            color: #1c1e21;
+        }
+
+        .card {
+            background: #fff;
+            border-radius: 12px;
+            box-shadow: 0 1px 4px rgba(0,0,0,.1);
+            overflow: hidden;
+            margin-bottom: 16px;
+        }
+
+        .card-header {
+            padding: 18px 24px;
+            border-bottom: 1px solid #e4e6ea;
+        }
+        .card-header h2 {
+            font-size: 17px;
+            font-weight: 600;
+        }
+        .card-header p {
+            font-size: 13px;
+            color: #65676b;
+            margin-top: 4px;
+        }
+
+        .card-body {
+            padding: 20px 24px;
+        }
+
+        /* 2FA Status */
+        .tfa-status {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 14px 16px;
+            border-radius: 8px;
+            margin-bottom: 18px;
+        }
+        .tfa-status.enabled {
+            background: #e7f3e8;
+            border: 1px solid #42b72a;
+        }
+        .tfa-status.disabled {
+            background: #f5f5f5;
+            border: 1px solid #ddd;
+        }
+
+        .tfa-status .icon {
+            font-size: 28px;
+            flex-shrink: 0;
+        }
+        .tfa-status .text strong {
+            display: block;
+            font-size: 15px;
+            color: #1c1e21;
+        }
+        .tfa-status .text span {
+            font-size: 13px;
+            color: #65676b;
+        }
+        .tfa-status.enabled .text strong { color: #1a6e22; }
+
+        /* Кнопки */
+        .btn {
+            display: inline-block;
+            padding: 10px 20px;
+            border-radius: 8px;
+            font-size: 15px;
+            font-weight: 600;
+            cursor: pointer;
+            border: none;
+            text-decoration: none;
+            transition: background .15s, transform .1s;
+        }
+        .btn:active { transform: scale(.97); }
+
+        .btn-primary {
+            background: #1877f2;
+            color: #fff;
+        }
+        .btn-primary:hover { background: #1558b0; }
+
+        .btn-danger {
+            background: #fa3e3e;
+            color: #fff;
+        }
+        .btn-danger:hover { background: #d42929; }
+
+        .btn-secondary {
+            background: #e4e6ea;
+            color: #1c1e21;
+        }
+        .btn-secondary:hover { background: #d8dadf; }
+
+        /* Уведомления */
+        .alert {
+            padding: 12px 16px;
+            border-radius: 8px;
+            margin-bottom: 16px;
+            font-size: 14px;
+        }
+        .alert-success { background: #e7f3e8; color: #1a6e22; border: 1px solid #42b72a; }
+        .alert-error   { background: #fdecea; color: #c0392b; border: 1px solid #e74c3c; }
+        .alert-info    { background: #e7f0fd; color: #1558b0; border: 1px solid #1877f2; }
+
+        /* Секция безопасности — смена пароля */
+        .field-group {
+            margin-bottom: 16px;
+        }
+        .field-group label {
+            display: block;
+            font-size: 14px;
+            font-weight: 500;
+            margin-bottom: 6px;
+            color: #444;
+        }
+        .field-group input {
+            width: 100%;
+            padding: 10px 14px;
+            border: 1.5px solid #ddd;
+            border-radius: 8px;
+            font-size: 15px;
+            transition: border-color .2s;
+            outline: none;
+        }
+        .field-group input:focus { border-color: #1877f2; }
+
+        .danger-zone {
+            border: 1px solid #ffd7d7;
+            border-radius: 12px;
+            overflow: hidden;
+            margin-bottom: 16px;
+        }
+        .danger-zone .card-header {
+            background: #fff5f5;
+            border-bottom-color: #ffd7d7;
+        }
+        .danger-zone .card-header h2 { color: #c0392b; }
+    </style>
+</head>
+<body>
+<div class="page-wrapper">
+    <a href="/profile" class="back-link">← Назад к профилю</a>
+
+    <h1>⚙️ Настройки аккаунта</h1>
+
+    <!-- Флеш-сообщения -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="alert alert-{{ 'success' if category == 'success' else 'error' if category == 'error' else 'info' }}">
+                    {{ message }}
+                </div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+
+    <!-- ===== ДВУХФАКТОРНАЯ АУТЕНТИФИКАЦИЯ ===== -->
+    <div class="card">
+        <div class="card-header">
+            <h2>🔐 Двухфакторная аутентификация</h2>
+            <p>Дополнительная защита аккаунта через Telegram</p>
+        </div>
+        <div class="card-body">
+
+            {% if tfa and tfa.is_enabled and tfa.telegram_chat_id %}
+                <!-- 2FA ВКЛЮЧЕНА -->
+                <div class="tfa-status enabled">
+                    <div class="icon">✅</div>
+                    <div class="text">
+                        <strong>Двухэтапная аутентификация включена</strong>
+                        <span>При входе на сайт вам будет отправлен код в Telegram</span>
+                    </div>
+                </div>
+
+                <p style="font-size:14px; color:#65676b; margin-bottom:16px;">
+                    Для отключения нажмите кнопку ниже. Привязка к Telegram будет удалена.
+                </p>
+
+                <form action="/settings/2fa/disable" method="POST"
+                      onsubmit="return confirm('Отключить двухфакторную аутентификацию?')">
+                    <button type="submit" class="btn btn-danger">Отключить 2FA</button>
+                </form>
+
+            {% else %}
+                <!-- 2FA ВЫКЛЮЧЕНА -->
+                <div class="tfa-status disabled">
+                    <div class="icon">🔓</div>
+                    <div class="text">
+                        <strong>Двухэтапная аутентификация отключена</strong>
+                        <span>Для входа используется только пароль</span>
+                    </div>
+                </div>
+
+                <p style="font-size:14px; color:#65676b; margin-bottom:16px;">
+                    Привяжите свой Telegram-аккаунт — при каждом входе бот будет отправлять
+                    вам одноразовый код подтверждения.
+                </p>
+
+                <form action="/settings/2fa/start" method="POST">
+                    <button type="submit" class="btn btn-primary">Подключить Telegram</button>
+                </form>
+            {% endif %}
+
+        </div>
+    </div>
+
+    <!-- ===== СМЕНА ПАРОЛЯ ===== -->
+    <div class="card">
+        <div class="card-header">
+            <h2>🔑 Смена пароля</h2>
+            <p>Рекомендуем использовать надёжный пароль</p>
+        </div>
+        <div class="card-body">
+            <form action="/settings/change_password" method="POST">
+                <div class="field-group">
+                    <label>Текущий пароль</label>
+                    <input type="password" name="current_password" placeholder="Введите текущий пароль" required>
+                </div>
+                <div class="field-group">
+                    <label>Новый пароль</label>
+                    <input type="password" name="new_password" placeholder="Минимум 6 символов" required>
+                </div>
+                <div class="field-group">
+                    <label>Повторите новый пароль</label>
+                    <input type="password" name="confirm_password" placeholder="Повторите новый пароль" required>
+                </div>
+                <button type="submit" class="btn btn-primary">Сохранить пароль</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- ===== ОПАСНАЯ ЗОНА ===== -->
+    <div class="danger-zone">
+        <div class="card-header">
+            <h2>⚠️ Опасная зона</h2>
+            <p>Необратимые действия с аккаунтом</p>
+        </div>
+        <div class="card-body">
+            <p style="font-size:14px; color:#65676b; margin-bottom:16px;">
+                Удаление аккаунта приведёт к безвозвратному удалению всех ваших данных:
+                постов, комментариев, друзей.
+            </p>
+            <a href="/settings/delete_account" class="btn btn-danger">Удалить аккаунт</a>
+        </div>
+    </div>
+
+</div>
+</body>
+</html>

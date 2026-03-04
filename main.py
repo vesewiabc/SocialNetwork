@@ -1,13 +1,23 @@
 from flask import Flask, render_template, request, redirect, session, flash, url_for, jsonify
 import sqlite3
 import os
-from datetime import datetime
+from datetime import datetime, timedelta
 import hashlib
 from werkzeug.utils import secure_filename
 import feedparser
 from bs4 import BeautifulSoup
 import requests
 import re
+import random
+import string
+import threading
+import asyncio
+import logging
+
+# ======================== НАСТРОЙКИ TELEGRAM БОТА ========================
+BOT_TOKEN = "8542566873:AAEv0blT0YqBUAxpsl9-eqlzQjrEHtELXFk"        # <-- вставь токен от @BotFather
+BOT_USERNAME = "LinkA_2FA_Bot"  # <-- username бота без @, например: my2fa_bot
+# =========================================================================
 
 # Импорты для просмотра документов
 try:
@@ -97,6 +107,40 @@ def row_to_dict(row):
 # Функция для преобразования списка Row в список словарей
 def rows_to_dicts(rows):
     return [dict(row) for row in rows]
+
+
+# ==================== 2FA ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ====================
+
+def generate_code(length=6) -> str:
+    """Генерирует случайный 6-значный цифровой код для входа"""
+    return ''.join(random.choices(string.digits, k=length))
+
+
+def generate_link_code(length=32) -> str:
+    """Генерирует случайный код для привязки Telegram"""
+    return ''.join(random.choices(string.ascii_letters + string.digits, k=length))
+
+
+def send_telegram_2fa_code(chat_id: str, code: str, username: str) -> bool:
+    """Отправляет код 2FA через Telegram Bot API (синхронный HTTP-запрос)"""
+    url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
+    text = (
+        f"🔐 *Код для входа на сайт*\n\n"
+        f"Аккаунт: *{username}*\n"
+        f"Код: `{code}`\n\n"
+        f"⏱ Код действует *5 минут*.\n"
+        f"Если вы не пытались войти — игнорируйте это сообщение."
+    )
+    try:
+        resp = requests.post(url, json={
+            "chat_id": chat_id,
+            "text": text,
+            "parse_mode": "Markdown"
+        }, timeout=10)
+        return resp.status_code == 200
+    except Exception as e:
+        print(f"[2FA] Ошибка отправки Telegram: {e}")
+        return False
 
 
 # Функция для добавления недостающих столбцов в таблицы
@@ -201,6 +245,22 @@ def migrate_database():
         FOREIGN KEY (blocker_id) REFERENCES users(id),
         FOREIGN KEY (blocked_id) REFERENCES users(id),
         UNIQUE(blocker_id, blocked_id)
+    )
+    ''')
+
+    # Создаем таблицу двухфакторной аутентификации
+    cursor.execute('''
+    CREATE TABLE IF NOT EXISTS two_factor_auth (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER NOT NULL UNIQUE,
+        telegram_chat_id TEXT,
+        is_enabled INTEGER DEFAULT 0,
+        link_code TEXT,
+        link_code_expires TIMESTAMP,
+        auth_code TEXT,
+        auth_code_expires TIMESTAMP,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
     )
     ''')
 
@@ -476,9 +536,27 @@ def utility_processor():
         else:  # user
             return url_for('static', filename='defaults/for_users.png')
 
+    def get_current_user_avatar():
+        """Возвращает аватарку текущего пользователя для шапки"""
+        user_id = session.get('user_id')
+        if not user_id:
+            return None
+        try:
+            conn = sqlite3.connect('users.db')
+            cursor = conn.cursor()
+            cursor.execute("SELECT avatar FROM user_profiles WHERE user_id = ?", (user_id,))
+            row = cursor.fetchone()
+            conn.close()
+            if row and row[0]:
+                return row[0]
+        except:
+            pass
+        return None
+
     return {
         'datetime_format': format_datetime,
-        'default_avatar': get_default_avatar
+        'default_avatar': get_default_avatar,
+        'current_user_avatar': get_current_user_avatar
     }
 
 
@@ -2395,8 +2473,10 @@ def leave_group(group_id):
 
     try:
         group = conn.execute('SELECT creator_id, name FROM groups WHERE id = ?', (group_id,)).fetchone()
+        membership = conn.execute('SELECT role FROM group_members WHERE group_id = ? AND user_id = ?', (group_id, user_id)).fetchone()
 
-        if group and group['creator_id'] == user_id:
+        # Если пользователь — администратор группы, удаляем группу целиком
+        if membership and membership['role'] == 'admin':
             conn.execute('DELETE FROM group_posts WHERE group_id = ?', (group_id,))
             conn.execute(
                 'DELETE FROM group_post_likes WHERE post_id IN (SELECT id FROM group_posts WHERE group_id = ?)',
@@ -2752,7 +2832,7 @@ def group_settings(group_id):
 
     # Получаем список всех участников группы
     members = rows_to_dicts(conn.execute('''
-        SELECT u.id, u.username, up.full_name, 
+        SELECT u.id as user_id, u.username, up.full_name, 
                COALESCE(up.avatar, 'default_avatar.png') as avatar,
                gm.role, gm.joined_at
         FROM group_members gm
@@ -2771,7 +2851,8 @@ def group_settings(group_id):
     conn.close()
     return render_template('group_settings.html',
                            group=group,
-                           members=members)
+                           members=members,
+                           session_user_id=user_id)
 
 
 @app.route('/group/<int:group_id>/settings', methods=['POST'])
@@ -2941,9 +3022,15 @@ def change_member_role(group_id, user_id):
         if not current_user_role or current_user_role['role'] != 'admin':
             return jsonify({'success': False, 'error': 'Только администраторы могут изменять роли'})
 
-        group = conn.execute('SELECT creator_id FROM groups WHERE id = ?', (group_id,)).fetchone()
-        if group['creator_id'] == user_id:
-            return jsonify({'success': False, 'error': 'Нельзя изменить роль создателя группы'})
+        target_role = conn.execute('''
+            SELECT role FROM group_members WHERE group_id = ? AND user_id = ?
+        ''', (group_id, user_id)).fetchone()
+
+        if not target_role:
+            return jsonify({'success': False, 'error': 'Пользователь не найден в группе'})
+
+        if target_role['role'] == 'admin':
+            return jsonify({'success': False, 'error': 'Нельзя изменить роль администратора — сначала передайте права'})
 
         conn.execute('''
             UPDATE group_members 
@@ -2979,15 +3066,14 @@ def transfer_admin_rights(group_id, new_admin_id):
             return jsonify({'success': False, 'error': 'Только администраторы могут передавать права'})
 
         new_admin = conn.execute('''
-            SELECT id FROM group_members WHERE group_id = ? AND user_id = ?
+            SELECT user_id, role FROM group_members WHERE group_id = ? AND user_id = ?
         ''', (group_id, new_admin_id)).fetchone()
 
         if not new_admin:
             return jsonify({'success': False, 'error': 'Пользователь не найден в группе'})
 
-        group = conn.execute('SELECT creator_id FROM groups WHERE id = ?', (group_id,)).fetchone()
-        if group['creator_id'] == new_admin_id:
-            return jsonify({'success': False, 'error': 'Этот пользователь уже является создателем группы'})
+        if new_admin['role'] == 'admin':
+            return jsonify({'success': False, 'error': 'Этот пользователь уже является администратором'})
 
         conn.execute('''
             UPDATE group_members 
@@ -3025,12 +3111,8 @@ def remove_group_member(group_id, user_id):
             SELECT role FROM group_members WHERE group_id = ? AND user_id = ?
         ''', (group_id, current_user_id)).fetchone()
 
-        if not current_user_role or current_user_role['role'] not in ['admin', 'moderator']:
-            return jsonify({'success': False, 'error': 'Только администраторы и модераторы могут удалять участников'})
-
-        group = conn.execute('SELECT creator_id FROM groups WHERE id = ?', (group_id,)).fetchone()
-        if group['creator_id'] == user_id:
-            return jsonify({'success': False, 'error': 'Нельзя удалить создателя группы'})
+        if not current_user_role or current_user_role['role'] != 'admin':
+            return jsonify({'success': False, 'error': 'Только администраторы могут удалять участников'})
 
         target_user_role = conn.execute('''
             SELECT role FROM group_members WHERE group_id = ? AND user_id = ?
@@ -3039,8 +3121,8 @@ def remove_group_member(group_id, user_id):
         if not target_user_role:
             return jsonify({'success': False, 'error': 'Пользователь не найден в группе'})
 
-        if current_user_role['role'] == 'moderator' and target_user_role['role'] in ['admin', 'moderator']:
-            return jsonify({'success': False, 'error': 'Модераторы могут удалять только обычных участников'})
+        if target_user_role['role'] == 'admin':
+            return jsonify({'success': False, 'error': 'Нельзя исключить администратора — сначала передайте права'})
 
         conn.execute('DELETE FROM group_members WHERE group_id = ? AND user_id = ?', (group_id, user_id))
 
@@ -3718,21 +3800,46 @@ def login():
             cursor.execute("SELECT id, username, role, is_banned FROM users WHERE username = ? AND password = ?",
                            (username, password))
             user_row = cursor.fetchone()
-            connection.close()
 
             if user_row:
                 user = dict(user_row)
 
                 # Проверяем, не забанен ли пользователь
                 if user.get('role') == 'user' and user.get('is_banned', 0) == 1:
+                    connection.close()
                     return render_template('login.html', error="Ваш аккаунт заблокирован")
 
-                session['user_id'] = user['id']
-                session['username'] = user['username']
+                # Проверяем включена ли 2FA
+                tfa = connection.execute('''
+                    SELECT * FROM two_factor_auth
+                    WHERE user_id = ? AND is_enabled = 1 AND telegram_chat_id IS NOT NULL
+                ''', (user['id'],)).fetchone()
 
-                # Используем функцию перенаправления
-                return redirect_based_on_role(user['username'])
+                if tfa:
+                    tfa = dict(tfa)
+                    # Генерируем одноразовый код (5 минут)
+                    code = generate_code()
+                    expires = (datetime.now() + timedelta(minutes=5)).strftime('%Y-%m-%d %H:%M:%S')
+                    connection.execute('''
+                        UPDATE two_factor_auth SET auth_code = ?, auth_code_expires = ?
+                        WHERE user_id = ?
+                    ''', (code, expires, user['id']))
+                    connection.commit()
+                    connection.close()
+
+                    # Отправляем код в Telegram
+                    send_telegram_2fa_code(tfa['telegram_chat_id'], code, user['username'])
+
+                    # Временная сессия — только для 2FA шага
+                    session['2fa_user_id'] = user['id']
+                    return redirect('/2fa/verify')
+                else:
+                    connection.close()
+                    session['user_id'] = user['id']
+                    session['username'] = user['username']
+                    return redirect_based_on_role(user['username'])
             else:
+                connection.close()
                 return render_template('login.html', error="Неверное имя пользователя или пароль")
         except Exception as e:
             print(f"Ошибка входа: {e}")
@@ -3744,6 +3851,335 @@ def login():
 @app.route('/terms')
 def terms():
     return render_template('terms.html')
+
+
+# ==================== НАСТРОЙКИ АККАУНТА ====================
+
+@app.route('/settings')
+def settings():
+    if 'user_id' not in session:
+        return redirect('/login')
+
+    user_id = session['user_id']
+    conn = get_db_connection()
+    user = row_to_dict(conn.execute('SELECT * FROM users WHERE id = ?', (user_id,)).fetchone())
+    tfa = row_to_dict(conn.execute('SELECT * FROM two_factor_auth WHERE user_id = ?', (user_id,)).fetchone())
+    conn.close()
+
+    return render_template('settings.html', user=user, tfa=tfa)
+
+
+@app.route('/settings/change_password', methods=['POST'])
+def settings_change_password():
+    """Смена пароля из настроек"""
+    if 'user_id' not in session:
+        return redirect('/login')
+
+    user_id = session['user_id']
+    current_password = request.form.get('current_password', '')
+    new_password = request.form.get('new_password', '')
+    confirm_password = request.form.get('confirm_password', '')
+
+    conn = get_db_connection()
+    user = row_to_dict(conn.execute('SELECT * FROM users WHERE id = ?', (user_id,)).fetchone())
+
+    if user['password'] != current_password:
+        conn.close()
+        flash('Неверный текущий пароль', 'error')
+        return redirect('/settings')
+
+    if new_password != confirm_password:
+        conn.close()
+        flash('Новые пароли не совпадают', 'error')
+        return redirect('/settings')
+
+    if len(new_password) < 6:
+        conn.close()
+        flash('Пароль должен содержать минимум 6 символов', 'error')
+        return redirect('/settings')
+
+    conn.execute('UPDATE users SET password = ? WHERE id = ?', (new_password, user_id))
+    conn.commit()
+    conn.close()
+    flash('Пароль успешно изменён', 'success')
+    return redirect('/settings')
+
+
+# ==================== 2FA: НАЧАЛО ПРИВЯЗКИ ====================
+
+@app.route('/settings/2fa/start', methods=['POST'])
+def settings_2fa_start():
+    """Генерирует код привязки и перенаправляет на инструкцию"""
+    if 'user_id' not in session:
+        return redirect('/login')
+
+    user_id = session['user_id']
+    conn = get_db_connection()
+
+    # Если уже привязан — ничего не делаем
+    tfa = row_to_dict(conn.execute('SELECT * FROM two_factor_auth WHERE user_id = ?', (user_id,)).fetchone())
+    if tfa and tfa.get('is_enabled') and tfa.get('telegram_chat_id'):
+        conn.close()
+        flash('Telegram уже привязан к вашему аккаунту', 'info')
+        return redirect('/settings')
+
+    # Генерируем код привязки на 15 минут
+    link_code = generate_link_code()
+    expires = (datetime.now() + timedelta(minutes=15)).strftime('%Y-%m-%d %H:%M:%S')
+
+    if tfa:
+        conn.execute('''
+            UPDATE two_factor_auth
+            SET link_code = ?, link_code_expires = ?, telegram_chat_id = NULL, is_enabled = 0
+            WHERE user_id = ?
+        ''', (link_code, expires, user_id))
+    else:
+        conn.execute('''
+            INSERT INTO two_factor_auth (user_id, link_code, link_code_expires)
+            VALUES (?, ?, ?)
+        ''', (user_id, link_code, expires))
+
+    conn.commit()
+    conn.close()
+
+    bot_link = f"https://t.me/{BOT_USERNAME}?start={link_code}"
+    return render_template('2fa_setup.html', bot_link=bot_link, link_code=link_code)
+
+
+@app.route('/settings/2fa/check_status')
+def settings_2fa_check_status():
+    """AJAX: проверяет, привязал ли пользователь Telegram"""
+    if 'user_id' not in session:
+        return jsonify({'enabled': False})
+
+    user_id = session['user_id']
+    conn = get_db_connection()
+    tfa = row_to_dict(conn.execute(
+        'SELECT is_enabled, telegram_chat_id FROM two_factor_auth WHERE user_id = ?', (user_id,)
+    ).fetchone())
+    conn.close()
+
+    enabled = bool(tfa and tfa.get('is_enabled') and tfa.get('telegram_chat_id'))
+    return jsonify({'enabled': enabled})
+
+
+# ==================== 2FA: ОТКЛЮЧЕНИЕ ====================
+
+@app.route('/settings/2fa/disable', methods=['POST'])
+def settings_2fa_disable():
+    """Отключает 2FA и удаляет привязку Telegram"""
+    if 'user_id' not in session:
+        return redirect('/login')
+
+    user_id = session['user_id']
+    conn = get_db_connection()
+    conn.execute('''
+        UPDATE two_factor_auth
+        SET is_enabled = 0, telegram_chat_id = NULL,
+            link_code = NULL, link_code_expires = NULL
+        WHERE user_id = ?
+    ''', (user_id,))
+    conn.commit()
+    conn.close()
+
+    flash('Двухфакторная аутентификация отключена', 'success')
+    return redirect('/settings')
+
+
+# ==================== 2FA: ПРОВЕРКА КОДА ПРИ ВХОДЕ ====================
+
+@app.route('/2fa/verify', methods=['GET', 'POST'])
+def twofa_verify():
+    """Страница ввода кода после успешного ввода пароля"""
+    if '2fa_user_id' not in session:
+        return redirect('/login')
+
+    user_id = session['2fa_user_id']
+
+    if request.method == 'POST':
+        entered_code = request.form.get('code', '').strip()
+
+        conn = get_db_connection()
+        tfa = conn.execute('''
+            SELECT * FROM two_factor_auth
+            WHERE user_id = ?
+              AND auth_code = ?
+              AND auth_code_expires > datetime('now')
+        ''', (user_id, entered_code)).fetchone()
+
+        if tfa:
+            # Сбрасываем одноразовый код
+            conn.execute('''
+                UPDATE two_factor_auth SET auth_code = NULL, auth_code_expires = NULL
+                WHERE user_id = ?
+            ''', (user_id,))
+            conn.commit()
+
+            user = row_to_dict(conn.execute('SELECT * FROM users WHERE id = ?', (user_id,)).fetchone())
+            conn.close()
+
+            # Полноценный вход
+            session.pop('2fa_user_id', None)
+            session['user_id'] = user['id']
+            session['username'] = user['username']
+            return redirect_based_on_role(user['username'])
+        else:
+            conn.close()
+            return render_template('2fa_verify.html', error='Неверный или истёкший код')
+
+    return render_template('2fa_verify.html')
+
+
+@app.route('/2fa/resend', methods=['POST'])
+def twofa_resend():
+    """Повторная отправка кода 2FA"""
+    if '2fa_user_id' not in session:
+        return jsonify({'success': False, 'error': 'Сессия истекла'}), 401
+
+    user_id = session['2fa_user_id']
+    conn = get_db_connection()
+
+    tfa = row_to_dict(conn.execute(
+        'SELECT * FROM two_factor_auth WHERE user_id = ? AND is_enabled = 1', (user_id,)
+    ).fetchone())
+
+    if not tfa or not tfa.get('telegram_chat_id'):
+        conn.close()
+        return jsonify({'success': False, 'error': 'Telegram не привязан'}), 400
+
+    user = row_to_dict(conn.execute('SELECT username FROM users WHERE id = ?', (user_id,)).fetchone())
+
+    code = generate_code()
+    expires = (datetime.now() + timedelta(minutes=5)).strftime('%Y-%m-%d %H:%M:%S')
+    conn.execute('''
+        UPDATE two_factor_auth SET auth_code = ?, auth_code_expires = ?
+        WHERE user_id = ?
+    ''', (code, expires, user_id))
+    conn.commit()
+    conn.close()
+
+    ok = send_telegram_2fa_code(tfa['telegram_chat_id'], code, user['username'])
+    if ok:
+        return jsonify({'success': True})
+    else:
+        return jsonify({'success': False, 'error': 'Не удалось отправить сообщение в Telegram'})
+
+
+# ==================== TELEGRAM БОТ (запускается в фоновом потоке) ====================
+
+def run_telegram_bot():
+    """Запускает Telegram-бот в отдельном потоке с собственным event loop"""
+    try:
+        from telegram import Update
+        from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, filters, ContextTypes
+    except ImportError:
+        print("[BOT] python-telegram-bot не установлен. Установите: pip install python-telegram-bot")
+        return
+
+    if BOT_TOKEN == "YOUR_BOT_TOKEN":
+        print("[BOT] Токен не задан — бот не запущен. Укажи BOT_TOKEN в main.py")
+        return
+
+    async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+        chat_id = update.effective_chat.id
+        args = context.args
+
+        if args:
+            link_code = args[0]
+            conn = get_db_connection()
+            try:
+                record = conn.execute('''
+                    SELECT user_id FROM two_factor_auth
+                    WHERE link_code = ?
+                      AND link_code_expires > datetime('now')
+                      AND telegram_chat_id IS NULL
+                ''', (link_code,)).fetchone()
+
+                if record:
+                    user_id = record['user_id']
+                    user = conn.execute('SELECT username FROM users WHERE id = ?', (user_id,)).fetchone()
+                    username = user['username'] if user else f"id{user_id}"
+
+                    conn.execute('''
+                        UPDATE two_factor_auth
+                        SET telegram_chat_id = ?,
+                            link_code = NULL,
+                            link_code_expires = NULL,
+                            is_enabled = 1
+                        WHERE user_id = ?
+                    ''', (str(chat_id), user_id))
+                    conn.commit()
+
+                    await update.message.reply_text(
+                        f"✅ *Telegram успешно привязан к аккаунту {username}!*\n\n"
+                        f"Двухфакторная аутентификация активирована.\n"
+                        f"При каждом входе я буду отправлять тебе код подтверждения.",
+                        parse_mode='Markdown'
+                    )
+                else:
+                    await update.message.reply_text(
+                        "❌ *Код привязки недействителен или истёк.*\n\n"
+                        "Вернись в настройки аккаунта и запроси новый код.",
+                        parse_mode='Markdown'
+                    )
+            except Exception as e:
+                print(f"[BOT] Ошибка привязки: {e}")
+                await update.message.reply_text("⚠️ Произошла ошибка. Попробуй позже.")
+            finally:
+                conn.close()
+        else:
+            await update.message.reply_text(
+                "👋 *Привет! Я бот для двухфакторной аутентификации.*\n\n"
+                "Чтобы привязать аккаунт, зайди в *Настройки* на сайте "
+                "и нажми «Подключить Telegram».",
+                parse_mode='Markdown'
+            )
+
+    async def status_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
+        chat_id = str(update.effective_chat.id)
+        conn = get_db_connection()
+        try:
+            record = conn.execute('''
+                SELECT u.username FROM two_factor_auth tfa
+                JOIN users u ON tfa.user_id = u.id
+                WHERE tfa.telegram_chat_id = ? AND tfa.is_enabled = 1
+            ''', (chat_id,)).fetchone()
+
+            if record:
+                await update.message.reply_text(
+                    f"✅ Этот чат привязан к аккаунту *{record['username']}*.\n"
+                    f"Двухфакторная аутентификация активна.",
+                    parse_mode='Markdown'
+                )
+            else:
+                await update.message.reply_text(
+                    "ℹ️ Этот чат не привязан ни к одному аккаунту.",
+                    parse_mode='Markdown'
+                )
+        finally:
+            conn.close()
+
+    async def help_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
+        await update.message.reply_text(
+            "📋 *Команды:*\n/start — привязка аккаунта\n/status — проверить привязку\n/help — помощь",
+            parse_mode='Markdown'
+        )
+
+    async def unknown(update: Update, context: ContextTypes.DEFAULT_TYPE):
+        await update.message.reply_text("ℹ️ Используй /help для справки.")
+
+    # Создаём собственный event loop для потока
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+
+    bot_app = ApplicationBuilder().token(BOT_TOKEN).build()
+    bot_app.add_handler(CommandHandler("start", start))
+    bot_app.add_handler(CommandHandler("status", status_cmd))
+    bot_app.add_handler(CommandHandler("help", help_cmd))
+    bot_app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, unknown))
+
+    print("[BOT] Telegram-бот запущен в фоновом потоке")
+    bot_app.run_polling(stop_signals=None)  # stop_signals=None важно для потоков
 
 
 # ==================== АДМИН-ПАНЕЛЬ ====================
@@ -4760,5 +5196,9 @@ def view_document_content(media_id):
 
 if __name__ == '__main__':
     create_tables()
+
+    # Запускаем Telegram-бота в фоновом потоке
+    bot_thread = threading.Thread(target=run_telegram_bot, daemon=True)
+    bot_thread.start()
 
     app.run(debug=True, host='0.0.0.0', port=5555)

@@ -9,13 +9,30 @@
     <link rel="icon" type="image/png" href="{{ url_for('static', filename='uploads/favicon.png') }}">
 </head>
 <body>
-    <header>
+        <header>
         <div class="container">
             <div class="header-content">
                 <div class="logo">LinkA</div>
-                <div class="user-info">
-                    <div class="user-welcome">
-                        <a href="/logout" class="logout-link"><i class="fas fa-sign-out-alt"></i> Выйти</a>
+                <div class="user-menu-wrap">
+                    <button class="user-menu-btn" onclick="toggleUserMenu()" aria-label="Меню пользователя">
+                        {% set _avatar = current_user_avatar() %}
+                        {% if _avatar %}
+                            <img src="{{ url_for('static', filename='uploads/avatars/' + _avatar) }}"
+                                 onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';"
+                                 alt="Аватар">
+                            <i class="fas fa-user" style="display:none;"></i>
+                        {% else %}
+                            <i class="fas fa-user"></i>
+                        {% endif %}
+                    </button>
+                    <div class="user-dropdown" id="userDropdown">
+                        <a href="/settings">
+                            <i class="fas fa-cog"></i> Настройки
+                        </a>
+                        <div class="divider"></div>
+                        <a href="/logout" class="logout-item">
+                            <i class="fas fa-sign-out-alt"></i> Выйти
+                        </a>
                     </div>
                 </div>
             </div>
@@ -42,13 +59,70 @@
                 </a>
 
                 <!-- Шапка группы -->
-                <div class="card" style="padding:24px;">
-                    <div style="display:flex;align-items:flex-start;gap:20px;flex-wrap:wrap;">
+                <div class="card" style="padding:24px;position:relative;">
+
+                    <!-- Три точки — dropdown меню -->
+                    {% if is_member or has_pending_request %}
+                    <div style="position:absolute;top:16px;right:16px;" id="groupMenuWrap">
+                        <button onclick="toggleGroupMenu()" style="width:36px;height:36px;border-radius:50%;border:1px solid var(--border-medium);background:var(--gray-100);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:18px;color:var(--text-secondary);transition:all var(--transition);" id="groupMenuBtn">
+                            <i class="fas fa-ellipsis-v"></i>
+                        </button>
+                        <div id="groupMenuDropdown" style="display:none;position:absolute;top:calc(100% + 8px);right:0;background:var(--bg-card);border:1px solid var(--border-light);border-radius:var(--radius-lg);box-shadow:var(--shadow-lg);min-width:200px;z-index:50;overflow:hidden;">
+                            {% if is_member %}
+                                {% if role == 'admin' %}
+                                <a href="/group/{{ group.id }}/settings" style="display:flex;align-items:center;gap:10px;padding:11px 16px;font-size:14px;font-weight:600;color:var(--text-primary);text-decoration:none;transition:background var(--transition);" onmouseover="this.style.background='var(--amber-50)'" onmouseout="this.style.background='none'">
+                                    <i class="fas fa-cog" style="width:18px;text-align:center;color:var(--amber-500);"></i> Настройки
+                                </a>
+                                <div style="height:1px;background:var(--border-light);"></div>
+                                <button onclick="openGroupInviteModal()" style="display:flex;align-items:center;gap:10px;padding:11px 16px;font-size:14px;font-weight:400;color:var(--text-primary);background:none;border:none;width:100%;text-align:left;cursor:pointer;transition:background var(--transition);" onmouseover="this.style.background='var(--amber-50)'" onmouseout="this.style.background='none'">
+                                    <i class="fas fa-user-plus" style="width:18px;text-align:center;color:var(--amber-500);"></i> Пригласить
+                                </button>
+                                <div style="height:1px;background:var(--border-light);"></div>
+                                {% elif role == 'moderator' %}
+                                <button onclick="openGroupInviteModal()" style="display:flex;align-items:center;gap:10px;padding:11px 16px;font-size:14px;font-weight:400;color:var(--text-primary);background:none;border:none;width:100%;text-align:left;cursor:pointer;transition:background var(--transition);" onmouseover="this.style.background='var(--amber-50)'" onmouseout="this.style.background='none'">
+                                    <i class="fas fa-user-plus" style="width:18px;text-align:center;color:var(--amber-500);"></i> Пригласить
+                                </button>
+                                <div style="height:1px;background:var(--border-light);"></div>
+                                {% else %}
+                                <button onclick="openGroupInviteModal()" style="display:flex;align-items:center;gap:10px;padding:11px 16px;font-size:14px;font-weight:400;color:var(--text-primary);background:none;border:none;width:100%;text-align:left;cursor:pointer;transition:background var(--transition);" onmouseover="this.style.background='var(--amber-50)'" onmouseout="this.style.background='none'">
+                                    <i class="fas fa-user-plus" style="width:18px;text-align:center;color:var(--amber-500);"></i> Пригласить
+                                </button>
+                                <div style="height:1px;background:var(--border-light);"></div>
+                                {% endif %}
+                                <form method="POST" action="/leave_group/{{ group.id }}"
+                                      class="leave-group-form"
+                                      data-is-creator="{{ '1' if role == 'admin' else '0' }}"
+                                      data-group-name="{{ group.name }}">
+                                    <button type="submit" style="display:flex;align-items:center;gap:10px;padding:11px 16px;font-size:14px;font-weight:600;color:#dc2626;background:none;border:none;width:100%;text-align:left;cursor:pointer;transition:background var(--transition);" onmouseover="this.style.background='#fef2f2'" onmouseout="this.style.background='none'">
+                                        <i class="fas fa-sign-out-alt" style="width:18px;text-align:center;"></i> Отписаться
+                                    </button>
+                                </form>
+                            {% endif %}
+                            {% if has_pending_request %}
+                                <div style="padding:11px 16px;font-size:14px;font-weight:600;color:var(--amber-700);">
+                                    <i class="fas fa-clock" style="width:18px;text-align:center;"></i> Заявка отправлена
+                                </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% else %}
+                    <!-- Не участник — кнопка подписаться -->
+                    <div style="position:absolute;top:16px;right:16px;">
+                        <form method="POST" action="/join_group/{{ group.id }}" style="display:inline;">
+                            <button type="submit" class="btn btn-primary btn-sm">
+                                <i class="fas fa-plus-circle"></i>
+                                {% if group.is_public %}Подписаться{% else %}Подать заявку{% endif %}
+                            </button>
+                        </form>
+                    </div>
+                    {% endif %}
+
+                    <div style="display:flex;align-items:flex-start;gap:20px;overflow:hidden;padding-right:52px;">
                         <img src="{{ url_for('static', filename='uploads/groups/' + group.avatar) if group.avatar else '/static/defaults/for_groups.png' }}"
                              style="width:100px;height:100px;border-radius:var(--radius-md);object-fit:cover;border:3px solid var(--amber-300);flex-shrink:0;"
                              onerror="this.src='/static/defaults/for_groups.png'">
 
-                        <div style="flex:1;">
+                        <div style="flex:1;min-width:0;overflow:hidden;">
                             <h1 style="font-family:var(--font-display);font-size:22px;margin:0 0 8px;">
                                 {{ group.name }}
                                 {% if not group.is_public %}
@@ -57,42 +131,11 @@
                                 </span>
                                 {% endif %}
                             </h1>
-                            <p style="color:var(--text-secondary);font-size:14px;margin:0 0 12px;">{{ group.description or 'Нет описания' }}</p>
+                            <p style="color:var(--text-secondary);font-size:14px;margin:0 0 12px;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;word-break:break-word;">{{ group.description or 'Нет описания' }}</p>
                             <div style="display:flex;gap:16px;font-size:13px;color:var(--text-muted);flex-wrap:wrap;">
                                 <span><i class="fas fa-users" style="color:var(--amber-500);"></i> {{ group.members_count }} участников</span>
                                 <span><i class="fas fa-file-alt" style="color:var(--amber-500);"></i> {{ group.posts_count }} постов</span>
                                 <span><i class="fas fa-calendar" style="color:var(--amber-500);"></i> {{ group.created_at[:10]|replace('-', '.') }}</span>
-                            </div>
-                            <div style="display:flex;gap:10px;margin-top:16px;flex-wrap:wrap;">
-                                {% if role == 'admin' %}
-                                <a href="/group/{{ group.id }}/settings" class="btn btn-secondary btn-sm">
-                                    <i class="fas fa-cog"></i> Настройки
-                                </a>
-                                {% endif %}
-                                {% if is_member %}
-                                <form method="POST" action="/leave_group/{{ group.id }}"
-                                      class="leave-group-form"
-                                      data-is-creator="{{ '1' if group.creator_id == session_user_id else '0' }}"
-                                      data-group-name="{{ group.name }}"
-                                      style="display:inline;">
-                                    <button type="submit" class="btn btn-danger btn-sm">
-                                        <i class="fas fa-sign-out-alt"></i> Отписаться
-                                    </button>
-                                </form>
-                                {% else %}
-                                    {% if has_pending_request %}
-                                    <span class="badge" style="padding:8px 14px;font-size:13px;">
-                                        <i class="fas fa-clock"></i> Заявка отправлена
-                                    </span>
-                                    {% else %}
-                                    <form method="POST" action="/join_group/{{ group.id }}" style="display:inline;">
-                                        <button type="submit" class="btn btn-success btn-sm">
-                                            <i class="fas fa-plus-circle"></i>
-                                            {% if group.is_public %}Подписаться{% else %}Подать заявку{% endif %}
-                                        </button>
-                                    </form>
-                                    {% endif %}
-                                {% endif %}
                             </div>
                         </div>
                     </div>
@@ -267,7 +310,7 @@
                         </h3>
                         <div style="display:flex;flex-wrap:wrap;gap:16px;">
                             {% for member in members %}
-                            <a href="/profile/{{ member.id }}" style="text-align:center;text-decoration:none;color:inherit;width:72px;">
+                            <a href="/profile/{{ member.id }}" style="display:flex;flex-direction:column;align-items:center;text-align:center;text-decoration:none;color:inherit;width:72px;">
                                 <img src="{{ url_for('static', filename='uploads/avatars/' + member.avatar) if member.avatar else '/static/defaults/for_users.png' }}"
                                      style="width:48px;height:48px;border-radius:50%;object-fit:cover;border:2px solid var(--amber-200);"
                                      onerror="this.src='/static/defaults/for_users.png'">
@@ -306,7 +349,7 @@
                             </div>
                             {% if group.description %}
                             <div><span style="color:var(--text-muted);font-weight:700;">Описание:</span>
-                                <p style="margin:6px 0 0;color:var(--text-primary);line-height:1.6;">{{ group.description }}</p>
+                                <p style="margin:6px 0 0;color:var(--text-primary);line-height:1.6;word-break:break-word;overflow-wrap:break-word;">{{ group.description }}</p>
                             </div>
                             {% endif %}
                         </div>
@@ -366,6 +409,175 @@
 
     <script>
         // Вкладки
+        function toggleGroupMenu() {
+            const dd = document.getElementById('groupMenuDropdown');
+            dd.style.display = dd.style.display === 'none' ? 'block' : 'none';
+        }
+        document.addEventListener('click', function(e) {
+            const wrap = document.getElementById('groupMenuWrap');
+            if (wrap && !wrap.contains(e.target)) {
+                const dd = document.getElementById('groupMenuDropdown');
+                if (dd) dd.style.display = 'none';
+            }
+        });
+        function openGroupInviteModal() {
+            document.getElementById('groupMenuDropdown').style.display = 'none';
+            document.getElementById('groupInviteModal').style.display = 'block';
+            document.body.style.overflow = 'hidden';
+            switchInvTab('friends');
+            invLoadFriends();
+            document.getElementById('invLinkInput').value = window.location.origin + '/group/{{ group.id }}';
+        }
+
+        function closeGroupInviteModal() {
+            document.getElementById('groupInviteModal').style.display = 'none';
+            document.body.style.overflow = '';
+            invFriendsData = [];
+            invMemberIds = [];
+            document.getElementById('invSearchInput').value = '';
+            document.getElementById('invSelectedCount').textContent = '0';
+        }
+
+        document.addEventListener('DOMContentLoaded', function() {
+            const m = document.getElementById('groupInviteModal');
+            if (m) m.addEventListener('click', function(e) {
+                if (e.target === this) closeGroupInviteModal();
+            });
+        });
+
+        function switchInvTab(tab) {
+            const isFriends = tab === 'friends';
+            document.getElementById('invFriendsSection').style.display = isFriends ? 'block' : 'none';
+            document.getElementById('invLinkSection').style.display   = isFriends ? 'none'  : 'block';
+            document.getElementById('invTabFriendsBtn').className = 'btn btn-sm ' + (isFriends ? 'btn-primary' : 'btn-secondary');
+            document.getElementById('invTabLinkBtn').className    = 'btn btn-sm ' + (isFriends ? 'btn-secondary' : 'btn-primary');
+        }
+
+        let invFriendsData = [];
+        let invMemberIds   = [];
+
+        function invLoadFriends() {
+            const list = document.getElementById('invFriendsList');
+            list.innerHTML = '<div style="text-align:center;padding:24px;color:var(--text-muted);"><i class="fas fa-spinner fa-spin"></i> Загрузка...</div>';
+
+            const safeJson = r => {
+                const ct = r.headers.get('content-type') || '';
+                if (!ct.includes('application/json')) throw new Error('Перезагрузите страницу — сессия истекла');
+                return r.json();
+            };
+
+            const fetchFriends = fetch('/friends/list').then(safeJson);
+            const fetchMembers = fetch('/group/{{ group.id }}/members').then(safeJson)
+                .catch(() => ({ success: false, member_ids: [] }));
+
+            Promise.all([fetchFriends, fetchMembers])
+                .then(([friendsData, membersData]) => {
+                    invMemberIds = (membersData && membersData.member_ids) ? membersData.member_ids : [];
+                    if (friendsData.success) {
+                        invFriendsData = friendsData.friends;
+                        invRenderFriends();
+                    } else {
+                        list.innerHTML = '<div style="text-align:center;padding:24px;color:var(--text-muted);">Не удалось загрузить список друзей</div>';
+                    }
+                })
+                .catch(err => {
+                    list.innerHTML = `<div style="text-align:center;padding:24px;color:#dc2626;font-size:13px;">${err.message || 'Ошибка загрузки'}</div>`;
+                });
+        }
+
+        function invFilterFriends() { invRenderFriends(); }
+
+        function invRenderFriends() {
+            const list   = document.getElementById('invFriendsList');
+            const search = document.getElementById('invSearchInput').value.toLowerCase().trim();
+            const filtered = search
+                ? invFriendsData.filter(f => f.username.toLowerCase().includes(search) || (f.full_name||'').toLowerCase().includes(search))
+                : invFriendsData;
+
+            if (!filtered.length) {
+                list.innerHTML = '<div style="text-align:center;padding:24px;color:var(--text-muted);">' +
+                    (invFriendsData.length ? 'Ничего не найдено' : 'У вас пока нет друзей для приглашения') + '</div>';
+                return;
+            }
+
+            list.innerHTML = '';
+            filtered.forEach(friend => {
+                const isMember = invMemberIds.includes(friend.id);
+                const avatarUrl = friend.avatar ? `/static/uploads/avatars/${friend.avatar}` : '/static/defaults/for_users.png';
+                const row = document.createElement('div');
+                row.style.cssText = `display:flex;align-items:center;gap:12px;padding:10px 12px;border-radius:var(--radius-md);border:1px solid var(--border-light);opacity:${isMember ? '0.5' : '1'};`;
+                row.innerHTML = `
+                    <img src="${avatarUrl}" style="width:40px;height:40px;border-radius:50%;object-fit:cover;border:2px solid var(--amber-200);flex-shrink:0;"
+                         onerror="this.src='/static/defaults/for_users.png'">
+                    <div style="flex:1;min-width:0;">
+                        <div style="font-size:14px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
+                            ${friend.full_name || friend.username}
+                            ${isMember ? '<span style="font-size:11px;font-weight:400;color:var(--text-muted);margin-left:6px;">уже в группе</span>' : ''}
+                        </div>
+                        <div style="font-size:12px;color:var(--text-muted);">@${friend.username}</div>
+                    </div>
+                    ${!isMember ? `<input type="checkbox" class="inv-friend-cb" value="${friend.id}" onchange="invUpdateCounter()"
+                        style="width:18px;height:18px;accent-color:var(--amber-500);cursor:pointer;flex-shrink:0;">` : ''}
+                `;
+                list.appendChild(row);
+            });
+            invUpdateCounter();
+        }
+
+        function invUpdateCounter() {
+            const checked = document.querySelectorAll('.inv-friend-cb:checked').length;
+            document.getElementById('invSelectedCount').textContent = checked;
+            const btn = document.getElementById('invSendBtn');
+            btn.disabled = checked === 0;
+            btn.innerHTML = checked > 0 ? `<i class="fas fa-paper-plane"></i> Отправить (${checked})` : '<i class="fas fa-paper-plane"></i> Отправить';
+        }
+
+        function invSendInvitations() {
+            const ids = Array.from(document.querySelectorAll('.inv-friend-cb:checked')).map(cb => parseInt(cb.value));
+            if (!ids.length) return;
+            const btn = document.getElementById('invSendBtn');
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Отправка...';
+            fetch('/group/{{ group.id }}/invite', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({user_ids: ids})
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    invShowToast(`✅ Приглашения отправлены: ${data.sent_count}`);
+                    if (data.sent_ids) invMemberIds = [...invMemberIds, ...data.sent_ids];
+                    invRenderFriends();
+                    closeGroupInviteModal();
+                } else {
+                    invShowToast('❌ ' + (data.error || 'Неизвестная ошибка'), true);
+                }
+            })
+            .catch(() => invShowToast('❌ Ошибка сети', true))
+            .finally(() => { btn.disabled = false; invUpdateCounter(); });
+        }
+
+        function invCopyLink() {
+            const input = document.getElementById('invLinkInput');
+            input.select(); input.setSelectionRange(0, 99999);
+            try {
+                document.execCommand('copy');
+                const btn = document.getElementById('invCopyBtn');
+                btn.innerHTML = '<i class="fas fa-check"></i>';
+                setTimeout(() => btn.innerHTML = '<i class="fas fa-copy"></i>', 2000);
+                invShowToast('✅ Ссылка скопирована!');
+            } catch { alert('Не удалось скопировать'); }
+        }
+
+        function invShowToast(msg, isError) {
+            const div = document.createElement('div');
+            div.style.cssText = `position:fixed;top:20px;right:20px;background:${isError ? '#dc2626' : 'var(--accent-gradient)'};color:${isError ? '#fff' : '#111'};padding:14px 22px;border-radius:var(--radius-lg);box-shadow:var(--shadow-md);z-index:2000;font-weight:700;font-size:14px;`;
+            div.textContent = msg;
+            document.body.appendChild(div);
+            setTimeout(() => div.remove(), 3000);
+        }
+
         function switchTab(tabName) {
             document.querySelectorAll('.tab-btn').forEach(b => {
                 b.style.borderBottomColor = 'transparent';
@@ -384,6 +596,7 @@
         // Выход из группы
         document.querySelectorAll('.leave-group-form').forEach(form => {
             form.addEventListener('submit', function(e) {
+                e.stopPropagation();
                 const isCreator = this.dataset.isCreator === '1';
                 const name = this.dataset.groupName || '';
                 const msg = isCreator
@@ -589,6 +802,94 @@
         }
 
         function commentOnPost(postId) { window.location.href = `/post/${postId}`; }
+    </script>
+
+
+    <!-- Модальное окно приглашения -->
+    <div id="groupInviteModal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:1000;overflow-y:auto;">
+        <div style="position:relative;background:var(--bg-card);margin:60px auto;padding:32px;border-radius:var(--radius-xl);width:520px;max-width:90%;border-top:3px solid var(--amber-400);box-shadow:var(--shadow-lg);">
+            <h2 style="font-family:var(--font-display);font-size:18px;margin-bottom:20px;">
+                <i class="fas fa-user-plus" style="color:var(--amber-500);"></i> Пригласить в группу
+            </h2>
+            <div style="display:flex;gap:8px;margin-bottom:16px;">
+                <button id="invTabFriendsBtn" class="btn btn-primary btn-sm" onclick="switchInvTab('friends')">
+                    <i class="fas fa-users"></i> Друзья (<span id="invSelectedCount">0</span>)
+                </button>
+                <button id="invTabLinkBtn" class="btn btn-secondary btn-sm" onclick="switchInvTab('link')">
+                    <i class="fas fa-link"></i> Ссылка-приглашение
+                </button>
+            </div>
+            <div id="invFriendsSection">
+                <input type="text" id="invSearchInput" class="form-control"
+                       placeholder="Поиск по имени или @никнейму..."
+                       oninput="invFilterFriends()"
+                       style="margin-bottom:12px;">
+                <div id="invFriendsList" style="max-height:320px;overflow-y:auto;display:flex;flex-direction:column;gap:6px;">
+                    <div style="text-align:center;padding:24px;color:var(--text-muted);">
+                        <i class="fas fa-spinner fa-spin"></i> Загрузка...
+                    </div>
+                </div>
+                <div style="margin-top:16px;display:flex;justify-content:flex-end;gap:10px;">
+                    <button class="btn btn-secondary" onclick="closeGroupInviteModal()">Отмена</button>
+                    <button id="invSendBtn" class="btn btn-primary" onclick="invSendInvitations()" disabled>
+                        <i class="fas fa-paper-plane"></i> Отправить
+                    </button>
+                </div>
+            </div>
+            <div id="invLinkSection" style="display:none;">
+                <p style="font-size:13px;color:var(--text-muted);margin-bottom:12px;">
+                    Поделитесь ссылкой — любой сможет найти и вступить в группу:
+                </p>
+                <div style="display:flex;gap:8px;">
+                    <input type="text" id="invLinkInput" class="form-control" readonly style="background:var(--gray-50);font-size:13px;">
+                    <button class="btn btn-secondary" onclick="invCopyLink()" id="invCopyBtn" style="flex-shrink:0;">
+                        <i class="fas fa-copy"></i>
+                    </button>
+                </div>
+                <div style="margin-top:16px;text-align:right;">
+                    <button class="btn btn-secondary" onclick="closeGroupInviteModal()">Закрыть</button>
+                </div>
+            </div>
+            <button onclick="closeGroupInviteModal()"
+                    style="position:absolute;top:14px;right:16px;background:none;border:none;font-size:22px;cursor:pointer;color:var(--text-muted);line-height:1;">×</button>
+        </div>
+    </div>
+
+    <!-- Футер -->
+    <footer style="
+        margin-top:auto; padding:20px 24px;
+        border-top:1px solid var(--border-light);
+        background:var(--bg-card);
+        text-align:center;
+        font-size:13px;
+        color:var(--text-muted);">
+        <div style="max-width:1200px; margin:0 auto; display:flex; align-items:center; justify-content:center; gap:20px; flex-wrap:wrap;">
+            <span style="font-family:var(--font-display);font-size:13px;background:var(--accent-gradient);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;">LinkA</span>
+            <span style="color:var(--border-medium);">·</span>
+            <a href="/faq" style="color:var(--text-muted);font-weight:600;transition:color 0.2s;" onmouseover="this.style.color='var(--amber-600)'" onmouseout="this.style.color='var(--text-muted)'">
+                <i class="fas fa-question-circle"></i> FAQ
+            </a>
+            <span style="color:var(--border-medium);">·</span>
+            <a href="/terms" style="color:var(--text-muted);font-weight:600;transition:color 0.2s;" onmouseover="this.style.color='var(--amber-600)'" onmouseout="this.style.color='var(--text-muted)'">
+                <i class="fas fa-file-alt"></i> Соглашение
+            </a>
+            <span style="color:var(--border-medium);">·</span>
+            <span>© 2025 LinkA</span>
+        </div>
+    </footer>
+</body>
+
+    <script>
+        function toggleUserMenu() {
+            document.getElementById('userDropdown').classList.toggle('open');
+        }
+        document.addEventListener('click', function(e) {
+            const wrap = document.querySelector('.user-menu-wrap');
+            if (wrap && !wrap.contains(e.target)) {
+                const dd = document.getElementById('userDropdown');
+                if (dd) dd.classList.remove('open');
+            }
+        });
     </script>
 </body>
 </html>

@@ -7,15 +7,63 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <link rel="stylesheet" href="{{ url_for('static', filename='defaults/style.css') }}">
     <link rel="icon" type="image/png" href="{{ url_for('static', filename='uploads/favicon.png') }}">
+    <style>
+        /* ── Тултипы через data-tooltip (без браузерного title) ── */
+        [data-tooltip] { position: relative; }
+        [data-tooltip]:hover::after {
+            content: attr(data-tooltip);
+            position: absolute;
+            bottom: calc(100% + 6px);
+            left: 50%;
+            transform: translateX(-50%);
+            background: var(--gray-800, #1f2937);
+            color: #fff;
+            font-size: 12px;
+            font-weight: 600;
+            padding: 5px 10px;
+            border-radius: 4px;
+            white-space: nowrap;
+            pointer-events: none;
+            z-index: 200;
+        }
+        [data-tooltip]:hover::before {
+            content: '';
+            position: absolute;
+            bottom: calc(100% + 1px);
+            left: 50%;
+            transform: translateX(-50%);
+            border: 5px solid transparent;
+            border-top-color: var(--gray-800, #1f2937);
+            pointer-events: none;
+            z-index: 200;
+        }
+    </style>
 </head>
 <body>
-    <header>
+        <header>
         <div class="container">
             <div class="header-content">
                 <div class="logo">LinkA</div>
-                <div class="user-info">
-                    <div class="user-welcome">
-                        <a href="/logout" class="logout-link"><i class="fas fa-sign-out-alt"></i> Выйти</a>
+                <div class="user-menu-wrap">
+                    <button class="user-menu-btn" onclick="toggleUserMenu()" aria-label="Меню пользователя">
+                        {% set _avatar = current_user_avatar() %}
+                        {% if _avatar %}
+                            <img src="{{ url_for('static', filename='uploads/avatars/' + _avatar) }}"
+                                 onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';"
+                                 alt="Аватар">
+                            <i class="fas fa-user" style="display:none;"></i>
+                        {% else %}
+                            <i class="fas fa-user"></i>
+                        {% endif %}
+                    </button>
+                    <div class="user-dropdown" id="userDropdown">
+                        <a href="/settings">
+                            <i class="fas fa-cog"></i> Настройки
+                        </a>
+                        <div class="divider"></div>
+                        <a href="/logout" class="logout-item">
+                            <i class="fas fa-sign-out-alt"></i> Выйти
+                        </a>
                     </div>
                 </div>
             </div>
@@ -89,6 +137,14 @@
                                 <option value="admins" {{ 'selected' if group.post_permissions == 'admins' else '' }}>Только администраторы</option>
                             </select>
                         </div>
+                        <div class="form-group">
+                            <label class="form-label">Кто может приглашать участников</label>
+                            <select name="invite_permissions" class="form-control">
+                                <option value="admins"     {{ 'selected' if group.invite_permissions == 'admins' or not group.invite_permissions else '' }}>Только администраторы</option>
+                                <option value="moderators" {{ 'selected' if group.invite_permissions == 'moderators' else '' }}>Администраторы и модераторы</option>
+                                <option value="all"        {{ 'selected' if group.invite_permissions == 'all' else '' }}>Все участники</option>
+                            </select>
+                        </div>
                         <button type="submit" class="btn btn-primary">
                             <i class="fas fa-save"></i> Сохранить изменения
                         </button>
@@ -101,12 +157,12 @@
                     {% if members %}
                     <div class="friends-list">
                         {% for member in members %}
-                        <div class="request-card" style="border-color:var(--border-light);background:var(--bg-card);">
+                        <div class="request-card" style="border-color:var(--border-light);background:var(--bg-card);align-items:center;gap:12px;flex-wrap:nowrap;">
                             <img src="{{ url_for('static', filename='uploads/avatars/' + member.avatar) if member.avatar else '/static/defaults/for_users.png' }}"
                                  style="width:44px;height:44px;border-radius:50%;object-fit:cover;border:2px solid var(--amber-200);flex-shrink:0;"
                                  onerror="this.src='/static/defaults/for_users.png'">
-                            <div style="flex:1;">
-                                <div style="font-weight:700;font-size:14px;">
+                            <div style="flex:1;min-width:0;">
+                                <div style="font-weight:700;font-size:14px;display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
                                     {{ member.full_name or member.username }}
                                     {% if member.role == 'admin' %}
                                     <span class="badge badge-danger" style="font-size:10px;">Администратор</span>
@@ -115,22 +171,29 @@
                                     {% else %}
                                     <span class="badge badge-secondary" style="font-size:10px;">Участник</span>
                                     {% endif %}
+                                    {% if member.user_id == session_user_id %}
+                                    <span style="font-size:11px;color:var(--text-muted);font-weight:400;">(вы)</span>
+                                    {% endif %}
                                 </div>
                                 <div style="font-size:12px;color:var(--text-muted);">@{{ member.username }}</div>
                             </div>
                             {% if member.user_id != session_user_id %}
-                            <div class="actions" style="flex-wrap:wrap;justify-content:flex-end;gap:6px;">
-                                <select id="role-{{ member.user_id }}" class="form-control" style="width:auto;padding:6px 10px;font-size:13px;">
-                                    <option value="member" {{ 'selected' if member.role == 'member' else '' }}>Участник</option>
+                            <div style="display:flex;align-items:center;gap:6px;flex-shrink:0;margin-left:auto;">
+                                <select id="role-{{ member.user_id }}"
+                                        style="padding:5px 8px;font-size:12px;border:1px solid var(--border-medium);border-radius:var(--radius-md);background:var(--bg-card);color:var(--text-primary);cursor:pointer;max-width:110px;">
+                                    <option value="member"    {{ 'selected' if member.role == 'member'    else '' }}>Участник</option>
                                     <option value="moderator" {{ 'selected' if member.role == 'moderator' else '' }}>Модератор</option>
-                                    <option value="admin" {{ 'selected' if member.role == 'admin' else '' }}>Администратор</option>
                                 </select>
                                 <button onclick="changeRole({{ member.user_id }}, '{{ member.username }}')"
-                                        class="btn btn-warning btn-sm">
-                                    <i class="fas fa-user-tag"></i>
+                                        data-tooltip="Применить роль" class="btn btn-primary btn-sm" style="padding:5px 10px;">
+                                    <i class="fas fa-check"></i>
+                                </button>
+                                <button onclick="transferAdmin({{ member.user_id }}, '{{ member.username }}')"
+                                        data-tooltip="Передать права администратора" class="btn btn-warning btn-sm" style="padding:5px 10px;">
+                                    <i class="fas fa-crown"></i>
                                 </button>
                                 <button onclick="kickMember({{ member.user_id }}, '{{ member.username }}')"
-                                        class="btn btn-danger btn-sm">
+                                        data-tooltip="Исключить из группы" class="btn btn-danger btn-sm" style="padding:5px 10px;">
                                     <i class="fas fa-user-minus"></i>
                                 </button>
                             </div>
@@ -146,7 +209,7 @@
                     {% endif %}
                 </div>
 
-                <!-- Опасная зона -->
+                                <!-- Опасная зона -->
                 <div class="settings-section" style="border:1px solid #fca5a5;">
                     <h3 style="color:#dc2626;border-color:#fca5a5;"><i class="fas fa-exclamation-triangle"></i> Опасная зона</h3>
                     <p style="color:var(--text-secondary);font-size:14px;margin-bottom:16px;">
@@ -167,8 +230,8 @@
     <script>
         function changeRole(userId, username) {
             const role = document.getElementById(`role-${userId}`).value;
-            const roleNames = {admin:'администратора', moderator:'модератора', member:'участника'};
-            if (!confirm(`Назначить ${username} ${roleNames[role]}?`)) return;
+            const roleNames = {moderator:'модератора', member:'участника'};
+            if (!confirm(`Назначить ${username} ${roleNames[role] || role}?`)) return;
             fetch(`/group/{{ group.id }}/change_role/${userId}`, {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
@@ -179,9 +242,9 @@
             .catch(() => alert('Ошибка сервера'));
         }
 
-        function kickMember(userId, username) {
-            if (!confirm(`Исключить ${username} из группы?`)) return;
-            fetch(`/group/{{ group.id }}/kick/${userId}`, {
+        function transferAdmin(userId, username) {
+            if (!confirm(`Передать права администратора ${username}?\n\nВы станете обычным участником. Это действие нельзя отменить без согласия нового администратора.`)) return;
+            fetch(`/group/{{ group.id }}/transfer_admin/${userId}`, {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'}
             })
@@ -189,6 +252,54 @@
             .then(d => { if (d.success) location.reload(); else alert('Ошибка: ' + d.error); })
             .catch(() => alert('Ошибка сервера'));
         }
+
+        function kickMember(userId, username) {
+            if (!confirm(`Исключить ${username} из группы?`)) return;
+            fetch(`/group/{{ group.id }}/remove_member/${userId}`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'}
+            })
+            .then(r => r.json())
+            .then(d => { if (d.success) location.reload(); else alert('Ошибка: ' + d.error); })
+            .catch(() => alert('Ошибка сервера'));
+        }
+    </script>
+
+    <!-- Футер -->
+    <footer style="
+        margin-top:auto; padding:20px 24px;
+        border-top:1px solid var(--border-light);
+        background:var(--bg-card);
+        text-align:center;
+        font-size:13px;
+        color:var(--text-muted);">
+        <div style="max-width:1200px; margin:0 auto; display:flex; align-items:center; justify-content:center; gap:20px; flex-wrap:wrap;">
+            <span style="font-family:var(--font-display);font-size:13px;background:var(--accent-gradient);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;">LinkA</span>
+            <span style="color:var(--border-medium);">·</span>
+            <a href="/faq" style="color:var(--text-muted);font-weight:600;transition:color 0.2s;" onmouseover="this.style.color='var(--amber-600)'" onmouseout="this.style.color='var(--text-muted)'">
+                <i class="fas fa-question-circle"></i> FAQ
+            </a>
+            <span style="color:var(--border-medium);">·</span>
+            <a href="/terms" style="color:var(--text-muted);font-weight:600;transition:color 0.2s;" onmouseover="this.style.color='var(--amber-600)'" onmouseout="this.style.color='var(--text-muted)'">
+                <i class="fas fa-file-alt"></i> Соглашение
+            </a>
+            <span style="color:var(--border-medium);">·</span>
+            <span>© 2025 LinkA</span>
+        </div>
+    </footer>
+</body>
+
+    <script>
+        function toggleUserMenu() {
+            document.getElementById('userDropdown').classList.toggle('open');
+        }
+        document.addEventListener('click', function(e) {
+            const wrap = document.querySelector('.user-menu-wrap');
+            if (wrap && !wrap.contains(e.target)) {
+                const dd = document.getElementById('userDropdown');
+                if (dd) dd.classList.remove('open');
+            }
+        });
     </script>
 </body>
 </html>

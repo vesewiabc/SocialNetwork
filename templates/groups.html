@@ -9,13 +9,30 @@
     <link rel="icon" type="image/png" href="{{ url_for('static', filename='uploads/favicon.png') }}">
 </head>
 <body>
-    <header>
+        <header>
         <div class="container">
             <div class="header-content">
                 <div class="logo">LinkA</div>
-                <div class="user-info">
-                    <div class="user-welcome">
-                        <a href="/logout" class="logout-link"><i class="fas fa-sign-out-alt"></i> Выйти</a>
+                <div class="user-menu-wrap">
+                    <button class="user-menu-btn" onclick="toggleUserMenu()" aria-label="Меню пользователя">
+                        {% set _avatar = current_user_avatar() %}
+                        {% if _avatar %}
+                            <img src="{{ url_for('static', filename='uploads/avatars/' + _avatar) }}"
+                                 onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';"
+                                 alt="Аватар">
+                            <i class="fas fa-user" style="display:none;"></i>
+                        {% else %}
+                            <i class="fas fa-user"></i>
+                        {% endif %}
+                    </button>
+                    <div class="user-dropdown" id="userDropdown">
+                        <a href="/settings">
+                            <i class="fas fa-cog"></i> Настройки
+                        </a>
+                        <div class="divider"></div>
+                        <a href="/logout" class="logout-item">
+                            <i class="fas fa-sign-out-alt"></i> Выйти
+                        </a>
                     </div>
                 </div>
             </div>
@@ -69,14 +86,14 @@
                 <!-- Список групп -->
                 {% if groups %}
                     {% for group in groups %}
-                    <div class="group-card" style="display:flex;gap:16px;align-items:flex-start;">
+                    <div class="group-card" style="display:flex;gap:16px;align-items:center;min-height:100px;padding:16px;">
                         <a href="/group/{{ group.id }}" style="flex-shrink:0;">
                             <img src="{{ url_for('static', filename='uploads/groups/' + group.avatar) if group.avatar else '/static/defaults/for_groups.png' }}"
                                  style="width:80px;height:80px;border-radius:var(--radius-md);object-fit:cover;border:2px solid var(--amber-200);"
                                  onerror="this.src='/static/defaults/for_groups.png'">
                         </a>
 
-                        <div class="group-info" style="flex:1;">
+                        <div class="group-info" style="flex:1;min-width:0;overflow:hidden;">
                             <h2 style="margin:0 0 6px;font-size:16px;">
                                 <a href="/group/{{ group.id }}" style="color:var(--amber-600);font-weight:700;text-decoration:none;">
                                     {{ group.name }}
@@ -89,7 +106,6 @@
                                 </span>
                                 {% endif %}
                             </h2>
-                            <p style="color:var(--text-secondary);font-size:14px;margin:0 0 8px;">{{ group.description or 'Нет описания' }}</p>
                             <div style="display:flex;gap:14px;font-size:13px;color:var(--text-muted);">
                                 <span><i class="fas fa-users" style="color:var(--amber-500);"></i> {{ group.members_count }}</span>
                                 <span><i class="fas fa-file-alt" style="color:var(--amber-500);"></i> {{ group.posts_count }}</span>
@@ -97,25 +113,15 @@
                             </div>
                         </div>
 
-                        <div style="display:flex;flex-direction:column;gap:8px;flex-shrink:0;">
+                        <div style="display:flex;flex-direction:column;gap:8px;flex-shrink:0;width:130px;margin-right:4px;">
                             {% if group.is_member %}
                                 <form method="POST" action="/leave_group/{{ group.id }}" class="leave-group-form"
-                                      data-is-creator="{{ '1' if group.creator_id == session_user_id else '0' }}"
+                                      data-is-creator="{{ '1' if group.role == 'admin' else '0' }}"
                                       data-group-name="{{ group.name }}">
-                                    <button type="submit" class="btn btn-danger btn-sm">
+                                    <button type="submit" class="btn btn-danger btn-sm" style="width:100%;justify-content:center;">
                                         <i class="fas fa-sign-out-alt"></i> Отписаться
                                     </button>
                                 </form>
-                                {% if group.role == 'admin' %}
-                                <button class="btn btn-primary btn-sm"
-                                        onclick="openInviteModal('{{ group.id }}', '{{ group.name|replace("'", "\\'")|replace('"', '&quot;')|safe }}')">
-                                    <i class="fas fa-user-plus"></i> Пригласить
-                                </button>
-                                <button class="btn btn-warning btn-sm"
-                                        onclick="openInviteLinkModal('{{ group.id }}', '{{ group.name|replace("'", "\\'")|replace('"', '&quot;')|safe }}')">
-                                    <i class="fas fa-link"></i> Ссылка
-                                </button>
-                                {% endif %}
                             {% else %}
                                 {% if group.has_pending_request %}
                                 <span class="badge" style="padding:8px 12px;font-size:12px;">
@@ -123,7 +129,7 @@
                                 </span>
                                 {% else %}
                                 <form method="POST" action="/join_group/{{ group.id }}">
-                                    <button type="submit" class="btn btn-success btn-sm">
+                                    <button type="submit" class="btn btn-primary btn-sm" style="width:100%;justify-content:center;">
                                         <i class="fas fa-plus-circle"></i>
                                         {% if group.is_public %}Подписаться{% else %}Подать заявку{% endif %}
                                     </button>
@@ -182,65 +188,6 @@
                     </button>
                 </div>
             </form>
-        </div>
-    </div>
-
-    <!-- Модальное окно приглашения -->
-    <div id="inviteModal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:1000;overflow-y:auto;">
-        <div style="position:relative;background:var(--bg-card);margin:50px auto;padding:30px;width:90%;max-width:600px;border-radius:var(--radius-xl);border-top:3px solid var(--amber-400);box-shadow:var(--shadow-lg);">
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;padding-bottom:16px;border-bottom:1px solid var(--border-light);">
-                <h3 style="font-family:var(--font-display);font-size:16px;margin:0;">
-                    <i class="fas fa-user-plus" style="color:var(--amber-500);"></i>
-                    Пригласить в группу <span id="inviteGroupName" style="color:var(--amber-600);"></span>
-                </h3>
-                <button onclick="closeInviteModal()" style="background:none;border:none;font-size:24px;cursor:pointer;color:var(--text-muted);">×</button>
-            </div>
-
-            <div style="display:flex;gap:8px;margin-bottom:16px;border-bottom:1px solid var(--border-light);padding-bottom:12px;">
-                <button class="invite-tab active btn btn-secondary btn-sm" onclick="switchInviteTab('friends')">Друзья</button>
-                <button class="invite-tab btn btn-secondary btn-sm" onclick="switchInviteTab('link')">Ссылка-приглашение</button>
-            </div>
-
-            <!-- Вкладка друзья -->
-            <div id="inviteFriendsSection" class="invite-section" style="display:block;">
-                <input type="text" class="form-control" id="inviteSearch"
-                       placeholder="Поиск друзей..." onkeyup="filterFriends()" style="margin-bottom:12px;">
-                <div id="inviteFriendsList" style="max-height:320px;overflow-y:auto;border:1px solid var(--border-light);border-radius:var(--radius-md);padding:8px;">
-                    <div style="text-align:center;padding:20px;color:var(--text-muted);">
-                        <i class="fas fa-spinner fa-spin"></i> Загрузка...
-                    </div>
-                </div>
-                <div style="display:flex;justify-content:space-between;align-items:center;margin-top:16px;padding-top:12px;border-top:1px solid var(--border-light);">
-                    <span style="color:var(--text-muted);font-size:14px;">Выбрано: <strong id="inviteCounter">0</strong></span>
-                    <div style="display:flex;gap:8px;">
-                        <button class="btn btn-primary btn-sm" onclick="sendInvitations()" id="sendInviteBtn" disabled>
-                            <i class="fas fa-paper-plane"></i> Отправить
-                        </button>
-                        <button class="btn btn-secondary btn-sm" onclick="closeInviteModal()">Закрыть</button>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Вкладка ссылка -->
-            <div id="inviteLinkSection" class="invite-section" style="display:none;">
-                <div style="background:var(--gray-50);border-radius:var(--radius-md);padding:16px;margin-bottom:16px;">
-                    <p style="font-size:13px;font-weight:700;color:var(--text-secondary);margin-bottom:8px;">
-                        <i class="fas fa-link" style="color:var(--amber-500);"></i> Ссылка для вступления
-                    </p>
-                    <div style="display:flex;gap:8px;">
-                        <input type="text" id="inviteLinkInput" class="form-control" readonly value="Загрузка...">
-                        <button class="btn btn-primary btn-sm" onclick="copyInviteLink()">
-                            <i class="fas fa-copy"></i> Копировать
-                        </button>
-                    </div>
-                    <p style="font-size:12px;color:var(--text-muted);margin-top:8px;">
-                        Отправьте эту ссылку друзьям — по ней они смогут вступить в группу.
-                    </p>
-                </div>
-                <div style="text-align:right;">
-                    <button class="btn btn-secondary btn-sm" onclick="closeInviteModal()">Закрыть</button>
-                </div>
-            </div>
         </div>
     </div>
 
@@ -392,11 +339,15 @@
         function openCreateGroupModal() { document.getElementById('createGroupModal').style.display = 'block'; }
         function closeCreateGroupModal() { document.getElementById('createGroupModal').style.display = 'none'; }
 
-        document.getElementById('createGroupModal').addEventListener('click', function(e) {
-            if (e.target === this) closeCreateGroupModal();
-        });
-        document.getElementById('inviteModal').addEventListener('click', function(e) {
-            if (e.target === this) closeInviteModal();
+        document.addEventListener('DOMContentLoaded', function() {
+            const createModal = document.getElementById('createGroupModal');
+            if (createModal) createModal.addEventListener('click', function(e) {
+                if (e.target === this) closeCreateGroupModal();
+            });
+            const invModal = document.getElementById('inviteModal');
+            if (invModal) invModal.addEventListener('click', function(e) {
+                if (e.target === this) closeInviteModal();
+            });
         });
         document.addEventListener('keydown', function(e) {
             if (e.key === 'Escape') { closeInviteModal(); closeCreateGroupModal(); }
@@ -418,6 +369,43 @@
                 e.preventDefault();
                 const s = document.querySelector('input[name="search"]');
                 if (s) s.focus();
+            }
+        });
+    </script>
+
+    <!-- Футер -->
+    <footer style="
+        margin-top:auto; padding:20px 24px;
+        border-top:1px solid var(--border-light);
+        background:var(--bg-card);
+        text-align:center;
+        font-size:13px;
+        color:var(--text-muted);">
+        <div style="max-width:1200px; margin:0 auto; display:flex; align-items:center; justify-content:center; gap:20px; flex-wrap:wrap;">
+            <span style="font-family:var(--font-display);font-size:13px;background:var(--accent-gradient);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;">LinkA</span>
+            <span style="color:var(--border-medium);">·</span>
+            <a href="/faq" style="color:var(--text-muted);font-weight:600;transition:color 0.2s;" onmouseover="this.style.color='var(--amber-600)'" onmouseout="this.style.color='var(--text-muted)'">
+                <i class="fas fa-question-circle"></i> FAQ
+            </a>
+            <span style="color:var(--border-medium);">·</span>
+            <a href="/terms" style="color:var(--text-muted);font-weight:600;transition:color 0.2s;" onmouseover="this.style.color='var(--amber-600)'" onmouseout="this.style.color='var(--text-muted)'">
+                <i class="fas fa-file-alt"></i> Соглашение
+            </a>
+            <span style="color:var(--border-medium);">·</span>
+            <span>© 2025 LinkA</span>
+        </div>
+    </footer>
+</body>
+
+    <script>
+        function toggleUserMenu() {
+            document.getElementById('userDropdown').classList.toggle('open');
+        }
+        document.addEventListener('click', function(e) {
+            const wrap = document.querySelector('.user-menu-wrap');
+            if (wrap && !wrap.contains(e.target)) {
+                const dd = document.getElementById('userDropdown');
+                if (dd) dd.classList.remove('open');
             }
         });
     </script>
