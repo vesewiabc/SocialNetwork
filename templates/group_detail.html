@@ -26,6 +26,15 @@
                         {% endif %}
                     </button>
                     <div class="user-dropdown" id="userDropdown">
+                        {% set _uinfo = current_user_info() %}
+                        {% if _uinfo %}
+                        <a href="/profile" style="text-decoration:none;color:inherit;display:block;padding:0;">
+                            <div class="user-dropdown-header">
+                                <div class="uname">{{ _uinfo.full_name }}</div>
+                                <div class="ulogin">@{{ _uinfo.username }}</div>
+                            </div>
+                        </a>
+                        {% endif %}
                         <a href="/settings">
                             <i class="fas fa-cog"></i> Настройки
                         </a>
@@ -41,15 +50,19 @@
 
     <div class="container">
         <div class="main-content">
-            <div class="sidebar-left">
+                        <div class="sidebar-left">
                 <h3>Меню</h3>
                 <ul>
-                    <li><a href="/profile"><i class="fas fa-user-circle"></i> Мой профиль</a></li>
-                    <li><a href="/friends"><i class="fas fa-users"></i> Друзья</a></li>
-                    <li><a href="/find_friends"><i class="fas fa-search"></i> Найти друзей</a></li>
-                    <li><a href="/my_posts"><i class="fas fa-newspaper"></i> Мои посты</a></li>
+                    <li><a href="/home"><i class="fas fa-home"></i> Лента</a></li>
+                    <li>
+                        <a href="/friends">
+                            <i class="fas fa-users"></i> Друзья
+                            {% if friend_requests_count and friend_requests_count > 0 %}
+                                <span style="background:var(--amber-400);color:#111;padding:2px 6px;border-radius:10px;font-size:12px;margin-left:4px;">{{ friend_requests_count }}</span>
+                            {% endif %}
+                        </a>
+                    </li>
                     <li><a href="/groups"><i class="fas fa-layer-group"></i> Группы</a></li>
-                    <li><a href="/home"><i class="fas fa-home"></i> Главная</a></li>
                 </ul>
             </div>
 
@@ -180,9 +193,43 @@
                                 <div id="media-preview" class="media-preview-container"></div>
                                 <small class="upload-info">До 10 файлов · Макс. 50 МБ каждый</small>
                             </div>
-                            <button type="submit" class="submit-post">
-                                <i class="fas fa-paper-plane"></i> Опубликовать
-                            </button>
+                            <div style="display:flex;align-items:center;justify-content:space-between;margin-top:4px;">
+                                <button type="submit" class="submit-post" style="margin:0;">
+                                    <i class="fas fa-paper-plane"></i> Опубликовать
+                                </button>
+                                {% set _gf = request.args.get('filter', 'all') %}
+                                <div style="position:relative;" id="groupFilterWrap">
+                                    <button type="button" onclick="toggleGroupFilter()"
+                                            style="display:inline-flex;align-items:center;gap:8px;padding:8px 14px;background:var(--bg-card);border:1px solid var(--border-light);border-radius:var(--radius-md);font-size:13px;font-weight:600;color:var(--text-primary);cursor:pointer;box-shadow:var(--shadow-sm);">
+                                        <i class="fas fa-filter" style="color:var(--amber-500);"></i>
+                                        <span id="groupFilterLabel">
+                                            {% if _gf == 'popular' %}Популярные
+                                            {% elif _gf == 'mine' %}Мои посты
+                                            {% else %}Все посты
+                                            {% endif %}
+                                        </span>
+                                        <i class="fas fa-chevron-down" style="font-size:11px;color:var(--text-muted);"></i>
+                                    </button>
+                                    <div id="groupFilterDropdown"
+                                         style="display:none;position:absolute;right:0;top:calc(100% + 6px);background:var(--bg-card);border:1px solid var(--border-light);border-radius:var(--radius-lg);box-shadow:var(--shadow-lg);min-width:170px;z-index:50;overflow:hidden;">
+                                        <a href="?filter=all"
+                                           class="filter-item{% if _gf == 'all' or _gf == '' %} filter-active{% endif %}"
+                                           style="display:flex;align-items:center;gap:10px;padding:10px 16px;font-size:13px;font-weight:600;text-decoration:none;">
+                                            <i class="fas fa-globe" style="width:16px;color:var(--amber-500);"></i> Все посты
+                                        </a>
+                                        <a href="?filter=popular"
+                                           class="filter-item{% if _gf == 'popular' %} filter-active{% endif %}"
+                                           style="display:flex;align-items:center;gap:10px;padding:10px 16px;font-size:13px;font-weight:600;text-decoration:none;">
+                                            <i class="fas fa-fire" style="width:16px;color:var(--amber-500);"></i> Популярные
+                                        </a>
+                                        <a href="?filter=mine"
+                                           class="filter-item{% if _gf == 'mine' %} filter-active{% endif %}"
+                                           style="display:flex;align-items:center;gap:10px;padding:10px 16px;font-size:13px;font-weight:600;text-decoration:none;">
+                                            <i class="fas fa-user" style="width:16px;color:var(--amber-500);"></i> Мои посты
+                                        </a>
+                                    </div>
+                                </div>
+                            </div>
                         </form>
                     </div>
                     {% elif is_member and not can_post %}
@@ -880,6 +927,18 @@
 </body>
 
     <script>
+        function toggleGroupFilter() {
+            const dd = document.getElementById('groupFilterDropdown');
+            dd.style.display = dd.style.display === 'none' ? 'block' : 'none';
+        }
+        document.addEventListener('click', function(e) {
+            const wrap = document.getElementById('groupFilterWrap');
+            if (wrap && !wrap.contains(e.target)) {
+                const dd = document.getElementById('groupFilterDropdown');
+                if (dd) dd.style.display = 'none';
+            }
+        });
+
         function toggleUserMenu() {
             document.getElementById('userDropdown').classList.toggle('open');
         }

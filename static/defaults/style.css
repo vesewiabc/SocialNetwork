@@ -205,8 +205,8 @@ header, .header {
   position: sticky;
   top: 80px;
   border: 1px solid var(--border-light);
-  position: relative;
   overflow: hidden;
+  align-self: start;
 }
 .sidebar-left::before {
   content: '';
@@ -292,6 +292,24 @@ header, .header {
 }
 
 /* Уведомление о заявках в друзья */
+.read-more-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: none;
+  border: none;
+  color: var(--amber-600);
+  font-family: var(--font-body);
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  padding: 4px 0;
+  margin-top: 4px;
+  transition: color var(--transition);
+}
+.read-more-btn:hover { color: var(--amber-700); }
+.read-more-btn i { font-size: 11px; }
+
 .friend-requests-notification {
   background: var(--amber-50);
   border: 1px solid var(--amber-200);

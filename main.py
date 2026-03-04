@@ -15,7 +15,7 @@ import asyncio
 import logging
 
 # ======================== НАСТРОЙКИ TELEGRAM БОТА ========================
-BOT_TOKEN = "8542566873:AAEv0blT0YqBUAxpsl9-eqlzQjrEHtELXFk"        # <-- вставь токен от @BotFather
+BOT_TOKEN = "8542566873:AAGCjyU1Q5IM4tip_MC77Jt43lHh8eK7Bbk"  # <-- вставь токен от @BotFather
 BOT_USERNAME = "LinkA_2FA_Bot"  # <-- username бота без @, например: my2fa_bot
 # =========================================================================
 
@@ -46,9 +46,10 @@ app = Flask(__name__)
 app.secret_key = "123"
 
 # Настройки для загрузки файлов
-UPLOAD_FOLDER = 'static/uploads/avatars'
-GROUP_UPLOAD_FOLDER = 'static/uploads/groups'
-POST_MEDIA_FOLDER = 'static/uploads/posts'
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+UPLOAD_FOLDER = os.path.join(BASE_DIR, 'static', 'uploads', 'avatars')
+GROUP_UPLOAD_FOLDER = os.path.join(BASE_DIR, 'static', 'uploads', 'groups')
+POST_MEDIA_FOLDER = os.path.join(BASE_DIR, 'static', 'uploads', 'posts')
 ALLOWED_IMAGE_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'webp'}
 ALLOWED_VIDEO_EXTENSIONS = {'mp4', 'avi', 'mov', 'wmv', 'mkv', 'webm'}
 ALLOWED_DOCUMENT_EXTENSIONS = {'pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'txt', 'zip', 'rar', '7z'}
@@ -553,10 +554,33 @@ def utility_processor():
             pass
         return None
 
+    def get_current_user_info():
+        """Возвращает имя и юзернейм текущего пользователя для шапки"""
+        user_id = session.get('user_id')
+        if not user_id:
+            return None
+        try:
+            conn = sqlite3.connect('users.db')
+            cursor = conn.cursor()
+            cursor.execute("""
+                SELECT u.username, p.full_name
+                FROM users u
+                LEFT JOIN user_profiles p ON p.user_id = u.id
+                WHERE u.id = ?
+            """, (user_id,))
+            row = cursor.fetchone()
+            conn.close()
+            if row:
+                return {'username': row[0], 'full_name': row[1] or row[0]}
+        except:
+            pass
+        return None
+
     return {
         'datetime_format': format_datetime,
         'default_avatar': get_default_avatar,
-        'current_user_avatar': get_current_user_avatar
+        'current_user_avatar': get_current_user_avatar,
+        'current_user_info': get_current_user_info
     }
 
 
@@ -670,6 +694,7 @@ def edit_post(post_id):
     conn.close()
     return render_template('edit_post.html', post=dict(post))
 
+
 @app.route('/faq')
 def faq():
     """Страница часто задаваемых вопросов"""
@@ -678,6 +703,7 @@ def faq():
 
     username = session.get('username', 'Пользователь')
     return render_template('faq.html', username=username)
+
 
 @app.route('/delete_post_route/<int:post_id>', methods=['POST'])
 def delete_post_route(post_id):
@@ -823,7 +849,7 @@ def add_comment(post_id):
 
         # Получаем общее количество комментариев
         comments_count = \
-        conn.execute('SELECT COUNT(*) as count FROM comments WHERE post_id = ?', (post_id,)).fetchone()['count']
+            conn.execute('SELECT COUNT(*) as count FROM comments WHERE post_id = ?', (post_id,)).fetchone()['count']
 
         conn.commit()
         conn.close()
@@ -872,7 +898,7 @@ def delete_comment(comment_id):
 
         # Получаем новое количество комментариев
         comments_count = \
-        conn.execute('SELECT COUNT(*) as count FROM comments WHERE post_id = ?', (post_id,)).fetchone()['count']
+            conn.execute('SELECT COUNT(*) as count FROM comments WHERE post_id = ?', (post_id,)).fetchone()['count']
 
         conn.commit()
         conn.close()
@@ -1552,7 +1578,8 @@ def home():
             if import_counter % 5 == 0:
                 import_news_to_db()
 
-        feed_items = get_news_feed_with_media(user_id, limit=20)
+        filter_type = request.args.get('filter', 'all')
+        feed_items = get_news_feed_with_media(user_id, limit=20, filter_type=filter_type)
         print(f"Получено {len(feed_items)} элементов в ленте")
 
     except Exception as e:
@@ -1596,6 +1623,63 @@ def import_news_route():
     except Exception as e:
         print(f"Ошибка при ручном импорте новостей: {e}")
         return jsonify({'success': False, 'message': str(e)[:100]})
+
+
+@app.route('/news_preview', methods=['POST'])
+def news_preview():
+    """Получить краткое содержание статьи по URL"""
+    if 'user_id' not in session:
+        return jsonify({'success': False}), 401
+    try:
+        data = request.get_json()
+        url = data.get('url', '')
+        if not url or not url.startswith('http'):
+            return jsonify({'success': False, 'text': ''})
+
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+            'Accept-Language': 'ru-RU,ru;q=0.9',
+        }
+        resp = requests.get(url, headers=headers, timeout=10)
+        resp.encoding = 'utf-8'
+        html = resp.text
+
+        # Убираем скрипты и стили
+        html = re.sub(r'<script[^>]*>.*?</script>', '', html, flags=re.DOTALL)
+        html = re.sub(r'<style[^>]*>.*?</style>', '', html, flags=re.DOTALL)
+
+        # Пробуем найти основной текст статьи
+        text = ''
+        patterns = [
+            r'<article[^>]*>(.*?)</article>',
+            r'<div[^>]*class="[^"]*article[^"]*"[^>]*>(.*?)</div>',
+            r'<div[^>]*class="[^"]*content[^"]*"[^>]*>(.*?)</div>',
+            r'<div[^>]*class="[^"]*text[^"]*"[^>]*>(.*?)</div>',
+        ]
+        for pat in patterns:
+            m = re.search(pat, html, re.DOTALL | re.IGNORECASE)
+            if m:
+                raw = re.sub(r'<[^>]+>', ' ', m.group(1))
+                raw = re.sub(r'\s+', ' ', raw).strip()
+                if len(raw) > 100:
+                    text = raw
+                    break
+
+        # Фолбэк — берём параграфы
+        if not text:
+            paras = re.findall(r'<p[^>]*>(.*?)</p>', html, re.DOTALL | re.IGNORECASE)
+            combined = ' '.join(re.sub(r'<[^>]+>', ' ', p) for p in paras)
+            combined = re.sub(r'\s+', ' ', combined).strip()
+            text = combined
+
+        # Берём первые ~400 символов
+        if len(text) > 400:
+            text = text[:400].rsplit(' ', 1)[0] + '...'
+
+        return jsonify({'success': True, 'text': text or 'Не удалось загрузить содержание статьи.'})
+    except Exception as e:
+        print(f"Ошибка news_preview: {e}")
+        return jsonify({'success': False, 'text': 'Не удалось загрузить статью.'})
 
 
 @app.route('/profile')
@@ -1833,7 +1917,12 @@ def add_friend(friend_id):
         elif status == 'accepted':
             flash('Этот пользователь уже у вас в друзьях', 'info')
         elif status == 'rejected':
-            flash('Заявка была отклонена ранее', 'info')
+            # Разрешаем отправить заявку заново
+            conn.execute('''
+                UPDATE friendships SET status = 'pending', sender_id = ?, receiver_id = ?
+                WHERE id = ?
+            ''', (user_id, friend_id, existing_request['id']))
+            flash('Заявка в друзья отправлена повторно!', 'success')
     else:
         # Отправляем новую заявку
         conn.execute('''
@@ -2029,12 +2118,11 @@ def remove_friend(friend_id):
     user_id = session['user_id']
     conn = get_db_connection()
 
-    # Удаляем запись о дружбе
+    # Удаляем запись о дружбе (любой статус)
     conn.execute('''
         DELETE FROM friendships 
-        WHERE ((sender_id = ? AND receiver_id = ?) 
-        OR (sender_id = ? AND receiver_id = ?)) 
-        AND status = 'accepted'
+        WHERE (sender_id = ? AND receiver_id = ?) 
+        OR (sender_id = ? AND receiver_id = ?)
     ''', (user_id, friend_id, friend_id, user_id))
 
     conn.commit()
@@ -2473,7 +2561,8 @@ def leave_group(group_id):
 
     try:
         group = conn.execute('SELECT creator_id, name FROM groups WHERE id = ?', (group_id,)).fetchone()
-        membership = conn.execute('SELECT role FROM group_members WHERE group_id = ? AND user_id = ?', (group_id, user_id)).fetchone()
+        membership = conn.execute('SELECT role FROM group_members WHERE group_id = ? AND user_id = ?',
+                                  (group_id, user_id)).fetchone()
 
         # Если пользователь — администратор группы, удаляем группу целиком
         if membership and membership['role'] == 'admin':
@@ -4534,7 +4623,7 @@ def get_user_stats():
     })
 
 
-def get_news_feed_with_media(user_id=None, limit=20):
+def get_news_feed_with_media(user_id=None, limit=20, filter_type='all'):
     """Получение ленты новостей с медиафайлами"""
     conn = get_db_connection()
 
@@ -4545,15 +4634,31 @@ def get_news_feed_with_media(user_id=None, limit=20):
         # Получаем посты пользователей
         if user_id:
             try:
-                user_posts_rows = conn.execute('''
+                # Build query based on filter
+                if filter_type == 'mine':
+                    filter_clause = 'WHERE p.user_id = :uid'
+                    filter_params = {'uid': user_id}
+                elif filter_type == 'friends':
+                    filter_clause = '''WHERE p.user_id != :uid
+                        AND p.user_id IN (
+                            SELECT CASE WHEN sender_id = :uid THEN receiver_id ELSE sender_id END
+                            FROM friendships WHERE (sender_id = :uid OR receiver_id = :uid) AND status = 'accepted'
+                        )'''
+                    filter_params = {'uid': user_id}
+                else:
+                    filter_clause = ''
+                    filter_params = {}
+
+                user_posts_rows = conn.execute(f'''
                     SELECT p.*, u.username,
                            (SELECT COUNT(*) FROM post_likes WHERE post_id = p.id) as likes_count,
                            (SELECT COUNT(*) FROM comments WHERE post_id = p.id) as comments_count
                     FROM posts p
                     JOIN users u ON p.user_id = u.id
+                    {filter_clause}
                     ORDER BY p.created_at DESC
                     LIMIT 20
-                ''').fetchall()
+                ''', filter_params).fetchall()
 
                 if user_posts_rows:
                     user_posts = rows_to_dicts(user_posts_rows)
@@ -4637,12 +4742,13 @@ def get_news_feed_with_media(user_id=None, limit=20):
             post['media_files'] = []
         all_feed.append(post)
 
-    # Добавляем новости
-    for news in imported_news:
-        news['type'] = 'news'
-        if 'media_files' not in news:
-            news['media_files'] = []
-        all_feed.append(news)
+    # Добавляем новости (только при фильтре 'all')
+    if filter_type == 'all':
+        for news in imported_news:
+            news['type'] = 'news'
+            if 'media_files' not in news:
+                news['media_files'] = []
+            all_feed.append(news)
 
     # Сортировка
     try:
@@ -5142,7 +5248,6 @@ def view_document(media_id):
     return page_html
 
 
-
 @app.route('/view_document_content/<int:media_id>')
 def view_document_content(media_id):
     """Возвращает только HTML-содержимое документа для показа в модальном окне"""
@@ -5198,7 +5303,10 @@ if __name__ == '__main__':
     create_tables()
 
     # Запускаем Telegram-бота в фоновом потоке
-    bot_thread = threading.Thread(target=run_telegram_bot, daemon=True)
-    bot_thread.start()
+    import os
 
-    app.run(debug=True, host='0.0.0.0', port=5555)
+    if not app.debug or os.environ.get('WERKZEUG_RUN_MAIN') == 'true':
+        bot_thread = threading.Thread(target=run_telegram_bot, daemon=True)
+        bot_thread.start()
+
+    app.run(debug=True, host='0.0.0.0', port=5555, use_reloader=False)
