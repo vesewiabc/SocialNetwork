@@ -2751,6 +2751,68 @@ def group_detail(group_id):
                            pending_requests=pending_requests,
                            pending_requests_count=pending_requests_count)
 
+@app.route('/news')
+def news_page():
+    """Страница со всеми новостями"""
+    if 'user_id' not in session:
+        return redirect('/login')
+
+    user_id = session['user_id']
+    
+    # Получаем параметры фильтрации
+    page = request.args.get('page', 1, type=int)
+    filter_type = request.args.get('filter', 'all')
+    search_query = request.args.get('search', '').strip()
+    
+    per_page = 12  # Новостей на странице
+    
+    conn = get_db_connection()
+    
+    # Базовый запрос
+    query = "SELECT *, 'news' as type FROM imported_news"
+    params = []
+    
+    # Применяем фильтры
+    if filter_type == 'today':
+        query += " WHERE DATE(published) = DATE('now')"
+    elif filter_type == 'week':
+        query += " WHERE published >= DATE('now', '-7 days')"
+    elif filter_type == 'ria':
+        query += " WHERE source LIKE '%RIA%'"
+    elif filter_type == 'lenta':
+        query += " WHERE source LIKE '%Lenta%'"
+    
+    # Поиск по заголовку и описанию
+    if search_query:
+        if 'WHERE' in query:
+            query += " AND"
+        else:
+            query += " WHERE"
+        query += " (title LIKE ? OR description LIKE ?)"
+        params.extend([f'%{search_query}%', f'%{search_query}%'])
+    
+    # Получаем общее количество для пагинации
+    count_query = query.replace("SELECT *, 'news' as type", "SELECT COUNT(*) as count")
+    total = conn.execute(count_query, params).fetchone()['count']
+    total_pages = (total + per_page - 1) // per_page
+    
+    # Добавляем сортировку и пагинацию
+    query += " ORDER BY published DESC LIMIT ? OFFSET ?"
+    params.extend([per_page, (page - 1) * per_page])
+    
+    # Получаем новости
+    news_rows = conn.execute(query, params).fetchall()
+    news_items = rows_to_dicts(news_rows)
+    
+    conn.close()
+    
+    return render_template('news.html',
+                         news_items=news_items,
+                         current_page=page,
+                         total_pages=total_pages,
+                         current_filter=filter_type,
+                         search_query=search_query,
+                         now=datetime.now)
 
 @app.route('/group/<int:group_id>/create_post', methods=['POST'])
 def create_group_post(group_id):

@@ -1,0 +1,930 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Главная - Социальная сеть</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='defaults/style.css') }}">
+    
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link rel="icon" type="image/png" href="{{ url_for('static', filename='uploads/favicon.png') }}">
+
+    <style>
+        /* Общие стили */
+        :root {
+            --news-primary: #f59e0b;
+            --news-secondary: #e47900;
+            --news-accent: #f59e0b;
+            --news-bg: #f8fafc;
+            --news-card-bg: #ffffff;
+            --news-border: #e2e8f0;
+            --news-text: #1e293b;
+            --news-text-light: #64748b;
+            --news-hover: #f59e0b;
+        }
+
+        /* Стили для страницы новостей */
+        .news-page {
+            background: var(--news-bg);
+            min-height: 100vh;
+        }
+
+        .news-header {
+            background: linear-gradient(135deg, var(--news-primary) 0%, var(--news-secondary) 100%);
+            color: white;
+            padding: 40px 0;
+            margin-bottom: 30px;
+            border-radius: 0 0 20px 20px;
+            box-shadow: 0 4px 20px rgba(37, 99, 235, 0.3);
+        }
+
+        .news-header-content {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 20px;
+        }
+
+        .news-header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            font-weight: 700;
+        }
+
+        .news-header p {
+            font-size: 1.1rem;
+            opacity: 0.9;
+            margin-bottom: 20px;
+        }
+
+        .news-stats {
+            display: flex;
+            gap: 30px;
+            margin-top: 20px;
+        }
+
+        .news-stat {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            background: rgba(255, 255, 255, 0.2);
+            padding: 8px 16px;
+            border-radius: 30px;
+            font-size: 0.9rem;
+        }
+
+        .news-stat i {
+            font-size: 1rem;
+        }
+
+        /* Фильтры и поиск */
+        .news-filters {
+            background: var(--news-card-bg);
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 30px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+            border: 1px solid var(--news-border);
+        }
+
+        .filter-tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+
+        .filter-tab {
+            padding: 8px 16px;
+            border-radius: 30px;
+            background: var(--news-hover);
+            color: var(--news-text);
+            cursor: pointer;
+            transition: all 0.2s;
+            border: 1px solid var(--news-border);
+            font-size: 0.9rem;
+        }
+
+        .filter-tab:hover {
+            background: var(--news-primary);
+            color: white;
+            border-color: var(--news-primary);
+        }
+
+        .filter-tab.active {
+            background: var(--news-primary);
+            color: white;
+            border-color: var(--news-primary);
+        }
+
+        .search-box {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        .search-box input {
+            flex: 1;
+            padding: 10px 15px;
+            border: 1px solid var(--news-border);
+            border-radius: 30px;
+            font-size: 0.95rem;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+
+        .search-box input:focus {
+            border-color: var(--news-primary);
+            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+        }
+
+        .search-box button {
+            background: var(--news-primary);
+            color: white;
+            border: none;
+            padding: 10px 25px;
+            border-radius: 30px;
+            cursor: pointer;
+            font-weight: 500;
+            transition: background 0.2s;
+        }
+
+        .search-box button:hover {
+            background: var(--news-secondary);
+        }
+
+        /* Сетка новостей */
+        .news-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+            gap: 25px;
+            margin-bottom: 40px;
+        }
+
+        .news-card {
+            background: var(--news-card-bg);
+            border-radius: 16px;
+            overflow: hidden;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+            transition: transform 0.3s, box-shadow 0.3s;
+            border: 1px solid var(--news-border);
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+        }
+
+        .news-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 24px rgba(37, 99, 235, 0.15);
+        }
+
+        .news-card-image {
+            height: 200px;
+            background: linear-gradient(135deg, var(--news-primary), var(--news-secondary));
+            position: relative;
+            overflow: hidden;
+        }
+
+        .news-card-image img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .news-card-image .image-placeholder {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: linear-gradient(135deg, #f59e0b 0%, rgb(240, 128, 0) 100%);
+            color: white;
+            font-size: 3rem;
+        }
+
+        .news-source-badge {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            background: rgba(0, 0, 0, 0.7);
+            color: white;
+            padding: 5px 12px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 500;
+            backdrop-filter: blur(4px);
+        }
+
+        .news-card-content {
+            padding: 20px;
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .news-card-title {
+            font-size: 1.2rem;
+            font-weight: 600;
+            color: var(--news-text);
+            margin-bottom: 10px;
+            line-height: 1.4;
+        }
+
+        .news-card-title a {
+            color: inherit;
+            text-decoration: none;
+        }
+
+        .news-card-title a:hover {
+            color: var(--news-primary);
+        }
+
+        .news-card-description {
+            color: var(--news-text-light);
+            font-size: 0.95rem;
+            line-height: 1.6;
+            margin-bottom: 15px;
+            flex: 1;
+        }
+
+        .news-card-meta {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-top: auto;
+            padding-top: 15px;
+            border-top: 1px solid var(--news-border);
+            font-size: 0.85rem;
+        }
+
+        .news-card-date {
+            color: var(--news-text-light);
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .news-card-date i {
+            font-size: 0.8rem;
+        }
+
+        .news-card-actions {
+            display: flex;
+            gap: 10px;
+        }
+
+        .news-card-actions button {
+            background: none;
+            border: none;
+            color: var(--news-text-light);
+            cursor: pointer;
+            transition: color 0.2s;
+            padding: 5px;
+        }
+
+        .news-card-actions button:hover {
+            color: var(--news-primary);
+        }
+
+        .news-card-actions .share-btn:hover {
+            color: var(--news-accent);
+        }
+
+        .read-more {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            color: var(--news-primary);
+            text-decoration: none;
+            font-weight: 500;
+            font-size: 0.9rem;
+            transition: gap 0.2s;
+        }
+
+        .read-more:hover {
+            gap: 8px;
+            color: var(--news-secondary);
+        }
+
+        /* Крупная новость (первая) */
+        .news-card.featured {
+            grid-column: span 2;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+        }
+
+        .news-card.featured .news-card-image {
+            height: 100%;
+        }
+
+        .news-card.featured .news-card-title {
+            font-size: 1.5rem;
+        }
+
+        /* Пагинация */
+        .pagination {
+            display: flex;
+            justify-content: center;
+            gap: 8px;
+            margin: 40px 0;
+        }
+
+        .pagination-item {
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 8px;
+            background: white;
+            color: var(--news-text);
+            text-decoration: none;
+            border: 1px solid var(--news-border);
+            transition: all 0.2s;
+        }
+
+        .pagination-item:hover {
+            background: var(--news-hover);
+            border-color: var(--news-primary);
+        }
+
+        .pagination-item.active {
+            background: var(--news-primary);
+            color: white;
+            border-color: var(--news-primary);
+        }
+
+        .pagination-item.disabled {
+            opacity: 0.5;
+            pointer-events: none;
+        }
+
+        /* Загрузчик */
+        .news-loader {
+            text-align: center;
+            padding: 40px;
+            color: var(--news-text-light);
+        }
+
+        .news-loader i {
+            font-size: 2rem;
+            margin-bottom: 10px;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* Пустое состояние */
+        .empty-news {
+            text-align: center;
+            padding: 60px 20px;
+            background: white;
+            border-radius: 16px;
+            border: 1px solid var(--news-border);
+        }
+
+        .empty-news i {
+            font-size: 4rem;
+            color: var(--news-text-light);
+            margin-bottom: 20px;
+        }
+
+        .empty-news h3 {
+            font-size: 1.5rem;
+            color: var(--news-text);
+            margin-bottom: 10px;
+        }
+
+        .empty-news p {
+            color: var(--news-text-light);
+            margin-bottom: 20px;
+        }
+
+        .refresh-btn {
+            background: var(--news-primary);
+            color: white;
+            border: none;
+            padding: 12px 30px;
+            border-radius: 30px;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: background 0.2s;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .refresh-btn:hover {
+            background: var(--news-secondary);
+        }
+
+        /* Модальное окно для предпросмотра */
+        .news-modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.8);
+            overflow-y: auto;
+        }
+
+        .news-modal-content {
+            background: white;
+            margin: 50px auto;
+            padding: 30px;
+            width: 90%;
+            max-width: 800px;
+            border-radius: 20px;
+            position: relative;
+            animation: slideDown 0.3s ease;
+        }
+
+        @keyframes slideDown {
+            from {
+                transform: translateY(-50px);
+                opacity: 0;
+            }
+            to {
+                transform: translateY(0);
+                opacity: 1;
+            }
+        }
+
+        .close-modal {
+            position: absolute;
+            right: 25px;
+            top: 20px;
+            color: #666;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: color 0.2s;
+        }
+
+        .close-modal:hover {
+            color: var(--news-primary);
+        }
+
+        .modal-header {
+            margin-bottom: 20px;
+            padding-bottom: 20px;
+            border-bottom: 2px solid var(--news-border);
+        }
+
+        .modal-header h2 {
+            font-size: 1.8rem;
+            color: var(--news-text);
+            margin-bottom: 10px;
+        }
+
+        .modal-meta {
+            display: flex;
+            gap: 20px;
+            color: var(--news-text-light);
+            font-size: 0.9rem;
+        }
+
+        .modal-body {
+            line-height: 1.8;
+            color: var(--news-text);
+        }
+
+        .modal-body p {
+            margin-bottom: 15px;
+        }
+
+        .modal-footer {
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 1px solid var(--news-border);
+            display: flex;
+            justify-content: flex-end;
+            gap: 15px;
+        }
+
+        .modal-footer a {
+            padding: 10px 20px;
+            border-radius: 8px;
+            text-decoration: none;
+            font-weight: 500;
+            transition: all 0.2s;
+        }
+
+        .modal-footer .read-full {
+            background: var(--news-primary);
+            color: white;
+        }
+
+        .modal-footer .read-full:hover {
+            background: var(--news-secondary);
+        }
+
+        .modal-footer .close-btn {
+            background: var(--news-hover);
+            color: var(--news-text);
+        }
+
+        .modal-footer .close-btn:hover {
+            background: var(--news-border);
+        }
+
+        /* Адаптивность */
+        @media (max-width: 768px) {
+            .news-header h1 {
+                font-size: 2rem;
+            }
+            
+            .news-stats {
+                flex-wrap: wrap;
+                gap: 10px;
+            }
+            
+            .news-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .news-card.featured {
+                grid-column: span 1;
+                grid-template-columns: 1fr;
+            }
+            
+            .filter-tabs {
+                justify-content: center;
+            }
+            
+            .search-box {
+                flex-direction: column;
+            }
+            
+            .search-box button {
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+<body class="news-page">
+    <header>
+        <div class="container">
+            <div class="header-content">
+                <div class="logo">LinkA</div>
+                <div class="user-menu-wrap">
+                    <button class="user-menu-btn" onclick="toggleUserMenu()" aria-label="Меню пользователя">
+                        {% set _avatar = current_user_avatar() %}
+                        {% if _avatar %}
+                            <img src="{{ url_for('static', filename='uploads/avatars/' + _avatar) }}"
+                                 onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';"
+                                 alt="Аватар">
+                            <i class="fas fa-user" style="display:none;"></i>
+                        {% else %}
+                            <i class="fas fa-user"></i>
+                        {% endif %}
+                    </button>
+                    <div class="user-dropdown" id="userDropdown">
+                        {% set _uinfo = current_user_info() %}
+                        {% if _uinfo %}
+                        <a href="/profile" style="text-decoration:none;color:inherit;display:block;padding:0;">
+                            <div class="user-dropdown-header">
+                                <div class="uname">{{ _uinfo.full_name }}</div>
+                                <div class="ulogin">@{{ _uinfo.username }}</div>
+                            </div>
+                        </a>
+                        {% endif %}
+                        <a href="/settings">
+                            <i class="fas fa-cog"></i> Настройки
+                        </a>
+                        <div class="divider"></div>
+                        <a href="/logout" class="logout-item">
+                            <i class="fas fa-sign-out-alt"></i> Выйти
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Шапка новостей -->
+    <div class="news-header">
+        <div class="news-header-content">
+            <h1><i class="fas fa-newspaper"></i> Новости</h1>
+            <p>Актуальные события из мира технологий, науки, спорта и не только</p>
+            <div class="news-stats">
+                <div class="news-stat">
+                    <i class="fas fa-clock"></i>
+                    <span>Обновлено: {{ now().strftime('%H:%M, %d.%m.%Y') }}</span>
+                </div>
+                <div class="news-stat">
+                    <i class="fas fa-rss"></i>
+                    <span>Источники: RIA.ru, Lenta.ru</span>
+                </div>
+                <div class="news-stat">
+                    <i class="fas fa-sync-alt"></i>
+                    <span>Автообновление каждые 30 мин</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="container">
+        <!-- Фильтры и поиск -->
+        <div class="news-filters">
+            <div class="filter-tabs">
+                <span class="filter-tab {% if current_filter == 'all' %}active{% endif %}" onclick="filterNews('all')">
+                    <i class="fas fa-globe"></i> Все новости
+                </span>
+                <span class="filter-tab {% if current_filter == 'today' %}active{% endif %}" onclick="filterNews('today')">
+                    <i class="fas fa-calendar-day"></i> За сегодня
+                </span>
+                <span class="filter-tab {% if current_filter == 'week' %}active{% endif %}" onclick="filterNews('week')">
+                    <i class="fas fa-calendar-week"></i> За неделю
+                </span>
+                <span class="filter-tab {% if current_filter == 'ria' %}active{% endif %}" onclick="filterNews('ria')">
+                    <i class="fas fa-newspaper"></i> RIA.ru
+                </span>
+                <span class="filter-tab {% if current_filter == 'lenta' %}active{% endif %}" onclick="filterNews('lenta')">
+                    <i class="fas fa-newspaper"></i> Lenta.ru
+                </span>
+                <span class="filter-tab {% if current_filter == 'popular' %}active{% endif %}" onclick="filterNews('popular')">
+                    <i class="fas fa-fire"></i> Популярные
+                </span>
+            </div>
+
+            <div class="search-box">
+                <input type="text" id="searchInput" placeholder="Поиск по новостям..." value="{{ search_query or '' }}">
+                <button onclick="searchNews()"><i class="fas fa-search"></i> Найти</button>
+                <button onclick="refreshNews()" style="background: var(--news-secondary);" title="Обновить">
+                    <i class="fas fa-sync-alt"></i>
+                </button>
+            </div>
+        </div>
+
+        <!-- Загрузчик (показывается при обновлении) -->
+        <div id="newsLoader" class="news-loader" style="display: none;">
+            <i class="fas fa-spinner"></i>
+            <p>Загружаем свежие новости...</p>
+        </div>
+
+        <!-- Сетка новостей -->
+        <div id="newsGrid" class="news-grid">
+            {% if news_items and news_items|length > 0 %}
+                {% for news in news_items %}
+                    <div class="news-card {% if loop.first %}featured{% endif %}" data-source="{{ news.source|lower }}" data-date="{{ news.published }}">
+                        <div class="news-card-image">
+                            {% if news.image %}
+                                <img src="{{ news.image }}" alt="{{ news.title }}" onerror="this.style.display='none';this.nextElementSibling.style.display='flex';">
+                                <div class="image-placeholder" style="display:none;">
+                                    <i class="fas fa-newspaper"></i>
+                                </div>
+                            {% else %}
+                                <div class="image-placeholder">
+                                    <i class="fas fa-newspaper"></i>
+                                </div>
+                            {% endif %}
+                            <span class="news-source-badge">{{ news.source or 'Новости' }}</span>
+                        </div>
+                        <div class="news-card-content">
+                            <h3 class="news-card-title">
+                                <a href="{{ news.link }}" target="_blank">{{ news.title }}</a>
+                            </h3>
+                            <p class="news-card-description">
+                                {{ news.description[:200] }}{% if news.description|length > 200 %}...{% endif %}
+                            </p>
+                            <div class="news-card-meta">
+                                <span class="news-card-date">
+                                    <i class="far fa-calendar-alt"></i> {{ news.published|format_date }}
+                                </span>
+                                <div class="news-card-actions">
+                                    <button onclick="previewNews('{{ news.id }}')" title="Предпросмотр">
+                                        <i class="fas fa-eye"></i>
+                                    </button>
+                                    <button onclick="shareNews('{{ news.title }}', '{{ news.link }}')" class="share-btn" title="Поделиться">
+                                        <i class="fas fa-share-alt"></i>
+                                    </button>
+                                    <a href="{{ news.link }}" target="_blank" class="read-more">
+                                        Читать <i class="fas fa-arrow-right"></i>
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                {% endfor %}
+            {% else %}
+                <div class="empty-news" style="grid-column: 1/-1;">
+                    <i class="fas fa-newspaper"></i>
+                    <h3>Новостей пока нет</h3>
+                    <p>Нажмите кнопку обновления, чтобы загрузить свежие новости</p>
+                    <button onclick="refreshNews()" class="refresh-btn">
+                        <i class="fas fa-sync-alt"></i> Обновить новости
+                    </button>
+                </div>
+            {% endif %}
+        </div>
+
+        <!-- Пагинация -->
+        {% if total_pages > 1 %}
+        <div class="pagination">
+            <a href="?page={{ current_page-1 }}" class="pagination-item {% if current_page <= 1 %}disabled{% endif %}">
+                <i class="fas fa-chevron-left"></i>
+            </a>
+            
+            {% for p in range(1, total_pages + 1) %}
+                {% if p == current_page %}
+                    <span class="pagination-item active">{{ p }}</span>
+                {% elif p <= 3 or p > total_pages - 3 or (p >= current_page - 2 and p <= current_page + 2) %}
+                    <a href="?page={{ p }}{% if search_query %}&search={{ search_query }}{% endif %}{% if current_filter != 'all' %}&filter={{ current_filter }}{% endif %}" 
+                       class="pagination-item">{{ p }}</a>
+                {% elif p == 4 and current_page > 5 %}
+                    <span class="pagination-item">...</span>
+                {% elif p == total_pages - 3 and current_page < total_pages - 4 %}
+                    <span class="pagination-item">...</span>
+                {% endif %}
+            {% endfor %}
+            
+            <a href="?page={{ current_page+1 }}" class="pagination-item {% if current_page >= total_pages %}disabled{% endif %}">
+                <i class="fas fa-chevron-right"></i>
+            </a>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Модальное окно для предпросмотра новости -->
+    <div id="newsModal" class="news-modal">
+        <div class="news-modal-content">
+            <span class="close-modal" onclick="closeNewsModal()">&times;</span>
+            <div id="modalContent">
+                <!-- Контент загружается через AJAX -->
+                <div class="news-loader">
+                    <i class="fas fa-spinner"></i>
+                    <p>Загрузка...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Футер -->
+    <footer style="
+        margin-top: 60px;
+        padding: 20px 24px;
+        border-top: 1px solid var(--border-light);
+        background: var(--bg-card);
+        text-align: center;
+        font-size: 13px;
+        color: var(--text-muted);">
+        <div style="max-width:1200px; margin:0 auto; display:flex; align-items:center; justify-content:center; gap:20px; flex-wrap:wrap;">
+            <span style="font-family:var(--font-display);font-size:13px;background:var(--accent-gradient);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;">LinkA</span>
+            <span style="color:var(--border-medium);">·</span>
+            <a href="/faq" style="color:var(--text-muted);font-weight:600;transition:color 0.2s;" onmouseover="this.style.color='var(--amber-600)'" onmouseout="this.style.color='var(--text-muted)'">
+                <i class="fas fa-question-circle"></i> FAQ
+            </a>
+            <span style="color:var(--border-medium);">·</span>
+            <a href="/terms" style="color:var(--text-muted);font-weight:600;transition:color 0.2s;" onmouseover="this.style.color='var(--amber-600)'" onmouseout="this.style.color='var(--text-muted)'">
+                <i class="fas fa-file-alt"></i> Соглашение
+            </a>
+            <span style="color:var(--border-medium);">·</span>
+            <span>© 2025 LinkA</span>
+        </div>
+    </footer>
+
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script>
+        // Глобальные переменные
+        let currentFilter = '{{ current_filter or "all" }}';
+        let searchQuery = '{{ search_query or "" }}';
+        let currentPage = {{ current_page or 1 }};
+
+        // Функции для фильтрации
+        function filterNews(filter) {
+            currentFilter = filter;
+            currentPage = 1;
+            loadNews();
+        }
+
+        function searchNews() {
+            searchQuery = document.getElementById('searchInput').value;
+            currentPage = 1;
+            loadNews();
+        }
+
+        function refreshNews() {
+            // Показываем загрузчик
+            document.getElementById('newsLoader').style.display = 'block';
+            document.getElementById('newsGrid').style.opacity = '0.5';
+            
+            // Отправляем запрос на обновление
+            $.ajax({
+                url: '/import_news',
+                type: 'POST',
+                success: function(response) {
+                    if (response.success) {
+                        loadNews();
+                    } else {
+                        alert('Ошибка при обновлении новостей');
+                    }
+                },
+                error: function() {
+                    alert('Ошибка сервера');
+                },
+                complete: function() {
+                    document.getElementById('newsLoader').style.display = 'none';
+                    document.getElementById('newsGrid').style.opacity = '1';
+                }
+            });
+        }
+
+        function loadNews() {
+            const params = new URLSearchParams({
+                page: currentPage,
+                filter: currentFilter,
+                search: searchQuery
+            });
+            
+            window.location.href = `/news?${params.toString()}`;
+        }
+
+        // Функции для предпросмотра
+        function previewNews(newsId) {
+            const modal = document.getElementById('newsModal');
+            const modalContent = document.getElementById('modalContent');
+            
+            modal.style.display = 'block';
+            
+            // Загружаем содержимое новости
+            $.ajax({
+                url: `/news_preview`,
+                type: 'POST',
+                data: JSON.stringify({ news_id: newsId }),
+                contentType: 'application/json',
+                success: function(response) {
+                    if (response.success) {
+                        modalContent.innerHTML = response.html;
+                    } else {
+                        modalContent.innerHTML = '<div class="empty-news"><p>Не удалось загрузить новость</p></div>';
+                    }
+                },
+                error: function() {
+                    modalContent.innerHTML = '<div class="empty-news"><p>Ошибка загрузки</p></div>';
+                }
+            });
+        }
+
+        function closeNewsModal() {
+            document.getElementById('newsModal').style.display = 'none';
+        }
+
+        // Функция для шаринга
+        function shareNews(title, url) {
+            if (navigator.share) {
+                navigator.share({
+                    title: title,
+                    url: url
+                }).catch(console.error);
+            } else {
+                // Копируем ссылку в буфер обмена
+                navigator.clipboard.writeText(url).then(function() {
+                    alert('Ссылка скопирована в буфер обмена');
+                }, function() {
+                    alert('Нажмите Ctrl+C чтобы скопировать ссылку: ' + url);
+                });
+            }
+        }
+
+        // Функции для меню пользователя
+        function toggleUserMenu() {
+            document.getElementById('userDropdown').classList.toggle('open');
+        }
+        
+        document.addEventListener('click', function(e) {
+            const wrap = document.querySelector('.user-menu-wrap');
+            if (wrap && !wrap.contains(e.target)) {
+                const dd = document.getElementById('userDropdown');
+                if (dd) dd.classList.remove('open');
+            }
+        });
+
+        // Закрытие модального окна по ESC
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') {
+                closeNewsModal();
+            }
+        });
+
+        // Закрытие по клику вне модального окна
+        window.onclick = function(event) {
+            const modal = document.getElementById('newsModal');
+            if (event.target == modal) {
+                closeNewsModal();
+            }
+        }
+
+        // Автоматическое обновление каждые 30 минут
+        setInterval(function() {
+            refreshNews();
+        }, 30 * 60 * 1000);
+    </script>
+</body>
+</html>
