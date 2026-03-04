@@ -6,13 +6,10 @@
     <title>Главная - Социальная сеть</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <link rel="stylesheet" href="{{ url_for('static', filename='defaults/style.css') }}">
-    
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <link rel="icon" type="image/png" href="{{ url_for('static', filename='uploads/favicon.png') }}">
-
 </head>
 <body>
-        <header>
+    <header>
         <div class="container">
             <div class="header-content">
                 <div class="logo">LinkA</div>
@@ -50,7 +47,7 @@
                 <ul>
                     <li>
                         <a href="/profile">
-<i class="fas fa-user-circle"></i> Мой профиль
+                            <i class="fas fa-user-circle"></i> Мой профиль
                         </a>
                     </li>
                     <li>
@@ -78,11 +75,13 @@
                             <i class="fas fa-users"></i> Группы
                         </a>
                     </li>
-
+                    <li style="margin-bottom: 10px;">
+                        <a href="/groups">
+                            <i class="fas fa-users"></i> Группы
+                        </a>
+                    </li>
                 </ul>
 
-
-                
                 <!-- Уведомление о заявках в друзья -->
                 {% if friend_requests_count > 0 %}
                 <div class="friend-requests-notification">
@@ -102,26 +101,29 @@
             <!-- Основная лента -->
             <div class="feed">
                 <!-- Форма создания поста -->
-<div class="create-post">
-    <h3>Что у вас нового?</h3>
-    <form method="POST" action="/home" enctype="multipart/form-data">
-        <textarea name="content" placeholder="Поделитесь своими мыслями..."></textarea>
-        
-        <!-- Блок для загрузки медиафайлов -->
-        <div class="media-upload">
-            <label for="media-files" class="upload-btn">
-                <i class="fas fa-camera"></i> Фото/видео
-            </label>
-            <input type="file" id="media-files" name="media_files" multiple accept="image/*,video/*" style="display: none;">
-            <div id="file-preview" class="file-preview"></div>
-            <small class="upload-info">Максимум 50 МБ. Поддерживаются: JPG, PNG, GIF, MP4, AVI, MOV</small>
-        </div>
-        
-        <button type="submit" class="submit-post">
-            <i class="fas fa-paper-plane"></i> Опубликовать
-        </button>
-    </form>
-</div>
+                <div class="create-post">
+                    <h3>Что у вас нового?</h3>
+                    <form method="POST" action="/home" enctype="multipart/form-data" id="create-post-form">
+                        <textarea name="content" placeholder="Поделитесь своими мыслями..."></textarea>
+                        
+                        <!-- Блок для загрузки медиафайлов -->
+                        <div class="media-upload">
+                            <label for="media-files" class="upload-btn">
+                                <i class="fas fa-paperclip"></i> Добавить файлы
+                            </label>
+                            <input type="file" id="media-files" name="media_files" 
+                                   accept="image/*,video/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.zip,.rar,.7z"
+                                   multiple style="display: none;">
+                            <span id="files-count" style="margin-left:10px;font-size:13px;color:var(--text-muted);"></span>
+                            <div id="file-preview" class="media-preview-container"></div>
+                            <small class="upload-info">До 10 файлов · Макс. 50 МБ каждый</small>
+                        </div>
+                        
+                        <button type="submit" class="submit-post">
+                            <i class="fas fa-paper-plane"></i> Опубликовать
+                        </button>
+                    </form>
+                </div>
 
                 <div class="feed-controls">
                     <h3>Лента новостей</h3>
@@ -144,57 +146,116 @@
                 <!-- Лента постов и новостей -->
                 {% if feed_items and feed_items|length > 0 %}
                     {% for item in feed_items %}
-{% if item.type == 'post' %}
+                        {% if item.type == 'post' %}
                             <!-- Пост пользователя -->
                             <div class="post" id="post-{{ item.id }}">
-    <div class="post-header">
-        <div class="avatar">
-            {{ item.username[0].upper() if item.username and item.username|length > 0 else '?' }}
-        </div>
-        <div class="post-info">
-            <h4>
-                <a href="/post/{{ item.id }}" style="text-decoration: none; color: #1877f2">
-                    {{ item.username or 'Пользователь' }}
-                </a>
-            </h4>
-            <small>
-                {% if item.created_at %}
-                    {% if item.created_at is string %}
-                        {{ item.created_at[:16] }}
-                    {% else %}
-                        {{ item.created_at.strftime('%d.%m.%Y %H:%M') }}
-                    {% endif %}
-                {% else %}
-                    Дата неизвестна
-                {% endif %}
-            </small>
-        </div>
-    </div>
-    <div class="post-content">
-        {% set content = item.content or 'Пустой пост' %}
-        {% set words = content.split() %}
-        {% if words|length > 30 %}
-            <span class="post-short-text">{{ words[:30]|join(' ') }}...</span>
-            <span class="post-full-text" style="display:none;">{{ content }}</span>
-            <button class="read-more-btn" onclick="togglePostText(this)">
-                <i class="fas fa-chevron-down"></i> Читать полностью
-            </button>
-        {% else %}
-            {{ content }}
-        {% endif %}
-    </div>
-    <div class="post-actions">
- 
-        <button class="action-btn like-btn" onclick="likePost({{ item.id }}, this)">
-            <i class="far fa-thumbs-up"></i> Нравится
-            <span class="likes-count" id="likes-{{ item.id }}">({{ item.likes_count|default(0) }})</span>
-        </button>
-        <a href="/post/{{ item.id }}#comments" class="action-btn" style="text-decoration: none; color: inherit;">
-            <i class="far fa-comment"></i> Комментировать
-            <span class="comments-count" id="comments-{{ item.id }}">({{ item.comments_count|default(0) }})</span>
-        </a>
-    </div>
-</div>
+                                <div class="post-header">
+                                    {% set avatar_url = url_for('static', filename='uploads/avatars/' + item.author_avatar) if item.author_avatar else '/static/defaults/for_users.png' %}
+                                    <img src="{{ avatar_url }}"
+                                         class="author-avatar"
+                                         onerror="this.src='/static/defaults/for_users.png'">
+                                    <div class="post-info">
+                                        <strong class="post-author">
+                                            <a href="/profile/{{ item.user_id }}" style="text-decoration: none; color: inherit;">
+                                                {{ item.full_name or item.username }}
+                                            </a>
+                                        </strong>
+                                        <small class="post-time">{{ datetime_format(item.created_at) }}</small>
+                                    </div>
+                                    
+                                    <!-- Кнопки действий для своих постов -->
+                                    {% if item.user_id == session.get('user_id') %}
+                                    <div class="post-actions" style="margin-left:auto;padding:0;border:none;">
+                                        <button onclick="editPersonalPost(this.dataset.postId)" 
+                                                data-post-id="{{ item.id }}"
+                                                class="action-btn" style="padding:4px 10px;">
+                                            <i class="fas fa-edit"></i>
+                                        </button>
+                                        <button onclick="deletePersonalPost(this.dataset.postId)" 
+                                                data-post-id="{{ item.id }}"
+                                                class="action-btn" style="padding:4px 10px;color:#dc2626;border-color:#fca5a5;">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+                                    </div>
+                                    {% endif %}
+                                </div>
+
+                                <!-- Содержимое поста -->
+                                <div class="post-content-wrapper">
+                                    {% set content = item.content or '' %}
+                                    {% set words = content.split() %}
+                                    {% if words|length > 30 %}
+                                        <p id="post-content-{{ item.id }}" class="post-content-short">
+                                            {{ words[:30]|join(' ') }}...
+                                        </p>
+                                        <div id="post-full-{{ item.id }}" class="post-content-full" style="display: none;">
+                                            {{ content }}
+                                        </div>
+                                        <button class="read-more-btn" onclick="togglePostText(this, {{ item.id }})">
+                                            <i class="fas fa-chevron-down"></i> Читать полностью
+                                        </button>
+                                    {% else %}
+                                        <p class="post-content">{{ content }}</p>
+                                    {% endif %}
+                                </div>
+
+                                <!-- Медиафайлы поста -->
+                                {% if item.media_files and item.media_files|length > 0 %}
+                                <div class="post-media-grid">
+                                    {% for media in item.media_files %}
+                                        {% if media.file_type == 'document' %}
+                                            {% set doc_ext = media.filename.rsplit('.', 1)[-1].lower() %}
+                                            {% set doc_name = media.original_filename if media.original_filename else media.filename %}
+                                            <div style="background:var(--gray-50);border:1px solid var(--border-light);border-radius:var(--radius-md);padding:14px;display:flex;flex-direction:column;align-items:center;cursor:pointer;"
+                                                 onclick="openDocViewer('{{ media.id }}', '{{ doc_ext }}', '{{ doc_name }}')">
+                                                <span style="font-size:36px;">
+                                                    {% if doc_ext == 'pdf' %}📄
+                                                    {% elif doc_ext in ['doc','docx'] %}📝
+                                                    {% elif doc_ext in ['xls','xlsx'] %}📊
+                                                    {% elif doc_ext in ['ppt','pptx'] %}📑
+                                                    {% elif doc_ext == 'txt' %}📃
+                                                    {% elif doc_ext in ['zip','rar','7z'] %}🗜️
+                                                    {% else %}📎{% endif %}
+                                                </span>
+                                                <span style="font-size:12px;color:var(--text-secondary);margin-top:6px;text-align:center;word-break:break-all;">{{ doc_name }}</span>
+                                                <span style="font-size:11px;color:var(--amber-600);margin-top:4px;">
+                                                    {% if doc_ext in ['zip','rar','7z'] %}Скачать{% else %}Открыть{% endif %}
+                                                </span>
+                                            </div>
+                                        {% else %}
+                                            <div style="border-radius:var(--radius-md);overflow:hidden;cursor:pointer;"
+                                                 onclick="openMediaViewer('{{ url_for('static', filename='uploads/posts/' + media.filename) }}', '{{ media.file_type }}')">
+                                                {% if media.file_type == 'image' %}
+                                                <img src="{{ url_for('static', filename='uploads/posts/' + media.filename) }}"
+                                                     style="width:100%;height:200px;object-fit:cover;"
+                                                     onerror="this.src='/static/defaults/for_groups.png'">
+                                                {% elif media.file_type == 'video' %}
+                                                <div style="position:relative;">
+                                                    <video style="width:100%;height:200px;object-fit:cover;">
+                                                        <source src="{{ url_for('static', filename='uploads/posts/' + media.filename) }}">
+                                                    </video>
+                                                    <div style="position:absolute;top:8px;left:8px;background:rgba(0,0,0,0.7);color:#fff;padding:4px 10px;border-radius:var(--radius-sm);font-size:12px;">▶ ВИДЕО</div>
+                                                </div>
+                                                {% endif %}
+                                            </div>
+                                        {% endif %}
+                                    {% endfor %}
+                                </div>
+                                {% endif %}
+
+                                <!-- Действия с постом -->
+                                <div class="post-actions">
+                                    <button class="action-btn like-post-btn {% if item.has_liked %}liked{% endif %}"
+                                            onclick="likePost({{ item.id }}, this)">
+                                        <i class="{% if item.has_liked %}fas{% else %}far{% endif %} fa-thumbs-up"></i>
+                                        <span class="likes-count">{{ item.likes_count|default(0) }}</span>
+                                    </button>
+                                    <button class="action-btn" onclick="commentOnPost({{ item.id }})">
+                                        <i class="far fa-comment"></i> 
+                                        Комментировать <span class="comments-count">({{ item.comments_count|default(0) }})</span>
+                                    </button>
+                                </div>
+                            </div>
                             
                         {% elif item.type == 'news' %}
                             <!-- Новость -->
@@ -224,180 +285,21 @@
                                     {% endif %}
                                 </div>
                             </div>
-                        {% else %}
-                            <!-- Неизвестный тип контента -->
-                            <div class="post">
-                                <div class="post-content">
-                                    Неизвестный тип контента
-                                </div>
-                            </div>
                         {% endif %}
                     {% endfor %}
                 {% else %}
                     <div class="empty-feed">
                         <i class="fas fa-newspaper fa-3x" style="color: #ddd; margin-bottom: 20px;"></i>
-                        
-<h3>Лента пуста</h3>
+                        <h3>Лента пуста</h3>
                         <p>Начните с публикации первого поста или подождите, пока появятся новости</p>
                     </div>
                 {% endif %}
             </div>
 
-            <!-- Правая панель - только статистика -->
-            
+            <!-- Правая панель (пустая) -->
+            <div class="sidebar-right"></div>
         </div>
     </div>
-<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-<script>
-
-function loadNewsPreview(url, index) {
-    const btn = document.getElementById('preview-btn-' + index);
-    const textEl = document.getElementById('preview-text-' + index);
-
-    // Если уже показан — скрыть
-    if (textEl.style.display !== 'none') {
-        textEl.style.display = 'none';
-        btn.innerHTML = '<i class="fas fa-chevron-down"></i> Читать несколько предложений';
-        return;
-    }
-
-    // Если уже загружен — просто показать
-    if (textEl.dataset.loaded === '1') {
-        textEl.style.display = 'block';
-        btn.innerHTML = '<i class="fas fa-chevron-up"></i> Свернуть';
-        return;
-    }
-
-    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Загружаем...';
-    btn.disabled = true;
-
-    fetch('/news_preview', {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({url: url})
-    })
-    .then(r => r.json())
-    .then(data => {
-        textEl.textContent = data.text || 'Не удалось загрузить содержание.';
-        textEl.dataset.loaded = '1';
-        textEl.style.display = 'block';
-        btn.innerHTML = '<i class="fas fa-chevron-up"></i> Свернуть';
-        btn.disabled = false;
-    })
-    .catch(() => {
-        textEl.textContent = 'Ошибка при загрузке статьи.';
-        textEl.dataset.loaded = '1';
-        textEl.style.display = 'block';
-        btn.innerHTML = '<i class="fas fa-chevron-up"></i> Свернуть';
-        btn.disabled = false;
-    });
-}
-
-function togglePostText(btn) {
-    const container = btn.closest('.post-content, .news-content');
-    const shortText = container.querySelector('.post-short-text');
-    const fullText = container.querySelector('.post-full-text');
-    const icon = btn.querySelector('i');
-    if (fullText.style.display === 'none') {
-        shortText.style.display = 'none';
-        fullText.style.display = 'inline';
-        btn.innerHTML = '<i class="fas fa-chevron-up"></i> Свернуть';
-    } else {
-        shortText.style.display = 'inline';
-        fullText.style.display = 'none';
-        btn.innerHTML = '<i class="fas fa-chevron-down"></i> Читать полностью';
-    }
-}
-
-function likePost(postId, buttonElement) {
-    $.ajax({
-        url: `/like_post_action/${postId}`,
-        type: 'POST',
-        contentType: 'application/json',
-        success: function(response) {
-            if (response.success) {
-                // Находим элементы внутри конкретной кнопки
-                const $button = $(buttonElement);
-                const $likeIcon = $button.find('i');
-                const $likesCount = $button.find('.likes-count');
-                
-                // Меняем иконку
-                if (response.action === 'liked') {
-                    $likeIcon.removeClass('far').addClass('fas');
-                    $button.addClass('liked');
-                } else {
-                    $likeIcon.removeClass('fas').addClass('far');
-                    $button.removeClass('liked');
-                }
-                
-                // Обновляем счетчик
-                $likesCount.text(`(${response.likes_count})`);
-            } else {
-                alert('Ошибка: ' + response.error);
-            }
-        },
-        error: function() {
-            alert('Ошибка сервера');
-        }
-    });
-}
-
-function showComments(postId) {
-    window.location.href = `/post/${postId}`;
-}
-
-document.getElementById('media-files').addEventListener('change', function(e) {
-    const preview = document.getElementById('file-preview');
-    preview.innerHTML = '';
-    
-    const files = Array.from(e.target.files);
-    
-    files.forEach((file, index) => {
-        const reader = new FileReader();
-        const previewItem = document.createElement('div');
-        previewItem.className = 'preview-item';
-        
-        reader.onload = function(e) {
-            if (file.type.startsWith('image/')) {
-                const img = document.createElement('img');
-                img.src = e.target.result;
-                previewItem.appendChild(img);
-            } else if (file.type.startsWith('video/')) {
-                const video = document.createElement('video');
-                video.src = e.target.result;
-                video.controls = true;
-                previewItem.appendChild(video);
-            } else {
-                const icon = document.createElement('div');
-                icon.className = 'file-icon';
-                icon.innerHTML = '<i class="fas fa-file"></i> ' + file.name.split('.').pop();
-                previewItem.appendChild(icon);
-            }
-        };
-        
-        reader.readAsDataURL(file);
-        
-        const removeBtn = document.createElement('button');
-        removeBtn.className = 'remove-file';
-        removeBtn.innerHTML = '<i class="fas fa-times"></i>';
-        removeBtn.onclick = function() {
-            const dt = new DataTransfer();
-            const input = document.getElementById('media-files');
-            const files = Array.from(input.files);
-            files.splice(index, 1);
-            files.forEach(file => dt.items.add(file));
-            input.files = dt.files;
-            previewItem.remove();
-        };
-        
-        previewItem.appendChild(removeBtn);
-        preview.appendChild(previewItem);
-    });
-});
-</script>
-
-</script>
-</script>
 
     <!-- Футер -->
     <footer style="
@@ -421,12 +323,276 @@ document.getElementById('media-files').addEventListener('change', function(e) {
             <span>© 2025 LinkA</span>
         </div>
     </footer>
-</body>
 
+    <!-- Скрипты -->
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script>
+        // Функции для работы с постами
+        function togglePostText(btn, postId) {
+            const shortText = document.getElementById(`post-content-${postId}`);
+            const fullText = document.getElementById(`post-full-${postId}`);
+            
+            if (fullText && fullText.style.display === 'none') {
+                shortText.style.display = 'none';
+                fullText.style.display = 'block';
+                btn.innerHTML = '<i class="fas fa-chevron-up"></i> Свернуть';
+            } else if (fullText) {
+                shortText.style.display = 'block';
+                fullText.style.display = 'none';
+                btn.innerHTML = '<i class="fas fa-chevron-down"></i> Читать полностью';
+            }
+        }
+
+        function likePost(postId, buttonElement) {
+            fetch(`/like_post_action/${postId}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    const $button = $(buttonElement);
+                    const $icon = $button.find('i');
+                    const $count = $button.find('.likes-count');
+                    
+                    if (data.action === 'liked') {
+                        $icon.removeClass('far').addClass('fas');
+                        $button.addClass('liked');
+                    } else {
+                        $icon.removeClass('fas').addClass('far');
+                        $button.removeClass('liked');
+                    }
+                    
+                    $count.text(data.likes_count);
+                } else {
+                    alert('Ошибка: ' + data.error);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Ошибка сервера');
+            });
+        }
+
+        function deletePersonalPost(postId) {
+            if (!confirm('Вы уверены, что хотите удалить этот пост?')) {
+                return;
+            }
+            
+            fetch(`/delete_post_route/${postId}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    document.getElementById(`post-${postId}`).remove();
+                    alert('Пост успешно удален');
+                } else {
+                    alert('Ошибка: ' + data.error);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Ошибка сервера');
+            });
+        }
+
+        function editPersonalPost(postId) {
+            const postElement = document.getElementById(`post-${postId}`);
+            const contentElement = document.getElementById(`post-content-${postId}`);
+            const currentContent = contentElement ? contentElement.innerText : '';
+            
+            // Создаем форму редактирования
+            const editForm = document.createElement('div');
+            editForm.className = 'edit-post-form';
+            editForm.innerHTML = `
+                <textarea id="edit-content-${postId}" rows="4" style="width:100%;padding:12px;border:1px solid #ddd;border-radius:8px;margin-bottom:10px;">${currentContent}</textarea>
+                <div style="display:flex;gap:10px;">
+                    <button onclick="savePostEdit(${postId})" class="submit-post" style="padding:8px 16px;">Сохранить</button>
+                    <button onclick="cancelPostEdit(${postId})" class="action-btn" style="padding:8px 16px;">Отмена</button>
+                </div>
+            `;
+            
+            // Заменяем содержимое поста формой
+            const contentWrapper = postElement.querySelector('.post-content-wrapper');
+            const oldContent = contentWrapper.innerHTML;
+            contentWrapper.dataset.oldContent = oldContent;
+            contentWrapper.innerHTML = '';
+            contentWrapper.appendChild(editForm);
+        }
+
+        function savePostEdit(postId) {
+            const newContent = document.getElementById(`edit-content-${postId}`).value;
+            
+            fetch(`/edit_post/${postId}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                body: new URLSearchParams({
+                    'content': newContent
+                })
+            })
+            .then(response => {
+                if (response.redirected) {
+                    window.location.href = response.url;
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Ошибка при сохранении');
+            });
+        }
+
+        function cancelPostEdit(postId) {
+            const postElement = document.getElementById(`post-${postId}`);
+            const contentWrapper = postElement.querySelector('.post-content-wrapper');
+            contentWrapper.innerHTML = contentWrapper.dataset.oldContent;
+        }
+
+        function commentOnPost(postId) {
+            window.location.href = `/post/${postId}#comments`;
+        }
+
+        function loadNewsPreview(url, index) {
+            const btn = document.getElementById('preview-btn-' + index);
+            const textEl = document.getElementById('preview-text-' + index);
+
+            if (textEl.style.display !== 'none') {
+                textEl.style.display = 'none';
+                btn.innerHTML = '<i class="fas fa-chevron-down"></i> Читать несколько предложений';
+                return;
+            }
+
+            if (textEl.dataset.loaded === '1') {
+                textEl.style.display = 'block';
+                btn.innerHTML = '<i class="fas fa-chevron-up"></i> Свернуть';
+                return;
+            }
+
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Загружаем...';
+            btn.disabled = true;
+
+            fetch('/news_preview', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({url: url})
+            })
+            .then(r => r.json())
+            .then(data => {
+                textEl.textContent = data.text || 'Не удалось загрузить содержание.';
+                textEl.dataset.loaded = '1';
+                textEl.style.display = 'block';
+                btn.innerHTML = '<i class="fas fa-chevron-up"></i> Свернуть';
+                btn.disabled = false;
+            })
+            .catch(() => {
+                textEl.textContent = 'Ошибка при загрузке статьи.';
+                textEl.dataset.loaded = '1';
+                textEl.style.display = 'block';
+                btn.innerHTML = '<i class="fas fa-chevron-up"></i> Свернуть';
+                btn.disabled = false;
+            });
+        }
+
+        function openMediaViewer(src, type) {
+            if (type === 'image') {
+                window.open(src, '_blank');
+            } else if (type === 'video') {
+                const videoWindow = window.open('', '_blank');
+                videoWindow.document.write(`
+                    <html>
+                        <head><title>Видео</title></head>
+                        <body style="margin:0;display:flex;justify-content:center;align-items:center;height:100vh;background:#000;">
+                            <video controls style="max-width:100%;max-height:100%;">
+                                <source src="${src}">
+                            </video>
+                        </body>
+                    </html>
+                `);
+            }
+        }
+
+        function openDocViewer(mediaId, ext, filename) {
+            if (ext === 'pdf') {
+                window.open(`/view_document/${mediaId}`, '_blank');
+            } else if (['zip', 'rar', '7z'].includes(ext)) {
+                window.location.href = `/post_file/${mediaId}`;
+            } else {
+                window.open(`/view_document/${mediaId}`, '_blank');
+            }
+        }
+
+        // Обработка загрузки файлов
+        document.addEventListener('DOMContentLoaded', function() {
+            const mediaInput = document.getElementById('media-files');
+            if (mediaInput) {
+                mediaInput.addEventListener('change', function(e) {
+                    const preview = document.getElementById('file-preview');
+                    const countSpan = document.getElementById('files-count');
+                    preview.innerHTML = '';
+                    
+                    const files = Array.from(e.target.files);
+                    countSpan.textContent = files.length ? `Выбрано файлов: ${files.length}` : '';
+                    
+                    files.forEach((file, index) => {
+                        const reader = new FileReader();
+                        const previewItem = document.createElement('div');
+                        previewItem.className = 'preview-item';
+                        
+                        reader.onload = function(e) {
+                            if (file.type.startsWith('image/')) {
+                                const img = document.createElement('img');
+                                img.src = e.target.result;
+                                previewItem.appendChild(img);
+                            } else if (file.type.startsWith('video/')) {
+                                const video = document.createElement('video');
+                                video.src = e.target.result;
+                                video.controls = true;
+                                previewItem.appendChild(video);
+                            } else {
+                                const icon = document.createElement('div');
+                                icon.className = 'file-icon';
+                                icon.innerHTML = '<i class="fas fa-file"></i> ' + file.name.split('.').pop().toUpperCase();
+                                previewItem.appendChild(icon);
+                            }
+                        };
+                        
+                        reader.readAsDataURL(file);
+                        
+                        const removeBtn = document.createElement('button');
+                        removeBtn.className = 'remove-file';
+                        removeBtn.innerHTML = '<i class="fas fa-times"></i>';
+                        removeBtn.onclick = function() {
+                            const dt = new DataTransfer();
+                            const input = document.getElementById('media-files');
+                            const files = Array.from(input.files);
+                            files.splice(index, 1);
+                            files.forEach(file => dt.items.add(file));
+                            input.files = dt.files;
+                            previewItem.remove();
+                            
+                            // Обновляем счетчик
+                            countSpan.textContent = files.length ? `Выбрано файлов: ${files.length}` : '';
+                        };
+                        
+                        previewItem.appendChild(removeBtn);
+                        preview.appendChild(previewItem);
+                    });
+                });
+            }
+        });
+
+        // Функция для меню пользователя
         function toggleUserMenu() {
             document.getElementById('userDropdown').classList.toggle('open');
         }
+        
         document.addEventListener('click', function(e) {
             const wrap = document.querySelector('.user-menu-wrap');
             if (wrap && !wrap.contains(e.target)) {
