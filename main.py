@@ -2751,6 +2751,7 @@ def group_detail(group_id):
                            pending_requests=pending_requests,
                            pending_requests_count=pending_requests_count)
 
+
 @app.route('/news')
 def news_page():
     """Страница со всеми новостями"""
@@ -2758,20 +2759,20 @@ def news_page():
         return redirect('/login')
 
     user_id = session['user_id']
-    
+
     # Получаем параметры фильтрации
     page = request.args.get('page', 1, type=int)
     filter_type = request.args.get('filter', 'all')
     search_query = request.args.get('search', '').strip()
-    
+
     per_page = 12  # Новостей на странице
-    
+
     conn = get_db_connection()
-    
+
     # Базовый запрос
     query = "SELECT *, 'news' as type FROM imported_news"
     params = []
-    
+
     # Применяем фильтры
     if filter_type == 'today':
         query += " WHERE DATE(published) = DATE('now')"
@@ -2781,7 +2782,7 @@ def news_page():
         query += " WHERE source LIKE '%RIA%'"
     elif filter_type == 'lenta':
         query += " WHERE source LIKE '%Lenta%'"
-    
+
     # Поиск по заголовку и описанию
     if search_query:
         if 'WHERE' in query:
@@ -2790,29 +2791,30 @@ def news_page():
             query += " WHERE"
         query += " (title LIKE ? OR description LIKE ?)"
         params.extend([f'%{search_query}%', f'%{search_query}%'])
-    
+
     # Получаем общее количество для пагинации
     count_query = query.replace("SELECT *, 'news' as type", "SELECT COUNT(*) as count")
     total = conn.execute(count_query, params).fetchone()['count']
     total_pages = (total + per_page - 1) // per_page
-    
+
     # Добавляем сортировку и пагинацию
     query += " ORDER BY published DESC LIMIT ? OFFSET ?"
     params.extend([per_page, (page - 1) * per_page])
-    
+
     # Получаем новости
     news_rows = conn.execute(query, params).fetchall()
     news_items = rows_to_dicts(news_rows)
-    
+
     conn.close()
-    
+
     return render_template('news.html',
-                         news_items=news_items,
-                         current_page=page,
-                         total_pages=total_pages,
-                         current_filter=filter_type,
-                         search_query=search_query,
-                         now=datetime.now)
+                           news_items=news_items,
+                           current_page=page,
+                           total_pages=total_pages,
+                           current_filter=filter_type,
+                           search_query=search_query,
+                           now=datetime.now)
+
 
 @app.route('/group/<int:group_id>/create_post', methods=['POST'])
 def create_group_post(group_id):
@@ -4323,14 +4325,22 @@ def run_telegram_bot():
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
 
-    bot_app = ApplicationBuilder().token(BOT_TOKEN).build()
-    bot_app.add_handler(CommandHandler("start", start))
-    bot_app.add_handler(CommandHandler("status", status_cmd))
-    bot_app.add_handler(CommandHandler("help", help_cmd))
-    bot_app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, unknown))
+    async def main_bot():
+        bot_app = ApplicationBuilder().token(BOT_TOKEN).build()
+        bot_app.add_handler(CommandHandler("start", start))
+        bot_app.add_handler(CommandHandler("status", status_cmd))
+        bot_app.add_handler(CommandHandler("help", help_cmd))
+        bot_app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, unknown))
 
-    print("[BOT] Telegram-бот запущен в фоновом потоке")
-    bot_app.run_polling(stop_signals=None)  # stop_signals=None важно для потоков
+        print("[BOT] Telegram-бот запущен в фоновом потоке")
+        async with bot_app:
+            await bot_app.initialize()
+            await bot_app.start()
+            await bot_app.updater.start_polling(drop_pending_updates=True)
+            while True:
+                await asyncio.sleep(1)
+
+    loop.run_until_complete(main_bot())
 
 
 # ==================== АДМИН-ПАНЕЛЬ ====================
@@ -5228,7 +5238,10 @@ def view_document(media_id):
     error = None
 
     try:
-        if ext in ('doc', 'docx'):
+        if ext == 'doc':
+            # Старый формат .doc не поддерживается python-docx — предлагаем скачать
+            error = 'doc_download'
+        elif ext == 'docx':
             if not DOCX_AVAILABLE:
                 error = 'Библиотека python-docx не установлена.'
             else:
@@ -5249,6 +5262,24 @@ def view_document(media_id):
             error = 'Просмотр этого типа файлов не поддерживается.'
     except Exception as e:
         error = f'Не удалось открыть файл: {str(e)}'
+
+    if error == 'doc_download':
+        content_block = f'''<div style="text-align:center;padding:40px 20px;">
+            <div style="font-size:64px;margin-bottom:16px;">📄</div>
+            <h2 style="margin:0 0 8px;font-size:20px;">Файл в формате .doc</h2>
+            <p style="color:#666;margin-bottom:24px;font-size:14px;">
+                Формат <strong>.doc</strong> (Word 97–2003) не поддерживается для просмотра в браузере.<br>
+                Скачайте файл и откройте в Microsoft Word или LibreOffice.
+            </p>
+            <a href="/static/uploads/posts/{media['filename']}" download="{original_name}"
+               style="display:inline-block;padding:12px 28px;background:#2c3e50;color:#fff;border-radius:8px;text-decoration:none;font-weight:600;font-size:15px;">
+                ⬇ Скачать {original_name}
+            </a>
+        </div>'''
+    elif error:
+        content_block = f"<div class='error'>{error}</div>"
+    else:
+        content_block = content_html
 
     page_html = f'''<!DOCTYPE html>
 <html lang="ru">
@@ -5297,12 +5328,11 @@ def view_document(media_id):
 </head>
 <body>
     <div class="toolbar">
-        <a href="javascript:history.back()" class="back">← Назад</a>
         <span class="filename">📄 {original_name}</span>
         <a href="/static/uploads/posts/{media['filename']}" download="{original_name}">⬇ Скачать</a>
     </div>
     <div class="content">
-        {"<div class='error'>" + error + "</div>" if error else content_html}
+        {content_block}
     </div>
 </body>
 </html>'''
