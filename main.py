@@ -5254,7 +5254,249 @@ def view_document_content(media_id):
     except Exception as e:
         return f'''<div style="padding:24px;color:#c0392b;background:#fdecea;border-radius:6px;margin:20px;">
             Не удалось открыть файл: {str(e)}</div>''', 500
+##тут щя таня будет писать дай бог ей сил 
+# ==================== МЕССЕНДЖЕР ====================
+# ==================== МЕССЕНДЖЕР ====================
 
+def ensure_messenger_tables():
+    conn = get_db_connection()
+    conn.execute('''
+        CREATE TABLE IF NOT EXISTS conversations (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user1_id INTEGER NOT NULL,
+            user2_id INTEGER NOT NULL,
+            last_message_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (user1_id) REFERENCES users(id),
+            FOREIGN KEY (user2_id) REFERENCES users(id),
+            UNIQUE(user1_id, user2_id)
+        )
+    ''')
+    conn.execute('''
+        CREATE TABLE IF NOT EXISTS messages (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            conversation_id INTEGER NOT NULL,
+            sender_id INTEGER NOT NULL,
+            text TEXT NOT NULL,
+            is_read INTEGER DEFAULT 0,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (conversation_id) REFERENCES conversations(id) ON DELETE CASCADE,
+            FOREIGN KEY (sender_id) REFERENCES users(id)
+        )
+    ''')
+    conn.commit()
+    conn.close()
+
+
+def get_or_create_conversation(user1_id, user2_id):
+    conn = get_db_connection()
+    a, b = sorted([user1_id, user2_id])
+    conv = conn.execute(
+        'SELECT id FROM conversations WHERE user1_id = ? AND user2_id = ?', (a, b)
+    ).fetchone()
+    if conv:
+        conv_id = conv['id']
+    else:
+        cursor = conn.cursor()
+        cursor.execute(
+            'INSERT INTO conversations (user1_id, user2_id) VALUES (?, ?)', (a, b)
+        )
+        conv_id = cursor.lastrowid
+        conn.commit()
+    conn.close()
+    return conv_id
+
+
+def get_conversations_list(user_id):
+    conn = get_db_connection()
+    rows = rows_to_dicts(conn.execute('''
+        SELECT
+            c.id as conv_id,
+            CASE WHEN c.user1_id = ? THEN c.user2_id ELSE c.user1_id END as partner_id,
+            u.username as partner_username,
+            COALESCE(up.full_name, u.username) as partner_name,
+            COALESCE(up.avatar, 'default_avatar.png') as partner_avatar,
+            (SELECT text FROM messages WHERE conversation_id = c.id ORDER BY created_at DESC LIMIT 1) as last_message,
+            (SELECT COUNT(*) FROM messages WHERE conversation_id = c.id AND sender_id != ? AND is_read = 0) as unread_count
+        FROM conversations c
+        JOIN users u ON u.id = CASE WHEN c.user1_id = ? THEN c.user2_id ELSE c.user1_id END
+        LEFT JOIN user_profiles up ON up.user_id = u.id
+        WHERE c.user1_id = ? OR c.user2_id = ?
+        ORDER BY c.last_message_at DESC
+    ''', (user_id, user_id, user_id, user_id, user_id)).fetchall())
+    conn.close()
+    return rows
+
+
+@app.route('/messenger')
+def messenger():
+    if 'user_id' not in session:
+        return redirect('/login')
+    ensure_messenger_tables()
+    user_id = session['user_id']
+    conversations = get_conversations_list(user_id)
+    total_unread = sum(c['unread_count'] for c in conversations)
+    return render_template('messenger.html',
+                           conversations=conversations,
+                           total_unread=total_unread,
+                           active_conv=None,
+                           messages=[],
+                           partner=None,
+                           partner_id=None,
+                           user_id=user_id)
+
+
+@app.route('/messenger/<int:partner_id>')
+def messenger_chat(partner_id):
+    if 'user_id' not in session:
+        return redirect('/login')
+    ensure_messenger_tables()
+    user_id = session['user_id']
+    if user_id == partner_id:
+        flash('Нельзя писать самому себе', 'error')
+        return redirect('/messenger')
+    conv_id = get_or_create_conversation(user_id, partner_id)
+    conn = get_db_connection()
+    conn.execute('''
+        UPDATE messages SET is_read = 1
+        WHERE conversation_id = ? AND sender_id != ?
+    ''', (conv_id, user_id))
+    conn.commit()
+    chat_messages = rows_to_dicts(conn.execute('''
+        SELECT m.id, m.sender_id, m.text, m.created_at, u.username as sender_username
+        FROM messages m
+        JOIN users u ON m.sender_id = u.id
+        WHERE m.conversation_id = ?
+        ORDER BY m.created_at ASC
+        LIMIT 200
+    ''', (conv_id,)).fetchall())
+    partner = row_to_dict(conn.execute('''
+        SELECT u.id, u.username,
+               COALESCE(up.full_name, u.username) as full_name,
+               COALESCE(up.avatar, 'default_avatar.png') as avatar
+        FROM users u
+        LEFT JOIN user_profiles up ON up.user_id = u.id
+        WHERE u.id = ?
+    ''', (partner_id,)).fetchone())
+    conn.close()
+    conversations = get_conversations_list(user_id)
+    total_unread = sum(c['unread_count'] for c in conversations)
+    return render_template('messenger.html',
+                           conversations=conversations,
+                           total_unread=total_unread,
+                           active_conv=conv_id,
+                           messages=chat_messages,
+                           partner=partner,
+                           partner_id=partner_id,
+                           user_id=user_id)
+
+
+@app.route('/messenger/send_ajax', methods=['POST'])
+def messenger_send_ajax():
+    if 'user_id' not in session:
+        return jsonify({'success': False}), 401
+    ensure_messenger_tables()
+    user_id = session['user_id']
+    data = request.get_json()
+    partner_id = data.get('partner_id')
+    text = (data.get('text') or '').strip()
+    if not text or not partner_id:
+        return jsonify({'success': False, 'error': 'Пустое сообщение'})
+    conv_id = get_or_create_conversation(user_id, int(partner_id))
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute(
+        'INSERT INTO messages (conversation_id, sender_id, text) VALUES (?, ?, ?)',
+        (conv_id, user_id, text)
+    )
+    msg_id = cursor.lastrowid
+    conn.execute(
+        'UPDATE conversations SET last_message_at = CURRENT_TIMESTAMP WHERE id = ?',
+        (conv_id,)
+    )
+    conn.commit()
+    msg = row_to_dict(conn.execute('SELECT * FROM messages WHERE id = ?', (msg_id,)).fetchone())
+    conn.close()
+    return jsonify({'success': True, 'message': msg})
+
+
+@app.route('/messenger/poll/<int:conv_id>')
+def messenger_poll(conv_id):
+    if 'user_id' not in session:
+        return jsonify({'success': False}), 401
+    ensure_messenger_tables()
+    user_id = session['user_id']
+    last_id = request.args.get('last_id', 0, type=int)
+    conn = get_db_connection()
+    conv = conn.execute(
+        'SELECT * FROM conversations WHERE id = ? AND (user1_id = ? OR user2_id = ?)',
+        (conv_id, user_id, user_id)
+    ).fetchone()
+    if not conv:
+        conn.close()
+        return jsonify({'success': False, 'error': 'Нет доступа'})
+    new_messages = rows_to_dicts(conn.execute('''
+        SELECT m.id, m.sender_id, m.text, m.created_at, u.username as sender_username
+        FROM messages m
+        JOIN users u ON m.sender_id = u.id
+        WHERE m.conversation_id = ? AND m.id > ?
+        ORDER BY m.created_at ASC
+    ''', (conv_id, last_id)).fetchall())
+    if new_messages:
+        conn.execute('''
+            UPDATE messages SET is_read = 1
+            WHERE conversation_id = ? AND sender_id != ? AND id > ?
+        ''', (conv_id, user_id, last_id))
+        conn.commit()
+    total_unread = conn.execute('''
+        SELECT COUNT(*) as count FROM messages m
+        JOIN conversations c ON m.conversation_id = c.id
+        WHERE (c.user1_id = ? OR c.user2_id = ?)
+          AND m.sender_id != ? AND m.is_read = 0
+          AND m.conversation_id != ?
+    ''', (user_id, user_id, user_id, conv_id)).fetchone()['count']
+    conn.close()
+    return jsonify({'success': True, 'messages': new_messages, 'total_unread': total_unread})
+
+
+@app.route('/messenger/unread_count')
+def messenger_unread_count():
+    if 'user_id' not in session:
+        return jsonify({'count': 0})
+    ensure_messenger_tables()
+    user_id = session['user_id']
+    conn = get_db_connection()
+    count = conn.execute('''
+        SELECT COUNT(*) as count FROM messages m
+        JOIN conversations c ON m.conversation_id = c.id
+        WHERE (c.user1_id = ? OR c.user2_id = ?) AND m.sender_id != ? AND m.is_read = 0
+    ''', (user_id, user_id, user_id)).fetchone()['count']
+    conn.close()
+    return jsonify({'count': count})
+
+
+@app.route('/messenger/search_users')
+def messenger_search_users():
+    if 'user_id' not in session:
+        return jsonify({'users': []})
+    ensure_messenger_tables()
+    user_id = session['user_id']
+    q = request.args.get('q', '').strip()
+    if len(q) < 2:
+        return jsonify({'users': []})
+    conn = get_db_connection()
+    users = rows_to_dicts(conn.execute('''
+        SELECT u.id, u.username,
+               COALESCE(up.full_name, u.username) as full_name,
+               COALESCE(up.avatar, 'default_avatar.png') as avatar
+        FROM users u
+        LEFT JOIN user_profiles up ON up.user_id = u.id
+        WHERE (u.username LIKE ? OR up.full_name LIKE ?)
+          AND u.id != ? AND u.is_banned = 0
+        LIMIT 10
+    ''', (f'%{q}%', f'%{q}%', user_id)).fetchall())
+    conn.close()
+    return jsonify({'users': users})
 
 if __name__ == '__main__':
     create_tables()

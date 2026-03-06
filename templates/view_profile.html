@@ -8,6 +8,21 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='defaults/style.css') }}">
     <link rel="icon" type="image/png" href="{{ url_for('static', filename='uploads/favicon.png') }}">
 </head>
+<script>
+function refreshUnread() {
+    fetch('/messenger/unread_count')
+        .then(r => r.json())
+        .then(d => {
+            const badge = document.getElementById('messengerBadge');
+            if (badge) {
+                badge.textContent = d.count || '';
+                badge.style.display = d.count > 0 ? 'inline-block' : 'none';
+            }
+        }).catch(() => {});
+}
+refreshUnread();
+setInterval(refreshUnread, 5000);
+</script>
 <body>
         <header>
         <div class="container">
@@ -49,6 +64,16 @@
                     <li><a href="/friends"><i class="fas fa-users"></i> Друзья</a></li>
                     <li><a href="/find_friends"><i class="fas fa-search"></i> Найти друзей</a></li>
                     <li><a href="/groups"><i class="fas fa-layer-group"></i> Группы</a></li>
+                    <li>
+    <a href="/messenger">
+        <i class="fas fa-comment"></i> Мессенджер
+        <span id="messengerBadge"
+              style="display:none; background:#e53935; color:white;
+                     border-radius:10px; padding:1px 7px;
+                     font-size:11px; font-weight:700; margin-left:6px;">
+        </span>
+    </a>
+</li>
                 </ul>
             </div>
 
