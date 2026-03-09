@@ -5388,6 +5388,7 @@ def messenger_chat(partner_id):
                            messages=chat_messages,
                            partner=partner,
                            partner_id=partner_id,
+                           current_user_id=user_id,
                            user_id=user_id)
 
 
