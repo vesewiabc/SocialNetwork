@@ -248,6 +248,15 @@
                         {% endif %}
                     </button>
                     <div class="user-dropdown" id="userDropdown">
+                        {% set _uinfo = current_user_info() %}
+                        {% if _uinfo %}
+                        <a href="/profile" style="text-decoration:none;color:inherit;display:block;padding:0;">
+                            <div class="user-dropdown-header">
+                                <div class="uname">{{ _uinfo.full_name }}</div>
+                                <div class="ulogin">@{{ _uinfo.username }}</div>
+                            </div>
+                        </a>
+                        {% endif %}
                         <a href="/settings">
                             <i class="fas fa-cog"></i> Настройки
                         </a>

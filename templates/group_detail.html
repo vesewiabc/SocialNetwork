@@ -26,6 +26,15 @@
                         {% endif %}
                     </button>
                     <div class="user-dropdown" id="userDropdown">
+                        {% set _uinfo = current_user_info() %}
+                        {% if _uinfo %}
+                        <a href="/profile" style="text-decoration:none;color:inherit;display:block;padding:0;">
+                            <div class="user-dropdown-header">
+                                <div class="uname">{{ _uinfo.full_name }}</div>
+                                <div class="ulogin">@{{ _uinfo.username }}</div>
+                            </div>
+                        </a>
+                        {% endif %}
                         <a href="/settings">
                             <i class="fas fa-cog"></i> Настройки
                         </a>
@@ -41,15 +50,19 @@
 
     <div class="container">
         <div class="main-content">
-            <div class="sidebar-left">
+                        <div class="sidebar-left">
                 <h3>Меню</h3>
                 <ul>
-                    <li><a href="/profile"><i class="fas fa-user-circle"></i> Мой профиль</a></li>
-                    <li><a href="/friends"><i class="fas fa-users"></i> Друзья</a></li>
-                    <li><a href="/find_friends"><i class="fas fa-search"></i> Найти друзей</a></li>
-                    <li><a href="/my_posts"><i class="fas fa-newspaper"></i> Мои посты</a></li>
+                    <li><a href="/home"><i class="fas fa-home"></i> Лента</a></li>
+                    <li>
+                        <a href="/friends">
+                            <i class="fas fa-users"></i> Друзья
+                            {% if friend_requests_count and friend_requests_count > 0 %}
+                                <span style="background:var(--amber-400);color:#111;padding:2px 6px;border-radius:10px;font-size:12px;margin-left:4px;">{{ friend_requests_count }}</span>
+                            {% endif %}
+                        </a>
+                    </li>
                     <li><a href="/groups"><i class="fas fa-layer-group"></i> Группы</a></li>
-                    <li><a href="/home"><i class="fas fa-home"></i> Главная</a></li>
                 </ul>
             </div>
 
@@ -180,9 +193,43 @@
                                 <div id="media-preview" class="media-preview-container"></div>
                                 <small class="upload-info">До 10 файлов · Макс. 50 МБ каждый</small>
                             </div>
-                            <button type="submit" class="submit-post">
-                                <i class="fas fa-paper-plane"></i> Опубликовать
-                            </button>
+                            <div style="display:flex;align-items:center;justify-content:space-between;margin-top:4px;">
+                                <button type="submit" class="submit-post" style="margin:0;">
+                                    <i class="fas fa-paper-plane"></i> Опубликовать
+                                </button>
+                                {% set _gf = request.args.get('filter', 'all') %}
+                                <div style="position:relative;" id="groupFilterWrap">
+                                    <button type="button" onclick="toggleGroupFilter()"
+                                            style="display:inline-flex;align-items:center;gap:8px;padding:8px 14px;background:var(--bg-card);border:1px solid var(--border-light);border-radius:var(--radius-md);font-size:13px;font-weight:600;color:var(--text-primary);cursor:pointer;box-shadow:var(--shadow-sm);">
+                                        <i class="fas fa-filter" style="color:var(--amber-500);"></i>
+                                        <span id="groupFilterLabel">
+                                            {% if _gf == 'popular' %}Популярные
+                                            {% elif _gf == 'mine' %}Мои посты
+                                            {% else %}Все посты
+                                            {% endif %}
+                                        </span>
+                                        <i class="fas fa-chevron-down" style="font-size:11px;color:var(--text-muted);"></i>
+                                    </button>
+                                    <div id="groupFilterDropdown"
+                                         style="display:none;position:absolute;right:0;top:calc(100% + 6px);background:var(--bg-card);border:1px solid var(--border-light);border-radius:var(--radius-lg);box-shadow:var(--shadow-lg);min-width:170px;z-index:50;overflow:hidden;">
+                                        <a href="?filter=all"
+                                           class="filter-item{% if _gf == 'all' or _gf == '' %} filter-active{% endif %}"
+                                           style="display:flex;align-items:center;gap:10px;padding:10px 16px;font-size:13px;font-weight:600;text-decoration:none;">
+                                            <i class="fas fa-globe" style="width:16px;color:var(--amber-500);"></i> Все посты
+                                        </a>
+                                        <a href="?filter=popular"
+                                           class="filter-item{% if _gf == 'popular' %} filter-active{% endif %}"
+                                           style="display:flex;align-items:center;gap:10px;padding:10px 16px;font-size:13px;font-weight:600;text-decoration:none;">
+                                            <i class="fas fa-fire" style="width:16px;color:var(--amber-500);"></i> Популярные
+                                        </a>
+                                        <a href="?filter=mine"
+                                           class="filter-item{% if _gf == 'mine' %} filter-active{% endif %}"
+                                           style="display:flex;align-items:center;gap:10px;padding:10px 16px;font-size:13px;font-weight:600;text-decoration:none;">
+                                            <i class="fas fa-user" style="width:16px;color:var(--amber-500);"></i> Мои посты
+                                        </a>
+                                    </div>
+                                </div>
+                            </div>
                         </form>
                     </div>
                     {% elif is_member and not can_post %}
@@ -247,7 +294,10 @@
                             <p id="post-content-{{ post.id }}" class="post-content">{{ post.content }}</p>
 
                             {% if post.media_files %}
-                            <div class="post-media-grid">
+                            {% set ns = namespace(media_index=0) %}
+                            <div class="post-media-grid"
+                                 data-post-media="{{ post.media_files | selectattr('file_type', 'ne', 'document') | map(attribute='filename') | list | tojson | replace('"', '&quot;') }}"
+                                 data-post-types="{{ post.media_files | selectattr('file_type', 'ne', 'document') | map(attribute='file_type') | list | tojson | replace('"', '&quot;') }}">
                                 {% for media in post.media_files %}
                                     {% if media.file_type == 'document' %}
                                         {% set doc_ext = media.filename.rsplit('.', 1)[-1].lower() %}
@@ -262,7 +312,9 @@
                                         </div>
                                     {% else %}
                                         <div style="border-radius:var(--radius-md);overflow:hidden;cursor:pointer;"
-                                             onclick="openMediaViewer('{{ url_for('static', filename='uploads/posts/' + media.filename) }}', '{{ media.file_type }}')">
+                                             data-media-src="{{ url_for('static', filename='uploads/posts/' + media.filename) }}"
+                                             data-media-type="{{ media.file_type }}"
+                                             onclick="openMediaFromPost(this)">
                                             {% if media.file_type == 'image' %}
                                             <img src="{{ url_for('static', filename='uploads/posts/' + media.filename) }}"
                                                  style="width:100%;height:200px;object-fit:cover;"
@@ -276,6 +328,7 @@
                                             </div>
                                             {% endif %}
                                         </div>
+                                        {% set ns.media_index = ns.media_index + 1 %}
                                     {% endif %}
                                 {% endfor %}
                             </div>
@@ -742,27 +795,139 @@
                 });
         }
 
-        // Просмотр медиа
+        // Просмотр медиа — с навигацией стрелками и блокировкой скролла
+        let _viewerItems = [];
+        let _viewerIndex = 0;
+        let _activeViewer = null;
+
+        function openMediaViewerFromPost(items, startIndex) {
+            // items = [{src, type}, ...]
+            _viewerItems = items;
+            _viewerIndex = startIndex;
+            _buildViewer();
+        }
+
+        // Обратная совместимость (одиночный вызов)
         function openMediaViewer(src, type) {
+            _viewerItems = [{src, type}];
+            _viewerIndex = 0;
+            _buildViewer();
+        }
+
+        function _buildViewer() {
+            if (_activeViewer) { document.body.removeChild(_activeViewer); _activeViewer = null; }
+
             const viewer = document.createElement('div');
-            viewer.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.9);z-index:1000;display:flex;justify-content:center;align-items:center;';
-            if (type === 'image') {
-                const img = document.createElement('img');
-                img.src = src; img.style.cssText = 'max-width:90%;max-height:90%;border-radius:var(--radius-lg);';
-                viewer.appendChild(img);
-            } else {
-                const vid = document.createElement('video');
-                vid.src = src; vid.controls = true; vid.autoplay = true;
-                vid.style.cssText = 'max-width:90%;max-height:90%;';
-                viewer.appendChild(vid);
-            }
+            viewer.id = '__mediaViewer';
+            viewer.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.92);z-index:2000;display:flex;flex-direction:column;align-items:center;justify-content:center;';
+
+            // Блокируем скролл страницы
+            document.body.style.overflow = 'hidden';
+
+            // Контент
+            const content = document.createElement('div');
+            content.id = '__viewerContent';
+            content.style.cssText = 'display:flex;align-items:center;justify-content:center;width:100%;flex:1;position:relative;';
+            viewer.appendChild(content);
+
+            // Крестик — ниже, с отступом от верхней шапки
             const close = document.createElement('button');
-            close.style.cssText = 'position:absolute;top:20px;right:20px;background:#fff;color:#000;border:none;border-radius:50%;width:40px;height:40px;font-size:20px;cursor:pointer;';
+            close.style.cssText = 'position:absolute;top:72px;right:20px;background:#fff;color:#000;border:none;border-radius:50%;width:42px;height:42px;font-size:22px;cursor:pointer;z-index:10;line-height:1;box-shadow:0 2px 8px rgba(0,0,0,0.4);';
             close.innerHTML = '×';
-            close.onclick = () => document.body.removeChild(viewer);
-            viewer.onclick = e => { if (e.target === viewer) document.body.removeChild(viewer); };
+            close.onclick = _closeViewer;
             viewer.appendChild(close);
+
+            // Стрелка влево
+            const btnPrev = document.createElement('button');
+            btnPrev.style.cssText = 'position:absolute;left:16px;top:50%;transform:translateY(-50%);background:rgba(255,255,255,0.15);color:#fff;border:2px solid rgba(255,255,255,0.4);border-radius:50%;width:48px;height:48px;font-size:22px;cursor:pointer;z-index:10;transition:background 0.15s;display:flex;align-items:center;justify-content:center;';
+            btnPrev.innerHTML = '‹';
+            btnPrev.onclick = e => { e.stopPropagation(); _viewerIndex--; _renderViewerItem(); };
+            content.appendChild(btnPrev);
+
+            // Стрелка вправо
+            const btnNext = document.createElement('button');
+            btnNext.style.cssText = 'position:absolute;right:16px;top:50%;transform:translateY(-50%);background:rgba(255,255,255,0.15);color:#fff;border:2px solid rgba(255,255,255,0.4);border-radius:50%;width:48px;height:48px;font-size:22px;cursor:pointer;z-index:10;transition:background 0.15s;display:flex;align-items:center;justify-content:center;';
+            btnNext.innerHTML = '›';
+            btnNext.onclick = e => { e.stopPropagation(); _viewerIndex++; _renderViewerItem(); };
+            content.appendChild(btnNext);
+
+            // Счётчик
+            const counter = document.createElement('div');
+            counter.id = '__viewerCounter';
+            counter.style.cssText = 'position:absolute;bottom:16px;left:50%;transform:translateX(-50%);color:rgba(255,255,255,0.7);font-size:13px;font-weight:600;letter-spacing:1px;';
+            viewer.appendChild(counter);
+
+            // Медиа-контейнер
+            const mediaWrap = document.createElement('div');
+            mediaWrap.id = '__viewerMedia';
+            mediaWrap.style.cssText = 'display:flex;align-items:center;justify-content:center;max-width:88%;max-height:80vh;';
+            content.appendChild(mediaWrap);
+
+            viewer.onclick = e => { if (e.target === viewer || e.target === content) _closeViewer(); };
+
+            // Клавиатура
+            viewer._keyHandler = function(e) {
+                if (e.key === 'Escape') _closeViewer();
+                if (e.key === 'ArrowLeft' && _viewerIndex > 0) { _viewerIndex--; _renderViewerItem(); }
+                if (e.key === 'ArrowRight' && _viewerIndex < _viewerItems.length - 1) { _viewerIndex++; _renderViewerItem(); }
+            };
+            document.addEventListener('keydown', viewer._keyHandler);
+
+            _activeViewer = viewer;
             document.body.appendChild(viewer);
+            _renderViewerItem();
+        }
+
+        function _renderViewerItem() {
+            const mediaWrap = document.getElementById('__viewerMedia');
+            const counter   = document.getElementById('__viewerCounter');
+            const btnPrev   = _activeViewer.querySelector('button:nth-of-type(2)'); // стрелка ← в content
+            const content   = document.getElementById('__viewerContent');
+            const allBtns   = content.querySelectorAll('button');
+            const prevBtn   = allBtns[0];
+            const nextBtn   = allBtns[1];
+
+            const total = _viewerItems.length;
+            const item  = _viewerItems[_viewerIndex];
+
+            // Стрелки — показываем/скрываем
+            prevBtn.style.display = _viewerIndex > 0 ? 'flex' : 'none';
+            nextBtn.style.display = _viewerIndex < total - 1 ? 'flex' : 'none';
+
+            // Счётчик
+            counter.textContent = total > 1 ? `${_viewerIndex + 1} / ${total}` : '';
+
+            // Медиа
+            mediaWrap.innerHTML = '';
+            if (item.type === 'image') {
+                const img = document.createElement('img');
+                img.src = item.src;
+                img.style.cssText = 'max-width:100%;max-height:80vh;border-radius:8px;object-fit:contain;box-shadow:0 4px 24px rgba(0,0,0,0.5);';
+                mediaWrap.appendChild(img);
+            } else if (item.type === 'video') {
+                const vid = document.createElement('video');
+                vid.src = item.src; vid.controls = true; vid.autoplay = true;
+                vid.style.cssText = 'max-width:100%;max-height:80vh;border-radius:8px;';
+                mediaWrap.appendChild(vid);
+            }
+        }
+
+        function _closeViewer() {
+            if (!_activeViewer) return;
+            document.removeEventListener('keydown', _activeViewer._keyHandler);
+            document.body.removeChild(_activeViewer);
+            document.body.style.overflow = '';
+            _activeViewer = null;
+            _viewerItems = [];
+        }
+
+        // Открытие медиа из сетки поста по data-атрибутам
+        function openMediaFromPost(el) {
+            const grid = el.closest('.post-media-grid');
+            const allMedia = Array.from(grid.querySelectorAll('[data-media-src]'));
+            const items = allMedia.map(m => ({ src: m.dataset.mediaSrc, type: m.dataset.mediaType }));
+            const index = allMedia.indexOf(el);
+            openMediaViewerFromPost(items, index);
         }
 
         function openDocViewer(mediaId, ext, filename) {
@@ -772,18 +937,64 @@
                 document.body.appendChild(a); a.click(); document.body.removeChild(a);
                 return;
             }
-            const viewer = document.createElement('div');
-            viewer.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.85);z-index:1000;display:flex;flex-direction:column;align-items:center;justify-content:center;';
+
+            document.body.style.overflow = 'hidden';
+
+            const overlay = document.createElement('div');
+            overlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.92);z-index:2000;display:flex;flex-direction:column;';
+
+            // Шапка в стиле сайта
+            const toolbar = document.createElement('div');
+            toolbar.style.cssText = 'display:flex;align-items:center;gap:14px;padding:0 20px;height:60px;background:var(--bg-card, #fff);border-bottom:1px solid var(--border-light, #e5e7eb);flex-shrink:0;';
+
+            // Иконка + имя файла
+            const iconMap = {pdf:'📄', doc:'📝', docx:'📝', xls:'📊', xlsx:'📊', ppt:'📑', pptx:'📑', txt:'📃'};
+            const fileIcon = document.createElement('span');
+            fileIcon.textContent = iconMap[ext] || '📎';
+            fileIcon.style.cssText = 'font-size:20px;flex-shrink:0;';
+
+            const fileLabel = document.createElement('span');
+            fileLabel.textContent = filename;
+            fileLabel.style.cssText = 'font-size:15px;font-weight:600;color:var(--text-primary,#111);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;';
+
+            // Кнопка скачать
+            const dlBtn = document.createElement('a');
+            dlBtn.href = '/static/uploads/posts/' + mediaId;
+            dlBtn.setAttribute('download', filename);
+            // правильный href получим из src iframe
+            dlBtn.style.cssText = 'display:flex;align-items:center;gap:6px;padding:7px 16px;background:var(--amber-500,#f59e0b);color:#111;border-radius:var(--radius-md,8px);font-size:13px;font-weight:600;text-decoration:none;flex-shrink:0;';
+            dlBtn.innerHTML = '<i class="fas fa-download"></i> Скачать';
+            dlBtn.onclick = () => { dlBtn.href = '/view_document/' + mediaId; dlBtn.download = filename; };
+
+            toolbar.appendChild(fileIcon);
+            toolbar.appendChild(fileLabel);
+            toolbar.appendChild(dlBtn);
+
+            // Крестик — как у фото/видео
+            const close = document.createElement('button');
+            close.style.cssText = 'position:absolute;top:72px;right:20px;background:#fff;color:#000;border:none;border-radius:50%;width:42px;height:42px;font-size:22px;cursor:pointer;z-index:10;line-height:1;box-shadow:0 2px 8px rgba(0,0,0,0.4);display:flex;align-items:center;justify-content:center;';
+            close.innerHTML = '×';
+            const closeViewer = () => { document.body.removeChild(overlay); document.body.style.overflow = ''; };
+            close.onclick = closeViewer;
+
+            // Iframe с документом
+            const iframeWrap = document.createElement('div');
+            iframeWrap.style.cssText = 'flex:1;display:flex;align-items:center;justify-content:center;padding:20px;overflow:hidden;';
+
             const iframe = document.createElement('iframe');
             iframe.src = '/view_document/' + mediaId;
-            iframe.style.cssText = 'width:90%;height:85vh;border:none;border-radius:var(--radius-lg);';
-            const close = document.createElement('button');
-            close.className = 'btn btn-secondary btn-sm';
-            close.style.cssText = 'position:absolute;top:16px;right:16px;';
-            close.innerHTML = '× Закрыть';
-            close.onclick = () => document.body.removeChild(viewer);
-            viewer.appendChild(iframe); viewer.appendChild(close);
-            document.body.appendChild(viewer);
+            iframe.style.cssText = 'width:100%;height:100%;border:none;border-radius:var(--radius-lg,12px);background:#fff;';
+
+            iframeWrap.appendChild(iframe);
+            overlay.appendChild(toolbar);
+            overlay.appendChild(iframeWrap);
+            overlay.appendChild(close);
+
+            // Esc для закрытия
+            const keyHandler = e => { if (e.key === 'Escape') { closeViewer(); document.removeEventListener('keydown', keyHandler); } };
+            document.addEventListener('keydown', keyHandler);
+
+            document.body.appendChild(overlay);
         }
 
         // Заявки
@@ -880,6 +1091,18 @@
 </body>
 
     <script>
+        function toggleGroupFilter() {
+            const dd = document.getElementById('groupFilterDropdown');
+            dd.style.display = dd.style.display === 'none' ? 'block' : 'none';
+        }
+        document.addEventListener('click', function(e) {
+            const wrap = document.getElementById('groupFilterWrap');
+            if (wrap && !wrap.contains(e.target)) {
+                const dd = document.getElementById('groupFilterDropdown');
+                if (dd) dd.style.display = 'none';
+            }
+        });
+
         function toggleUserMenu() {
             document.getElementById('userDropdown').classList.toggle('open');
         }

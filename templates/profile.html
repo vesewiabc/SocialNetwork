@@ -28,7 +28,7 @@
                     </button>
 
                     <div class="user-dropdown" id="userDropdown">
-                        <div class="user-dropdown-header">
+                        <div class="user-dropdown-header" style="cursor:default;">
                             <div class="uname">{{ profile.full_name if profile and profile.full_name else user.username }}</div>
                             <div class="ulogin">@{{ user.username }}</div>
                         </div>
@@ -54,17 +54,17 @@
                 <h3>Меню</h3>
                 <ul>
                     <li><a href="/profile"><i class="fas fa-user-circle"></i> Мой профиль</a></li>
-                    <li>
-                        <a href="/friends">
-                            <i class="fas fa-users"></i> Друзья
-                            {% if friend_requests_count > 0 %}
-                                <span style="background:var(--amber-400);color:#111;padding:2px 6px;border-radius:10px;font-size:12px;margin-left:4px;">{{ friend_requests_count }}</span>
-                            {% endif %}
-                        </a>
-                    </li>
+                    <li><a href="/friends"><i class="fas fa-users"></i> Друзья</a></li>
                     <li><a href="/find_friends"><i class="fas fa-search"></i> Найти друзей</a></li>
                     <li><a href="/my_posts"><i class="fas fa-newspaper"></i> Мои посты</a></li>
                     <li><a href="/groups"><i class="fas fa-layer-group"></i> Группы</a></li>
+                    <li>
+                        <a href="/messenger">
+                            <i class="fas fa-comment"></i> Мессенджер
+                            <span id="messengerBadge" style="display:none; background:#e53935; color:white; border-radius:10px; padding:1px 7px; font-size:11px; font-weight:700; margin-left:6px;"></span>
+                        </a>
+                    </li>
+                    <li><a href="/home"><i class="fas fa-home"></i> Главная</a></li>
                 </ul>
             </div>
 
@@ -92,7 +92,9 @@
                                 <a href="/profile/edit" class="btn btn-primary btn-sm">
                                     <i class="fas fa-edit"></i> Редактировать
                                 </a>
-                                
+                                <a href="/blacklist" class="btn btn-secondary btn-sm">
+                                    <i class="fas fa-ban"></i> Чёрный список
+                                </a>
                             </div>
                         </div>
                     </div>

@@ -15,7 +15,7 @@ import asyncio
 import logging
 
 # ======================== НАСТРОЙКИ TELEGRAM БОТА ========================
-BOT_TOKEN = "8542566873:AAEv0blT0YqBUAxpsl9-eqlzQjrEHtELXFk"        # <-- вставь токен от @BotFather
+BOT_TOKEN = "8542566873:AAGCjyU1Q5IM4tip_MC77Jt43lHh8eK7Bbk"  # <-- вставь токен от @BotFather
 BOT_USERNAME = "LinkA_2FA_Bot"  # <-- username бота без @, например: my2fa_bot
 # =========================================================================
 
@@ -26,7 +26,7 @@ try:
     DOCX_AVAILABLE = True
 except ImportError:
     DOCX_AVAILABLE = False
- 
+
 try:
     import openpyxl
 
@@ -554,10 +554,33 @@ def utility_processor():
             pass
         return None
 
+    def get_current_user_info():
+        """Возвращает имя и юзернейм текущего пользователя для шапки"""
+        user_id = session.get('user_id')
+        if not user_id:
+            return None
+        try:
+            conn = sqlite3.connect('users.db')
+            cursor = conn.cursor()
+            cursor.execute("""
+                SELECT u.username, p.full_name
+                FROM users u
+                LEFT JOIN user_profiles p ON p.user_id = u.id
+                WHERE u.id = ?
+            """, (user_id,))
+            row = cursor.fetchone()
+            conn.close()
+            if row:
+                return {'username': row[0], 'full_name': row[1] or row[0]}
+        except:
+            pass
+        return None
+
     return {
         'datetime_format': format_datetime,
         'default_avatar': get_default_avatar,
-        'current_user_avatar': get_current_user_avatar
+        'current_user_avatar': get_current_user_avatar,
+        'current_user_info': get_current_user_info
     }
 
 
@@ -671,6 +694,7 @@ def edit_post(post_id):
     conn.close()
     return render_template('edit_post.html', post=dict(post))
 
+
 @app.route('/faq')
 def faq():
     """Страница часто задаваемых вопросов"""
@@ -679,6 +703,7 @@ def faq():
 
     username = session.get('username', 'Пользователь')
     return render_template('faq.html', username=username)
+
 
 @app.route('/delete_post_route/<int:post_id>', methods=['POST'])
 def delete_post_route(post_id):
@@ -824,7 +849,7 @@ def add_comment(post_id):
 
         # Получаем общее количество комментариев
         comments_count = \
-        conn.execute('SELECT COUNT(*) as count FROM comments WHERE post_id = ?', (post_id,)).fetchone()['count']
+            conn.execute('SELECT COUNT(*) as count FROM comments WHERE post_id = ?', (post_id,)).fetchone()['count']
 
         conn.commit()
         conn.close()
@@ -873,7 +898,7 @@ def delete_comment(comment_id):
 
         # Получаем новое количество комментариев
         comments_count = \
-        conn.execute('SELECT COUNT(*) as count FROM comments WHERE post_id = ?', (post_id,)).fetchone()['count']
+            conn.execute('SELECT COUNT(*) as count FROM comments WHERE post_id = ?', (post_id,)).fetchone()['count']
 
         conn.commit()
         conn.close()
@@ -1553,7 +1578,8 @@ def home():
             if import_counter % 5 == 0:
                 import_news_to_db()
 
-        feed_items = get_news_feed_with_media(user_id, limit=20)
+        filter_type = request.args.get('filter', 'all')
+        feed_items = get_news_feed_with_media(user_id, limit=20, filter_type=filter_type)
         print(f"Получено {len(feed_items)} элементов в ленте")
 
     except Exception as e:
@@ -2535,7 +2561,8 @@ def leave_group(group_id):
 
     try:
         group = conn.execute('SELECT creator_id, name FROM groups WHERE id = ?', (group_id,)).fetchone()
-        membership = conn.execute('SELECT role FROM group_members WHERE group_id = ? AND user_id = ?', (group_id, user_id)).fetchone()
+        membership = conn.execute('SELECT role FROM group_members WHERE group_id = ? AND user_id = ?',
+                                  (group_id, user_id)).fetchone()
 
         # Если пользователь — администратор группы, удаляем группу целиком
         if membership and membership['role'] == 'admin':
@@ -2723,6 +2750,70 @@ def group_detail(group_id):
                            show_requests_tab=show_requests_tab,
                            pending_requests=pending_requests,
                            pending_requests_count=pending_requests_count)
+
+
+@app.route('/news')
+def news_page():
+    """Страница со всеми новостями"""
+    if 'user_id' not in session:
+        return redirect('/login')
+
+    user_id = session['user_id']
+
+    # Получаем параметры фильтрации
+    page = request.args.get('page', 1, type=int)
+    filter_type = request.args.get('filter', 'all')
+    search_query = request.args.get('search', '').strip()
+
+    per_page = 12  # Новостей на странице
+
+    conn = get_db_connection()
+
+    # Базовый запрос
+    query = "SELECT *, 'news' as type FROM imported_news"
+    params = []
+
+    # Применяем фильтры
+    if filter_type == 'today':
+        query += " WHERE DATE(published) = DATE('now')"
+    elif filter_type == 'week':
+        query += " WHERE published >= DATE('now', '-7 days')"
+    elif filter_type == 'ria':
+        query += " WHERE source LIKE '%RIA%'"
+    elif filter_type == 'lenta':
+        query += " WHERE source LIKE '%Lenta%'"
+
+    # Поиск по заголовку и описанию
+    if search_query:
+        if 'WHERE' in query:
+            query += " AND"
+        else:
+            query += " WHERE"
+        query += " (title LIKE ? OR description LIKE ?)"
+        params.extend([f'%{search_query}%', f'%{search_query}%'])
+
+    # Получаем общее количество для пагинации
+    count_query = query.replace("SELECT *, 'news' as type", "SELECT COUNT(*) as count")
+    total = conn.execute(count_query, params).fetchone()['count']
+    total_pages = (total + per_page - 1) // per_page
+
+    # Добавляем сортировку и пагинацию
+    query += " ORDER BY published DESC LIMIT ? OFFSET ?"
+    params.extend([per_page, (page - 1) * per_page])
+
+    # Получаем новости
+    news_rows = conn.execute(query, params).fetchall()
+    news_items = rows_to_dicts(news_rows)
+
+    conn.close()
+
+    return render_template('news.html',
+                           news_items=news_items,
+                           current_page=page,
+                           total_pages=total_pages,
+                           current_filter=filter_type,
+                           search_query=search_query,
+                           now=datetime.now)
 
 
 @app.route('/group/<int:group_id>/create_post', methods=['POST'])
@@ -4234,14 +4325,22 @@ def run_telegram_bot():
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
 
-    bot_app = ApplicationBuilder().token(BOT_TOKEN).build()
-    bot_app.add_handler(CommandHandler("start", start))
-    bot_app.add_handler(CommandHandler("status", status_cmd))
-    bot_app.add_handler(CommandHandler("help", help_cmd))
-    bot_app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, unknown))
+    async def main_bot():
+        bot_app = ApplicationBuilder().token(BOT_TOKEN).build()
+        bot_app.add_handler(CommandHandler("start", start))
+        bot_app.add_handler(CommandHandler("status", status_cmd))
+        bot_app.add_handler(CommandHandler("help", help_cmd))
+        bot_app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, unknown))
 
-    print("[BOT] Telegram-бот запущен в фоновом потоке")
-    bot_app.run_polling(stop_signals=None)  # stop_signals=None важно для потоков
+        print("[BOT] Telegram-бот запущен в фоновом потоке")
+        async with bot_app:
+            await bot_app.initialize()
+            await bot_app.start()
+            await bot_app.updater.start_polling(drop_pending_updates=True)
+            while True:
+                await asyncio.sleep(1)
+
+    loop.run_until_complete(main_bot())
 
 
 # ==================== АДМИН-ПАНЕЛЬ ====================
@@ -4596,7 +4695,7 @@ def get_user_stats():
     })
 
 
-def get_news_feed_with_media(user_id=None, limit=20):
+def get_news_feed_with_media(user_id=None, limit=20, filter_type='all'):
     """Получение ленты новостей с медиафайлами"""
     conn = get_db_connection()
 
@@ -4607,15 +4706,31 @@ def get_news_feed_with_media(user_id=None, limit=20):
         # Получаем посты пользователей
         if user_id:
             try:
-                user_posts_rows = conn.execute('''
+                # Build query based on filter
+                if filter_type == 'mine':
+                    filter_clause = 'WHERE p.user_id = :uid'
+                    filter_params = {'uid': user_id}
+                elif filter_type == 'friends':
+                    filter_clause = '''WHERE p.user_id != :uid
+                        AND p.user_id IN (
+                            SELECT CASE WHEN sender_id = :uid THEN receiver_id ELSE sender_id END
+                            FROM friendships WHERE (sender_id = :uid OR receiver_id = :uid) AND status = 'accepted'
+                        )'''
+                    filter_params = {'uid': user_id}
+                else:
+                    filter_clause = ''
+                    filter_params = {}
+
+                user_posts_rows = conn.execute(f'''
                     SELECT p.*, u.username,
                            (SELECT COUNT(*) FROM post_likes WHERE post_id = p.id) as likes_count,
                            (SELECT COUNT(*) FROM comments WHERE post_id = p.id) as comments_count
                     FROM posts p
                     JOIN users u ON p.user_id = u.id
+                    {filter_clause}
                     ORDER BY p.created_at DESC
                     LIMIT 20
-                ''').fetchall()
+                ''', filter_params).fetchall()
 
                 if user_posts_rows:
                     user_posts = rows_to_dicts(user_posts_rows)
@@ -4699,12 +4814,13 @@ def get_news_feed_with_media(user_id=None, limit=20):
             post['media_files'] = []
         all_feed.append(post)
 
-    # Добавляем новости
-    for news in imported_news:
-        news['type'] = 'news'
-        if 'media_files' not in news:
-            news['media_files'] = []
-        all_feed.append(news)
+    # Добавляем новости (только при фильтре 'all')
+    if filter_type == 'all':
+        for news in imported_news:
+            news['type'] = 'news'
+            if 'media_files' not in news:
+                news['media_files'] = []
+            all_feed.append(news)
 
     # Сортировка
     try:
@@ -5122,7 +5238,10 @@ def view_document(media_id):
     error = None
 
     try:
-        if ext in ('doc', 'docx'):
+        if ext == 'doc':
+            # Старый формат .doc не поддерживается python-docx — предлагаем скачать
+            error = 'doc_download'
+        elif ext == 'docx':
             if not DOCX_AVAILABLE:
                 error = 'Библиотека python-docx не установлена.'
             else:
@@ -5143,6 +5262,24 @@ def view_document(media_id):
             error = 'Просмотр этого типа файлов не поддерживается.'
     except Exception as e:
         error = f'Не удалось открыть файл: {str(e)}'
+
+    if error == 'doc_download':
+        content_block = f'''<div style="text-align:center;padding:40px 20px;">
+            <div style="font-size:64px;margin-bottom:16px;">📄</div>
+            <h2 style="margin:0 0 8px;font-size:20px;">Файл в формате .doc</h2>
+            <p style="color:#666;margin-bottom:24px;font-size:14px;">
+                Формат <strong>.doc</strong> (Word 97–2003) не поддерживается для просмотра в браузере.<br>
+                Скачайте файл и откройте в Microsoft Word или LibreOffice.
+            </p>
+            <a href="/static/uploads/posts/{media['filename']}" download="{original_name}"
+               style="display:inline-block;padding:12px 28px;background:#2c3e50;color:#fff;border-radius:8px;text-decoration:none;font-weight:600;font-size:15px;">
+                ⬇ Скачать {original_name}
+            </a>
+        </div>'''
+    elif error:
+        content_block = f"<div class='error'>{error}</div>"
+    else:
+        content_block = content_html
 
     page_html = f'''<!DOCTYPE html>
 <html lang="ru">
@@ -5191,18 +5328,16 @@ def view_document(media_id):
 </head>
 <body>
     <div class="toolbar">
-        <a href="javascript:history.back()" class="back">← Назад</a>
         <span class="filename">📄 {original_name}</span>
         <a href="/static/uploads/posts/{media['filename']}" download="{original_name}">⬇ Скачать</a>
     </div>
     <div class="content">
-        {"<div class='error'>" + error + "</div>" if error else content_html}
+        {content_block}
     </div>
 </body>
 </html>'''
 
     return page_html
-
 
 
 @app.route('/view_document_content/<int:media_id>')
@@ -5256,11 +5391,258 @@ def view_document_content(media_id):
             Не удалось открыть файл: {str(e)}</div>''', 500
 
 
+# ==================== МЕССЕНДЖЕР ====================
+
+def ensure_messenger_tables():
+    conn = get_db_connection()
+    conn.execute('''
+        CREATE TABLE IF NOT EXISTS conversations (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user1_id INTEGER NOT NULL,
+            user2_id INTEGER NOT NULL,
+            last_message_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (user1_id) REFERENCES users(id),
+            FOREIGN KEY (user2_id) REFERENCES users(id),
+            UNIQUE(user1_id, user2_id)
+        )
+    ''')
+    conn.execute('''
+        CREATE TABLE IF NOT EXISTS messages (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            conversation_id INTEGER NOT NULL,
+            sender_id INTEGER NOT NULL,
+            text TEXT NOT NULL,
+            is_read INTEGER DEFAULT 0,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (conversation_id) REFERENCES conversations(id) ON DELETE CASCADE,
+            FOREIGN KEY (sender_id) REFERENCES users(id)
+        )
+    ''')
+    conn.commit()
+    conn.close()
+
+
+def get_or_create_conversation(user1_id, user2_id):
+    conn = get_db_connection()
+    a, b = sorted([user1_id, user2_id])
+    conv = conn.execute(
+        'SELECT id FROM conversations WHERE user1_id = ? AND user2_id = ?', (a, b)
+    ).fetchone()
+    if conv:
+        conv_id = conv['id']
+    else:
+        cursor = conn.cursor()
+        cursor.execute(
+            'INSERT INTO conversations (user1_id, user2_id) VALUES (?, ?)', (a, b)
+        )
+        conv_id = cursor.lastrowid
+        conn.commit()
+    conn.close()
+    return conv_id
+
+
+def get_conversations_list(user_id):
+    conn = get_db_connection()
+    rows = rows_to_dicts(conn.execute('''
+        SELECT
+            c.id as conv_id,
+            CASE WHEN c.user1_id = ? THEN c.user2_id ELSE c.user1_id END as partner_id,
+            u.username as partner_username,
+            COALESCE(up.full_name, u.username) as partner_name,
+            COALESCE(up.avatar, 'default_avatar.png') as partner_avatar,
+            (SELECT text FROM messages WHERE conversation_id = c.id ORDER BY created_at DESC LIMIT 1) as last_message,
+            (SELECT COUNT(*) FROM messages WHERE conversation_id = c.id AND sender_id != ? AND is_read = 0) as unread_count
+        FROM conversations c
+        JOIN users u ON u.id = CASE WHEN c.user1_id = ? THEN c.user2_id ELSE c.user1_id END
+        LEFT JOIN user_profiles up ON up.user_id = u.id
+        WHERE c.user1_id = ? OR c.user2_id = ?
+        ORDER BY c.last_message_at DESC
+    ''', (user_id, user_id, user_id, user_id, user_id)).fetchall())
+    conn.close()
+    return rows
+
+
+@app.route('/messenger')
+def messenger():
+    if 'user_id' not in session:
+        return redirect('/login')
+    ensure_messenger_tables()
+    user_id = session['user_id']
+    conversations = get_conversations_list(user_id)
+    total_unread = sum(c['unread_count'] for c in conversations)
+    return render_template('messenger.html',
+                           conversations=conversations,
+                           total_unread=total_unread,
+                           active_conv=None,
+                           messages=[],
+                           partner=None,
+                           partner_id=None,
+                           user_id=user_id)
+
+
+@app.route('/messenger/<int:partner_id>')
+def messenger_chat(partner_id):
+    if 'user_id' not in session:
+        return redirect('/login')
+    ensure_messenger_tables()
+    user_id = session['user_id']
+    if user_id == partner_id:
+        flash('Нельзя писать самому себе', 'error')
+        return redirect('/messenger')
+    conv_id = get_or_create_conversation(user_id, partner_id)
+    conn = get_db_connection()
+    conn.execute('''
+        UPDATE messages SET is_read = 1
+        WHERE conversation_id = ? AND sender_id != ?
+    ''', (conv_id, user_id))
+    conn.commit()
+    chat_messages = rows_to_dicts(conn.execute('''
+        SELECT m.id, m.sender_id, m.text, m.created_at, u.username as sender_username
+        FROM messages m
+        JOIN users u ON m.sender_id = u.id
+        WHERE m.conversation_id = ?
+        ORDER BY m.created_at ASC
+        LIMIT 200
+    ''', (conv_id,)).fetchall())
+    partner = row_to_dict(conn.execute('''
+        SELECT u.id, u.username,
+               COALESCE(up.full_name, u.username) as full_name,
+               COALESCE(up.avatar, 'default_avatar.png') as avatar
+        FROM users u
+        LEFT JOIN user_profiles up ON up.user_id = u.id
+        WHERE u.id = ?
+    ''', (partner_id,)).fetchone())
+    conn.close()
+    conversations = get_conversations_list(user_id)
+    total_unread = sum(c['unread_count'] for c in conversations)
+    return render_template('messenger.html',
+                           conversations=conversations,
+                           total_unread=total_unread,
+                           active_conv=conv_id,
+                           messages=chat_messages,
+                           partner=partner,
+                           partner_id=partner_id,
+                           current_user_id=user_id,
+                           user_id=user_id)
+
+
+@app.route('/messenger/send_ajax', methods=['POST'])
+def messenger_send_ajax():
+    if 'user_id' not in session:
+        return jsonify({'success': False}), 401
+    ensure_messenger_tables()
+    user_id = session['user_id']
+    data = request.get_json()
+    partner_id = data.get('partner_id')
+    text = (data.get('text') or '').strip()
+    if not text or not partner_id:
+        return jsonify({'success': False, 'error': 'Пустое сообщение'})
+    conv_id = get_or_create_conversation(user_id, int(partner_id))
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute(
+        'INSERT INTO messages (conversation_id, sender_id, text) VALUES (?, ?, ?)',
+        (conv_id, user_id, text)
+    )
+    msg_id = cursor.lastrowid
+    conn.execute(
+        'UPDATE conversations SET last_message_at = CURRENT_TIMESTAMP WHERE id = ?',
+        (conv_id,)
+    )
+    conn.commit()
+    msg = row_to_dict(conn.execute('SELECT * FROM messages WHERE id = ?', (msg_id,)).fetchone())
+    conn.close()
+    return jsonify({'success': True, 'message': msg})
+
+
+@app.route('/messenger/poll/<int:conv_id>')
+def messenger_poll(conv_id):
+    if 'user_id' not in session:
+        return jsonify({'success': False}), 401
+    ensure_messenger_tables()
+    user_id = session['user_id']
+    last_id = request.args.get('last_id', 0, type=int)
+    conn = get_db_connection()
+    conv = conn.execute(
+        'SELECT * FROM conversations WHERE id = ? AND (user1_id = ? OR user2_id = ?)',
+        (conv_id, user_id, user_id)
+    ).fetchone()
+    if not conv:
+        conn.close()
+        return jsonify({'success': False, 'error': 'Нет доступа'})
+    new_messages = rows_to_dicts(conn.execute('''
+        SELECT m.id, m.sender_id, m.text, m.created_at, u.username as sender_username
+        FROM messages m
+        JOIN users u ON m.sender_id = u.id
+        WHERE m.conversation_id = ? AND m.id > ?
+        ORDER BY m.created_at ASC
+    ''', (conv_id, last_id)).fetchall())
+    if new_messages:
+        conn.execute('''
+            UPDATE messages SET is_read = 1
+            WHERE conversation_id = ? AND sender_id != ? AND id > ?
+        ''', (conv_id, user_id, last_id))
+        conn.commit()
+    total_unread = conn.execute('''
+        SELECT COUNT(*) as count FROM messages m
+        JOIN conversations c ON m.conversation_id = c.id
+        WHERE (c.user1_id = ? OR c.user2_id = ?)
+          AND m.sender_id != ? AND m.is_read = 0
+          AND m.conversation_id != ?
+    ''', (user_id, user_id, user_id, conv_id)).fetchone()['count']
+    conn.close()
+    return jsonify({'success': True, 'messages': new_messages, 'total_unread': total_unread})
+
+
+@app.route('/messenger/unread_count')
+def messenger_unread_count():
+    if 'user_id' not in session:
+        return jsonify({'count': 0})
+    ensure_messenger_tables()
+    user_id = session['user_id']
+    conn = get_db_connection()
+    count = conn.execute('''
+        SELECT COUNT(*) as count FROM messages m
+        JOIN conversations c ON m.conversation_id = c.id
+        WHERE (c.user1_id = ? OR c.user2_id = ?) AND m.sender_id != ? AND m.is_read = 0
+    ''', (user_id, user_id, user_id)).fetchone()['count']
+    conn.close()
+    return jsonify({'count': count})
+
+
+@app.route('/messenger/search_users')
+def messenger_search_users():
+    if 'user_id' not in session:
+        return jsonify({'users': []})
+    ensure_messenger_tables()
+    user_id = session['user_id']
+    q = request.args.get('q', '').strip()
+    if len(q) < 2:
+        return jsonify({'users': []})
+    conn = get_db_connection()
+    users = rows_to_dicts(conn.execute('''
+        SELECT u.id, u.username,
+               COALESCE(up.full_name, u.username) as full_name,
+               COALESCE(up.avatar, 'default_avatar.png') as avatar
+        FROM users u
+        LEFT JOIN user_profiles up ON up.user_id = u.id
+        WHERE (u.username LIKE ? OR up.full_name LIKE ?)
+          AND u.id != ? AND u.is_banned = 0
+        LIMIT 10
+    ''', (f'%{q}%', f'%{q}%', user_id)).fetchall())
+    conn.close()
+    return jsonify({'users': users})
+
+
 if __name__ == '__main__':
     create_tables()
 
     # Запускаем Telegram-бота в фоновом потоке
-    bot_thread = threading.Thread(target=run_telegram_bot, daemon=True)
-    bot_thread.start()
+    import os
 
-    app.run(debug=True, host='0.0.0.0', port=5555)
+    if not app.debug or os.environ.get('WERKZEUG_RUN_MAIN') == 'true':
+        bot_thread = threading.Thread(target=run_telegram_bot, daemon=True)
+        bot_thread.start()
+
+    app.run(debug=True, host='0.0.0.0', port=5555, use_reloader=False)
