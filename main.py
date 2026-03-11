@@ -1463,7 +1463,8 @@ def index():
     if 'user_id' in session:
         username = session.get('username')
         return redirect_based_on_role(username)
-    return redirect('/login')
+    return render_template('linka-promo.html')
+
 
 
 @app.route('/home', methods=['GET', 'POST'])
