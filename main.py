@@ -451,6 +451,18 @@ def create_tables():
     )
     ''')
 
+    # Таблица новостей соцсети (создаётся/управляется администратором)
+    cursor.execute('''
+    CREATE TABLE IF NOT EXISTS site_news (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        title TEXT NOT NULL,
+        content TEXT NOT NULL,
+        author_id INTEGER NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (author_id) REFERENCES users(id)
+    )
+    ''')
+
     # Таблица жалоб
     cursor.execute('''
     CREATE TABLE IF NOT EXISTS reports (
@@ -1465,8 +1477,6 @@ def index():
         return redirect_based_on_role(username)
     return render_template('linka-promo.html')
 
-
-
 @app.route('/home', methods=['GET', 'POST'])
 def home():
     if 'user_id' not in session:
@@ -1569,16 +1579,6 @@ def home():
     feed_items = []
 
     try:
-        # Принудительный импорт при нажатии "Обновить ленту"
-        if request.args.get('refresh') == '1':
-            import_news_to_db()
-        else:
-            # Фоновый импорт раз в 5 запросов
-            import_counter = session.get('import_counter', 0) + 1
-            session['import_counter'] = import_counter % 100
-            if import_counter % 5 == 0:
-                import_news_to_db()
-
         filter_type = request.args.get('filter', 'all')
         feed_items = get_news_feed_with_media(user_id, limit=20, filter_type=filter_type)
         print(f"Получено {len(feed_items)} элементов в ленте")
@@ -1587,7 +1587,7 @@ def home():
         print(f"Ошибка при подготовке ленты: {e}")
         import traceback
         traceback.print_exc()
-        flash('Не удалось загрузить все новости', 'info')
+        feed_items = []
 
     # Получаем количество заявок в друзья
     friend_requests_count = 0
@@ -1603,10 +1603,71 @@ def home():
     finally:
         conn.close()
 
+    # Получаем новости сайта
+    site_news_items = []
+    conn2 = get_db_connection()
+    try:
+        site_news_items = rows_to_dicts(conn2.execute(
+            'SELECT sn.*, u.username as author_name FROM site_news sn JOIN users u ON u.id = sn.author_id ORDER BY sn.created_at DESC LIMIT 10'
+        ).fetchall())
+    except Exception as e:
+        print(f"Ошибка при получении новостей сайта: {e}")
+    finally:
+        conn2.close()
+
+    # Роль пользователя
+    user_role = session.get('role', 'user')
+
     return render_template('home.html',
                            username=session.get('username'),
                            friend_requests_count=friend_requests_count,
-                           feed_items=feed_items)
+                           feed_items=feed_items,
+                           site_news=site_news_items,
+                           user_role=user_role)
+
+
+# ── НОВОСТИ САЙТА (только для admin) ──────────────────────────────
+
+@app.route('/site_news/add', methods=['POST'])
+def site_news_add():
+    if 'user_id' not in session:
+        return jsonify({'success': False, 'error': 'Требуется авторизация'}), 401
+    if session.get('role') not in ('admin', 'techadmin'):
+        return jsonify({'success': False, 'error': 'Нет прав'}), 403
+    data = request.get_json()
+    title = (data.get('title') or '').strip()
+    body  = (data.get('content') or '').strip()
+    if not title or not body:
+        return jsonify({'success': False, 'error': 'Заголовок и текст обязательны'})
+    conn = get_db_connection()
+    try:
+        conn.execute(
+            'INSERT INTO site_news (title, content, author_id) VALUES (?, ?, ?)',
+            (title, body, session['user_id'])
+        )
+        conn.commit()
+        return jsonify({'success': True})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+    finally:
+        conn.close()
+
+
+@app.route('/site_news/delete/<int:news_id>', methods=['POST'])
+def site_news_delete(news_id):
+    if 'user_id' not in session:
+        return jsonify({'success': False, 'error': 'Требуется авторизация'}), 401
+    if session.get('role') not in ('admin', 'techadmin'):
+        return jsonify({'success': False, 'error': 'Нет прав'}), 403
+    conn = get_db_connection()
+    try:
+        conn.execute('DELETE FROM site_news WHERE id = ?', (news_id,))
+        conn.commit()
+        return jsonify({'success': True})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+    finally:
+        conn.close()
 
 
 @app.route('/import_news', methods=['POST'])
@@ -3991,6 +4052,7 @@ def login():
                     connection.close()
                     session['user_id'] = user['id']
                     session['username'] = user['username']
+                    session['role'] = user.get('role', 'user')
                     return redirect_based_on_role(user['username'])
             else:
                 connection.close()
@@ -4176,6 +4238,7 @@ def twofa_verify():
             session.pop('2fa_user_id', None)
             session['user_id'] = user['id']
             session['username'] = user['username']
+            session['role'] = user.get('role', 'user')
             return redirect_based_on_role(user['username'])
         else:
             conn.close()
