@@ -120,6 +120,48 @@
 
                         <div class="post-content">{{ post.content }}</div>
 
+                        {% if post.media_files %}
+                        <div style="margin:12px 0;">
+                            <div style="font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;">
+                                <i class="fas fa-paperclip" style="color:var(--amber-500);"></i> Файлы ({{ post.media_files|length }})
+                            </div>
+                            <div style="display:flex;flex-wrap:wrap;gap:10px;">
+                                {% for media in post.media_files %}{% if media.exists %}
+                                <div style="position:relative;display:inline-block;" id="media-{{ media.id }}">
+                                    {% if media.file_type == 'image' %}
+                                        <img src="/static/uploads/posts/{{ media.filename }}" style="width:120px;height:90px;object-fit:cover;border-radius:var(--radius-md);border:2px solid var(--amber-200);display:block;" alt="">
+                                    {% elif media.file_type == 'video' %}
+                                        <div style="width:120px;height:90px;background:var(--gray-100);border-radius:var(--radius-md);border:2px solid var(--amber-200);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;">
+                                            <i class="fas fa-film" style="font-size:22px;color:var(--amber-500);"></i>
+                                            <span style="font-size:10px;color:var(--text-muted);">Видео</span>
+                                        </div>
+                                    {% else %}
+                                        <div style="width:120px;height:90px;background:var(--gray-100);border-radius:var(--radius-md);border:2px solid var(--amber-200);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;padding:6px;">
+                                            <i class="fas fa-file" style="font-size:22px;color:var(--amber-500);"></i>
+                                            <span style="font-size:10px;color:var(--text-muted);text-align:center;word-break:break-all;">{{ (media.original_filename or media.filename)|truncate(16) }}</span>
+                                        </div>
+                                    {% endif %}
+                                    <button onclick="deleteMedia({{ media.id }})" title="Удалить файл"
+                                            style="position:absolute;top:-6px;right:-6px;width:20px;height:20px;background:#dc2626;border:none;border-radius:50%;color:white;font-size:10px;cursor:pointer;display:flex;align-items:center;justify-content:center;">
+                                        <i class="fas fa-times"></i>
+                                    </button>
+                                </div>
+                                {% endif %}{% endfor %}
+                            </div>
+                            <label for="addMedia-{{ post.id }}" style="display:inline-flex;align-items:center;gap:6px;margin-top:10px;padding:6px 14px;background:var(--amber-50);border:1px dashed var(--amber-400);border-radius:var(--radius-full);font-size:12px;font-weight:700;color:var(--amber-700);cursor:pointer;">
+                                <i class="fas fa-plus"></i> Добавить файл
+                            </label>
+                            <input type="file" id="addMedia-{{ post.id }}" style="display:none;" accept="image/*,video/*,.pdf,.doc,.docx,.txt" onchange="uploadMedia({{ post.id }}, this)">
+                        </div>
+                        {% else %}
+                        <div style="margin:10px 0;">
+                            <label for="addMedia-{{ post.id }}" style="display:inline-flex;align-items:center;gap:6px;padding:6px 14px;background:var(--amber-50);border:1px dashed var(--amber-400);border-radius:var(--radius-full);font-size:12px;font-weight:700;color:var(--amber-700);cursor:pointer;">
+                                <i class="fas fa-paperclip"></i> Прикрепить файл
+                            </label>
+                            <input type="file" id="addMedia-{{ post.id }}" style="display:none;" accept="image/*,video/*,.pdf,.doc,.docx,.txt" onchange="uploadMedia({{ post.id }}, this)">
+                        </div>
+                        {% endif %}
+
                         <div class="post-stats">
                             <span><i class="far fa-comment" style="color:var(--amber-500);"></i> {{ post.comments_count or 0 }} комментариев</span>
                         </div>
@@ -221,6 +263,24 @@
                 if (dd) dd.classList.remove('open');
             }
         });
+    </script>
+    <script>
+        async function deleteMedia(mediaId){
+            if(!confirm('Удалить этот файл из поста?'))return;
+            const r=await fetch('/my_posts/delete_media/'+mediaId,{method:'POST'});
+            const d=await r.json();
+            if(d.success){const el=document.getElementById('media-'+mediaId);if(el)el.remove();}
+            else{alert('Ошибка: '+(d.error||'неизвестная'));}
+        }
+        async function uploadMedia(postId,input){
+            if(!input.files||!input.files[0])return;
+            const fd=new FormData();
+            fd.append('media_files',input.files[0]);
+            const r=await fetch('/add_media_to_post/'+postId,{method:'POST',body:fd});
+            const d=await r.json();
+            if(d.success){location.reload();}
+            else{alert('Ошибка при загрузке: '+(d.error||'неизвестная'));}
+        }
     </script>
 </body>
 </html>

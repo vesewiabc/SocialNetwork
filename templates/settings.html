@@ -1,289 +1,424 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Настройки аккаунта</title>
-    
-    <style>
-        * { box-sizing: border-box; margin: 0; padding: 0; }
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Настройки — LinkA</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+  <link rel="stylesheet" href="{{ url_for('static', filename='defaults/style.css') }}">
+  <link rel="icon" type="image/png" href="{{ url_for('static', filename='uploads/favicon.png') }}">
+  <style>
+    .settings-wrap {
+      max-width: 680px;
+      margin: 32px auto;
+      padding: 0 16px 60px;
+    }
+    .settings-page-title {
+      font-family: var(--font-display);
+      font-size: 22px;
+      font-weight: 700;
+      margin-bottom: 24px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .settings-page-title i {
+      width: 40px; height: 40px;
+      background: var(--accent-gradient);
+      border-radius: var(--radius-md);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 18px; color: #111; flex-shrink: 0;
+    }
 
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-            background: #f0f2f5;
-            color: #1c1e21;
-            min-height: 100vh;
-        }
+    /* Card */
+    .s-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-light);
+      border-radius: var(--radius-xl);
+      overflow: hidden;
+      margin-bottom: 16px;
+      box-shadow: var(--shadow-sm);
+      position: relative;
+    }
+    .s-card::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 3px;
+      background: var(--accent-gradient);
+    }
+    .s-card.danger::before { background: linear-gradient(135deg,#f87171,#dc2626); }
 
-        .page-wrapper {
-            max-width: 680px;
-            margin: 0 auto;
-            padding: 32px 16px;
-        }
+    .s-card-header {
+      padding: 20px 24px 14px;
+      border-bottom: 1px solid var(--border-light);
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+    .s-card-icon {
+      width: 40px; height: 40px;
+      border-radius: var(--radius-md);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 17px;
+      flex-shrink: 0;
+    }
+    .s-card-icon.amber { background: var(--amber-100); color: var(--amber-600); }
+    .s-card-icon.green { background: #dcfce7; color: #16a34a; }
+    .s-card-icon.red   { background: #fee2e2; color: #dc2626; }
+    .s-card-icon.blue  { background: #dbeafe; color: #2563eb; }
 
-        .back-link {
-            display: inline-flex;
-            align-items: center;
-            gap: 6px;
-            color: #65676b;
-            text-decoration: none;
-            font-size: 14px;
-            margin-bottom: 20px;
-            transition: color .2s;
-        }
-        .back-link:hover { color: #1877f2; }
+    .s-card-title {
+      font-family: var(--font-display);
+      font-size: 15px;
+      font-weight: 700;
+      color: var(--text-primary);
+      margin-bottom: 2px;
+    }
+    .s-card-sub {
+      font-size: 12px;
+      color: var(--text-muted);
+    }
 
-        h1 {
-            font-size: 24px;
-            font-weight: 700;
-            margin-bottom: 24px;
-            color: #1c1e21;
-        }
+    .s-card-body { padding: 20px 24px; }
 
-        .card {
-            background: #fff;
-            border-radius: 12px;
-            box-shadow: 0 1px 4px rgba(0,0,0,.1);
-            overflow: hidden;
-            margin-bottom: 16px;
-        }
+    /* 2FA status */
+    .tfa-badge {
+      display: flex; align-items: center; gap: 14px;
+      padding: 14px 16px;
+      border-radius: var(--radius-lg);
+      margin-bottom: 18px;
+    }
+    .tfa-badge.on  { background: #f0fdf4; border: 1px solid #86efac; }
+    .tfa-badge.off { background: var(--gray-50); border: 1px solid var(--border-light); }
+    .tfa-badge-icon { font-size: 26px; flex-shrink: 0; }
+    .tfa-badge-text strong { display: block; font-size: 14px; font-weight: 700; }
+    .tfa-badge.on  .tfa-badge-text strong { color: #15803d; }
+    .tfa-badge.off .tfa-badge-text strong { color: var(--text-primary); }
+    .tfa-badge-text span { font-size: 12px; color: var(--text-muted); }
 
-        .card-header {
-            padding: 18px 24px;
-            border-bottom: 1px solid #e4e6ea;
-        }
-        .card-header h2 {
-            font-size: 17px;
-            font-weight: 600;
-        }
-        .card-header p {
-            font-size: 13px;
-            color: #65676b;
-            margin-top: 4px;
-        }
+    /* Form fields */
+    .s-field { margin-bottom: 16px; }
+    .s-label {
+      display: block;
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--text-secondary);
+      margin-bottom: 6px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .s-input {
+      width: 100%;
+      padding: 10px 14px;
+      border: 1.5px solid var(--border-medium);
+      border-radius: var(--radius-md);
+      font-size: 14px;
+      font-family: var(--font-body);
+      color: var(--text-primary);
+      background: var(--bg-page);
+      transition: border-color var(--transition), box-shadow var(--transition);
+      outline: none;
+    }
+    .s-input:focus {
+      border-color: var(--amber-500);
+      box-shadow: 0 0 0 3px rgba(245,158,11,0.15);
+    }
 
-        .card-body {
-            padding: 20px 24px;
-        }
+    /* Privacy options */
+    .privacy-options { display: flex; flex-direction: column; gap: 10px; margin-bottom: 18px; }
+    .privacy-option {
+      display: flex; align-items: center; gap: 14px;
+      padding: 14px 16px;
+      border: 2px solid var(--border-light);
+      border-radius: var(--radius-lg);
+      cursor: pointer;
+      transition: all var(--transition);
+      position: relative;
+    }
+    .privacy-option:hover { border-color: var(--amber-300); background: var(--amber-50); }
+    .privacy-option.selected { border-color: var(--amber-500); background: var(--amber-50); }
+    .privacy-option input[type="radio"] { position: absolute; opacity: 0; }
+    .privacy-option-icon {
+      width: 40px; height: 40px;
+      border-radius: var(--radius-md);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 18px;
+      flex-shrink: 0;
+    }
+    .privacy-option-icon.all     { background: #dbeafe; color: #2563eb; }
+    .privacy-option-icon.friends { background: var(--amber-100); color: var(--amber-600); }
+    .privacy-option-icon.nobody  { background: #fee2e2; color: #dc2626; }
+    .privacy-option-text strong {
+      display: block; font-size: 14px; font-weight: 700; color: var(--text-primary);
+    }
+    .privacy-option-text span { font-size: 12px; color: var(--text-muted); }
+    .privacy-check {
+      margin-left: auto;
+      width: 22px; height: 22px;
+      border-radius: 50%;
+      border: 2px solid var(--border-medium);
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+      transition: all var(--transition);
+    }
+    .privacy-option.selected .privacy-check {
+      background: var(--amber-500);
+      border-color: var(--amber-500);
+    }
+    .privacy-option.selected .privacy-check::after {
+      content: '';
+      width: 8px; height: 5px;
+      border-left: 2px solid #fff;
+      border-bottom: 2px solid #fff;
+      transform: rotate(-45deg) translateY(-1px);
+      display: block;
+    }
 
-        /* 2FA Status */
-        .tfa-status {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            padding: 14px 16px;
-            border-radius: 8px;
-            margin-bottom: 18px;
-        }
-        .tfa-status.enabled {
-            background: #e7f3e8;
-            border: 1px solid #42b72a;
-        }
-        .tfa-status.disabled {
-            background: #f5f5f5;
-            border: 1px solid #ddd;
-        }
+    /* Current privacy info badge */
+    .privacy-current {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 5px 12px;
+      border-radius: var(--radius-full);
+      font-size: 12px; font-weight: 700;
+      margin-top: 4px;
+    }
+    .privacy-current.all     { background: #dbeafe; color: #2563eb; }
+    .privacy-current.friends { background: var(--amber-100); color: var(--amber-700); }
+    .privacy-current.nobody  { background: #fee2e2; color: #dc2626; }
 
-        .tfa-status .icon {
-            font-size: 28px;
-            flex-shrink: 0;
-        }
-        .tfa-status .text strong {
-            display: block;
-            font-size: 15px;
-            color: #1c1e21;
-        }
-        .tfa-status .text span {
-            font-size: 13px;
-            color: #65676b;
-        }
-        .tfa-status.enabled .text strong { color: #1a6e22; }
+    /* Buttons */
+    .s-btn {
+      display: inline-flex; align-items: center; gap: 8px;
+      padding: 10px 22px;
+      border-radius: var(--radius-full);
+      font-family: var(--font-body);
+      font-size: 14px; font-weight: 700;
+      cursor: pointer; border: none;
+      transition: all var(--transition);
+      text-decoration: none;
+    }
+    .s-btn-primary {
+      background: var(--accent-gradient);
+      color: #111;
+      box-shadow: 0 2px 8px rgba(245,158,11,0.3);
+    }
+    .s-btn-primary:hover { transform: translateY(-1px); box-shadow: 0 4px 16px rgba(245,158,11,0.4); }
+    .s-btn-danger {
+      background: none;
+      border: 2px solid #fca5a5;
+      color: #dc2626;
+    }
+    .s-btn-danger:hover { background: #fee2e2; }
+    .s-btn-secondary {
+      background: var(--gray-100);
+      color: var(--text-primary);
+      border: 1px solid var(--border-light);
+    }
+    .s-btn-secondary:hover { background: var(--gray-200); }
 
-        /* Кнопки */
-        .btn {
-            display: inline-block;
-            padding: 10px 20px;
-            border-radius: 8px;
-            font-size: 15px;
-            font-weight: 600;
-            cursor: pointer;
-            border: none;
-            text-decoration: none;
-            transition: background .15s, transform .1s;
-        }
-        .btn:active { transform: scale(.97); }
+    /* Alert */
+    .s-alert {
+      padding: 12px 16px; border-radius: var(--radius-md);
+      font-size: 14px; margin-bottom: 16px;
+      display: flex; align-items: center; gap: 10px;
+    }
+    .s-alert.success { background: #f0fdf4; border: 1px solid #86efac; color: #15803d; }
+    .s-alert.error   { background: #fef2f2; border: 1px solid #fca5a5; color: #dc2626; }
+    .s-alert.info    { background: var(--amber-50); border: 1px solid var(--amber-300); color: var(--amber-700); }
 
-        .btn-primary {
-            background: #1877f2;
-            color: #fff;
-        }
-        .btn-primary:hover { background: #1558b0; }
+    /* Danger zone */
+    .s-card.danger .s-card-header { background: #fff5f5; }
 
-        .btn-danger {
-            background: #fa3e3e;
-            color: #fff;
-        }
-        .btn-danger:hover { background: #d42929; }
-
-        .btn-secondary {
-            background: #e4e6ea;
-            color: #1c1e21;
-        }
-        .btn-secondary:hover { background: #d8dadf; }
-
-        /* Уведомления */
-        .alert {
-            padding: 12px 16px;
-            border-radius: 8px;
-            margin-bottom: 16px;
-            font-size: 14px;
-        }
-        .alert-success { background: #e7f3e8; color: #1a6e22; border: 1px solid #42b72a; }
-        .alert-error   { background: #fdecea; color: #c0392b; border: 1px solid #e74c3c; }
-        .alert-info    { background: #e7f0fd; color: #1558b0; border: 1px solid #1877f2; }
-
-        /* Секция безопасности — смена пароля */
-        .field-group {
-            margin-bottom: 16px;
-        }
-        .field-group label {
-            display: block;
-            font-size: 14px;
-            font-weight: 500;
-            margin-bottom: 6px;
-            color: #444;
-        }
-        .field-group input {
-            width: 100%;
-            padding: 10px 14px;
-            border: 1.5px solid #ddd;
-            border-radius: 8px;
-            font-size: 15px;
-            transition: border-color .2s;
-            outline: none;
-        }
-        .field-group input:focus { border-color: #1877f2; }
-
-        .danger-zone {
-            border: 1px solid #ffd7d7;
-            border-radius: 12px;
-            overflow: hidden;
-            margin-bottom: 16px;
-        }
-        .danger-zone .card-header {
-            background: #fff5f5;
-            border-bottom-color: #ffd7d7;
-        }
-        .danger-zone .card-header h2 { color: #c0392b; }
-    </style>
+    @media (max-width: 600px) {
+      .settings-wrap { padding: 16px 12px 40px; }
+      .s-card-body, .s-card-header { padding: 16px; }
+    }
+  </style>
 </head>
 <body>
-<div class="page-wrapper">
-    <a href="/profile" class="back-link">← Назад к профилю</a>
 
-    <h1>⚙️ Настройки аккаунта</h1>
+  <header>
+    <div class="container">
+      <div class="header-content">
+        <div class="logo">LinkA</div>
+        <div class="user-menu-wrap">
+          <button class="user-menu-btn" onclick="toggleUserMenu()" aria-label="Меню пользователя">
+            {% set _avatar = current_user_avatar() %}
+            {% if _avatar %}
+              <img src="{{ url_for('static', filename='uploads/avatars/' + _avatar) }}"
+                   onerror="this.style.display='none';this.nextElementSibling.style.display='flex';" alt="Аватар">
+              <i class="fas fa-user" style="display:none;"></i>
+            {% else %}
+              <i class="fas fa-user"></i>
+            {% endif %}
+          </button>
+          <div class="user-dropdown" id="userDropdown">
+            {% set _uinfo = current_user_info() %}
+            {% if _uinfo %}
+            <a href="/profile" style="text-decoration:none;color:inherit;display:block;padding:0;">
+              <div class="user-dropdown-header">
+                <div class="uname">{{ _uinfo.full_name }}</div>
+                <div class="ulogin">@{{ _uinfo.username }}</div>
+              </div>
+            </a>
+            {% endif %}
+            <a href="/settings"><i class="fas fa-cog"></i> Настройки</a>
+            <div class="divider"></div>
+            <a href="/logout" class="logout-item"><i class="fas fa-sign-out-alt"></i> Выйти</a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </header>
 
-    <!-- Флеш-сообщения -->
+  <div class="settings-wrap">
+
+    <!-- Назад -->
+    <a href="/profile" style="display:inline-flex;align-items:center;gap:6px;color:var(--text-muted);font-size:13px;font-weight:600;text-decoration:none;margin-bottom:20px;transition:color .2s;"
+       onmouseover="this.style.color='var(--amber-600)'" onmouseout="this.style.color='var(--text-muted)'">
+      <i class="fas fa-arrow-left"></i> Назад к профилю
+    </a>
+
+    <div class="settings-page-title">
+      <i class="fas fa-cog"></i>
+      Настройки аккаунта
+    </div>
+
+    <!-- Flash messages -->
     {% with messages = get_flashed_messages(with_categories=true) %}
-        {% if messages %}
-            {% for category, message in messages %}
-                <div class="alert alert-{{ 'success' if category == 'success' else 'error' if category == 'error' else 'info' }}">
-                    {{ message }}
-                </div>
-            {% endfor %}
-        {% endif %}
+      {% if messages %}
+        {% for category, message in messages %}
+          <div class="s-alert {{ 'success' if category == 'success' else 'error' if category == 'error' else 'info' }}">
+            <i class="fas {{ 'fa-check-circle' if category == 'success' else 'fa-exclamation-circle' if category == 'error' else 'fa-info-circle' }}"></i>
+            {{ message }}
+          </div>
+        {% endfor %}
+      {% endif %}
     {% endwith %}
 
-    <!-- ===== ДВУХФАКТОРНАЯ АУТЕНТИФИКАЦИЯ ===== -->
-    <div class="card">
-        <div class="card-header">
-            <h2>🔐 Двухфакторная аутентификация</h2>
-            <p>Дополнительная защита аккаунта через Telegram</p>
+    
+
+    <!-- ══════════ 2FA ══════════ -->
+    <div class="s-card">
+      <div class="s-card-header">
+        <div class="s-card-icon {{ 'green' if tfa and tfa.is_enabled and tfa.telegram_chat_id else 'amber' }}">
+          <i class="fas fa-lock"></i>
         </div>
-        <div class="card-body">
-
-            {% if tfa and tfa.is_enabled and tfa.telegram_chat_id %}
-                <!-- 2FA ВКЛЮЧЕНА -->
-                <div class="tfa-status enabled">
-                    <div class="icon">✅</div>
-                    <div class="text">
-                        <strong>Двухэтапная аутентификация включена</strong>
-                        <span>При входе на сайт вам будет отправлен код в Telegram</span>
-                    </div>
-                </div>
-
-                <p style="font-size:14px; color:#65676b; margin-bottom:16px;">
-                    Для отключения нажмите кнопку ниже. Привязка к Telegram будет удалена.
-                </p>
-
-                <form action="/settings/2fa/disable" method="POST"
-                      onsubmit="return confirm('Отключить двухфакторную аутентификацию?')">
-                    <button type="submit" class="btn btn-danger">Отключить 2FA</button>
-                </form>
-
-            {% else %}
-                <!-- 2FA ВЫКЛЮЧЕНА -->
-                <div class="tfa-status disabled">
-                    <div class="icon">🔓</div>
-                    <div class="text">
-                        <strong>Двухэтапная аутентификация отключена</strong>
-                        <span>Для входа используется только пароль</span>
-                    </div>
-                </div>
-
-                <p style="font-size:14px; color:#65676b; margin-bottom:16px;">
-                    Привяжите свой Telegram-аккаунт — при каждом входе бот будет отправлять
-                    вам одноразовый код подтверждения.
-                </p>
-
-                <form action="/settings/2fa/start" method="POST">
-                    <button type="submit" class="btn btn-primary">Подключить Telegram</button>
-                </form>
-            {% endif %}
-
+        <div>
+          <div class="s-card-title">Двухфакторная аутентификация</div>
+          <div class="s-card-sub">Дополнительная защита аккаунта через Telegram</div>
         </div>
+      </div>
+      <div class="s-card-body">
+        {% if tfa and tfa.is_enabled and tfa.telegram_chat_id %}
+          <div class="tfa-badge on">
+            <div class="tfa-badge-icon">✅</div>
+            <div class="tfa-badge-text">
+              <strong>Двухэтапная аутентификация включена</strong>
+              <span>При входе вам будет отправлен код в Telegram</span>
+            </div>
+          </div>
+          <p style="font-size:13px;color:var(--text-muted);margin-bottom:16px;">
+            Для отключения нажмите кнопку ниже. Привязка к Telegram будет удалена.
+          </p>
+          <form action="/settings/2fa/disable" method="POST"
+                onsubmit="return confirm('Отключить двухфакторную аутентификацию?')">
+            <button type="submit" class="s-btn s-btn-danger">
+              <i class="fas fa-lock-open"></i> Отключить 2FA
+            </button>
+          </form>
+        {% else %}
+          <div class="tfa-badge off">
+            <div class="tfa-badge-icon">🔓</div>
+            <div class="tfa-badge-text">
+              <strong>Двухэтапная аутентификация отключена</strong>
+              <span>Для входа используется только пароль</span>
+            </div>
+          </div>
+          <p style="font-size:13px;color:var(--text-muted);margin-bottom:16px;">
+            Привяжите Telegram-аккаунт — при каждом входе бот отправит одноразовый код подтверждения.
+          </p>
+          <form action="/settings/2fa/start" method="POST">
+            <button type="submit" class="s-btn s-btn-primary">
+              <i class="fab fa-telegram"></i> Подключить Telegram
+            </button>
+          </form>
+        {% endif %}
+      </div>
     </div>
 
-    <!-- ===== СМЕНА ПАРОЛЯ ===== -->
-    <div class="card">
-        <div class="card-header">
-            <h2>🔑 Смена пароля</h2>
-            <p>Рекомендуем использовать надёжный пароль</p>
+    <!-- ══════════ СМЕНА ПАРОЛЯ ══════════ -->
+    <div class="s-card">
+      <div class="s-card-header">
+        <div class="s-card-icon blue"><i class="fas fa-key"></i></div>
+        <div>
+          <div class="s-card-title">Смена пароля</div>
+          <div class="s-card-sub">Рекомендуем использовать надёжный пароль</div>
         </div>
-        <div class="card-body">
-            <form action="/settings/change_password" method="POST">
-                <div class="field-group">
-                    <label>Текущий пароль</label>
-                    <input type="password" name="current_password" placeholder="Введите текущий пароль" required>
-                </div>
-                <div class="field-group">
-                    <label>Новый пароль</label>
-                    <input type="password" name="new_password" placeholder="Минимум 6 символов" required>
-                </div>
-                <div class="field-group">
-                    <label>Повторите новый пароль</label>
-                    <input type="password" name="confirm_password" placeholder="Повторите новый пароль" required>
-                </div>
-                <button type="submit" class="btn btn-primary">Сохранить пароль</button>
-            </form>
-        </div>
+      </div>
+      <div class="s-card-body">
+        <form action="/settings/change_password" method="POST">
+          <div class="s-field">
+            <label class="s-label">Текущий пароль</label>
+            <input type="password" name="current_password" class="s-input" placeholder="Введите текущий пароль" required>
+          </div>
+          <div class="s-field">
+            <label class="s-label">Новый пароль</label>
+            <input type="password" name="new_password" class="s-input" placeholder="Минимум 6 символов" required>
+          </div>
+          <div class="s-field">
+            <label class="s-label">Повторите новый пароль</label>
+            <input type="password" name="confirm_password" class="s-input" placeholder="Повторите новый пароль" required>
+          </div>
+          <button type="submit" class="s-btn s-btn-primary">
+            <i class="fas fa-save"></i> Сохранить пароль
+          </button>
+        </form>
+      </div>
     </div>
 
-    <!-- ===== ОПАСНАЯ ЗОНА ===== -->
-    <div class="danger-zone">
-        <div class="card-header">
-            <h2>⚠️ Опасная зона</h2>
-            <p>Необратимые действия с аккаунтом</p>
+    <!-- ══════════ ОПАСНАЯ ЗОНА ══════════ -->
+    <div class="s-card danger">
+      <div class="s-card-header">
+        <div class="s-card-icon red"><i class="fas fa-exclamation-triangle"></i></div>
+        <div>
+          <div class="s-card-title" style="color:#dc2626;">Опасная зона</div>
+          <div class="s-card-sub">Необратимые действия с аккаунтом</div>
         </div>
-        <div class="card-body">
-            <p style="font-size:14px; color:#65676b; margin-bottom:16px;">
-                Удаление аккаунта приведёт к безвозвратному удалению всех ваших данных:
-                постов, комментариев, друзей.
-            </p>
-            <a href="/settings/delete_account" class="btn btn-danger">Удалить аккаунт</a>
-        </div>
+      </div>
+      <div class="s-card-body">
+        <p style="font-size:13px;color:var(--text-muted);margin-bottom:16px;">
+          Удаление аккаунта приведёт к безвозвратному удалению всех ваших данных:
+          постов, комментариев, друзей и переписки.
+        </p>
+        <a href="/settings/delete_account" class="s-btn s-btn-danger"
+           onclick="return confirm('Вы уверены? Это действие нельзя отменить.')">
+          <i class="fas fa-trash-alt"></i> Удалить аккаунт
+        </a>
+      </div>
     </div>
 
-</div>
+  </div>
+
+  <script>
+    function selectPrivacy(val) {
+      ['all','friends','nobody'].forEach(v => {
+        const opt = document.getElementById('opt-'+v);
+        if (opt) opt.classList.toggle('selected', v === val);
+      });
+    }
+
+    function toggleUserMenu() {
+      document.getElementById('userDropdown').classList.toggle('open');
+    }
+    document.addEventListener('click', function(e) {
+      const wrap = document.querySelector('.user-menu-wrap');
+      if (wrap && !wrap.contains(e.target)) {
+        const dd = document.getElementById('userDropdown');
+        if (dd) dd.classList.remove('open');
+      }
+    });
+  </script>
 </body>
 </html>

@@ -343,42 +343,13 @@
                     
                 </ul>
             
-                <!-- Новости LinkA -->
+                <!-- Блок новостей в левой панели -->
                 <div style="margin-top:20px; border-top:1px solid var(--border-light); padding-top:16px;">
                     <h3 style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
-                        <span><i class="fas fa-bell" style="color:var(--amber-500);margin-right:6px;"></i>Новости LinkA</span>
+                        <span><i class="fas fa-newspaper" style="color:var(--amber-500);margin-right:6px;"></i>Новости</span>
+                       
                     </h3>
-                    {% if site_news %}
-                        {% for news in site_news %}
-                        <div style="padding:8px 0; border-bottom:1px solid var(--border-light);">
-                            <div style="font-size:12px;font-weight:700;color:var(--text-primary);line-height:1.4;margin-bottom:3px;">{{ news.title }}</div>
-                            <div style="font-size:11px;color:var(--text-secondary);line-height:1.45;margin-bottom:4px;">{{ news.content|truncate(80) }}</div>
-                            <div style="display:flex;align-items:center;justify-content:space-between;">
-                                <span style="font-size:10px;color:var(--text-muted);">{{ news.created_at[:10] if news.created_at else '' }}</span>
-                                {% if user_role in ('admin','techadmin') %}
-                                <button onclick="deleteSiteNews({{ news.id }})" style="background:none;border:none;cursor:pointer;color:#ef4444;font-size:11px;padding:0;" title="Удалить"><i class="fas fa-trash"></i></button>
-                                {% endif %}
-                            </div>
-                        </div>
-                        {% endfor %}
-                    {% else %}
-                        <div style="text-align:center;padding:12px 0;color:var(--text-muted);font-size:12px;">Нет новостей</div>
-                    {% endif %}
-
-                    {% if user_role in ('admin','techadmin') %}
-                    <div style="margin-top:12px;">
-                        <button onclick="toggleAddNews()" style="width:100%;padding:7px;background:var(--amber-50);border:1px dashed var(--amber-400);border-radius:var(--radius-md);font-size:12px;font-weight:700;color:var(--amber-700);cursor:pointer;">
-                            <i class="fas fa-plus"></i> Добавить новость
-                        </button>
-                        <div id="addNewsForm" style="display:none;margin-top:10px;">
-                            <input id="newsTitle" type="text" placeholder="Заголовок" style="width:100%;padding:7px 10px;border:1px solid var(--border-light);border-radius:var(--radius-md);font-size:12px;margin-bottom:6px;font-family:var(--font-body);">
-                            <textarea id="newsContent" rows="3" placeholder="Текст новости..." style="width:100%;padding:7px 10px;border:1px solid var(--border-light);border-radius:var(--radius-md);font-size:12px;resize:none;font-family:var(--font-body);"></textarea>
-                            <button onclick="submitSiteNews()" style="width:100%;margin-top:6px;padding:7px;background:var(--accent-gradient);border:none;border-radius:var(--radius-md);font-size:12px;font-weight:700;color:#111;cursor:pointer;">
-                                <i class="fas fa-paper-plane"></i> Опубликовать
-                            </button>
-                        </div>
-                    </div>
-                    {% endif %}
+                    
                 </div>
             </div>
 
@@ -458,69 +429,6 @@
 
                 <!-- ЛЕНТА ПОСТОВ (ТОЛЬКО ПОСТЫ ПОЛЬЗОВАТЕЛЕЙ, БЕЗ НОВОСТЕЙ) -->
                 <div id="posts-feed">
-
-                    <!-- ЗАКРЕПЛЁННЫЙ ПОСТ О ВОЗМОЖНОСТЯХ LINKA -->
-                    <div class="post" id="pinned-post" style="border:2px solid var(--amber-400);position:relative;background:linear-gradient(135deg,#fffbeb 0%,#fff 60%);">
-                        <div style="position:absolute;top:12px;right:14px;display:flex;align-items:center;gap:5px;background:var(--accent-gradient);color:#111;font-size:11px;font-weight:700;padding:3px 10px;border-radius:var(--radius-full);">
-                            <i class="fas fa-thumbtack"></i> Закреплено
-                        </div>
-                        <div class="post-header">
-                            <div style="width:40px;height:40px;border-radius:50%;background:var(--accent-gradient);display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;">🔗</div>
-                            <div class="post-info">
-                                <strong class="post-author" style="background:var(--accent-gradient);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;">LinkA — Команда</strong>
-                                <small class="post-time">Официальный пост</small>
-                            </div>
-                        </div>
-                        <div class="post-content" style="font-size:15px;line-height:1.75;">
-                            <p style="font-size:18px;font-weight:700;margin-bottom:12px;">👋 Добро пожаловать в LinkA!</p>
-                            <p style="margin-bottom:16px;color:var(--text-secondary);">LinkA — это социальная сеть, созданная для живого и простого общения. Здесь каждая связь имеет значение. Вот что тебя ждёт на платформе:</p>
-                            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px;">
-                                <div style="background:var(--amber-50);border:1px solid var(--amber-200);border-radius:var(--radius-md);padding:14px;">
-                                    <div style="font-size:22px;margin-bottom:6px;">📰</div>
-                                    <strong style="font-size:14px;">Лента и посты</strong>
-                                    <p style="font-size:13px;color:var(--text-secondary);margin-top:4px;">Публикуй текст, фото, видео и документы. Лайкай и комментируй записи друзей.</p>
-                                </div>
-                                <div style="background:var(--amber-50);border:1px solid var(--amber-200);border-radius:var(--radius-md);padding:14px;">
-                                    <div style="font-size:22px;margin-bottom:6px;">💬</div>
-                                    <strong style="font-size:14px;">Мессенджер</strong>
-                                    <p style="font-size:13px;color:var(--text-secondary);margin-top:4px;">Личные сообщения прямо внутри платформы — быстро и удобно.</p>
-                                </div>
-                                <div style="background:var(--amber-50);border:1px solid var(--amber-200);border-radius:var(--radius-md);padding:14px;">
-                                    <div style="font-size:22px;margin-bottom:6px;">👥</div>
-                                    <strong style="font-size:14px;">Группы и сообщества</strong>
-                                    <p style="font-size:13px;color:var(--text-secondary);margin-top:4px;">Создавай группы по интересам, вступай в чужие, развивай своё комьюнити.</p>
-                                </div>
-                                <div style="background:var(--amber-50);border:1px solid var(--amber-200);border-radius:var(--radius-md);padding:14px;">
-                                    <div style="font-size:22px;margin-bottom:6px;">🔍</div>
-                                    <strong style="font-size:14px;">Поиск друзей</strong>
-                                    <p style="font-size:13px;color:var(--text-secondary);margin-top:4px;">Находи новых знакомых, отправляй заявки в друзья, расширяй круг общения.</p>
-                                </div>
-                                <div style="background:var(--amber-50);border:1px solid var(--amber-200);border-radius:var(--radius-md);padding:14px;">
-                                    <div style="font-size:22px;margin-bottom:6px;">🛡️</div>
-                                    <strong style="font-size:14px;">Безопасность</strong>
-                                    <p style="font-size:13px;color:var(--text-secondary);margin-top:4px;">Двухфакторная аутентификация (2FA), чёрный список и система жалоб.</p>
-                                </div>
-                                <div style="background:var(--amber-50);border:1px solid var(--amber-200);border-radius:var(--radius-md);padding:14px;">
-                                    <div style="font-size:22px;margin-bottom:6px;">⚙️</div>
-                                    <strong style="font-size:14px;">Настройки профиля</strong>
-                                    <p style="font-size:13px;color:var(--text-secondary);margin-top:4px;">Загружай аватар, редактируй информацию, управляй приватностью.</p>
-                                </div>
-                            </div>
-                            <div style="background:var(--accent-gradient);border-radius:var(--radius-md);padding:14px 18px;color:#111;display:flex;align-items:center;gap:12px;">
-                                <span style="font-size:24px;">🚀</span>
-                                <div>
-                                    <strong style="font-size:14px;">Проект в разработке</strong>
-                                    <p style="font-size:13px;margin-top:2px;opacity:0.8;">Функциональность постепенно расширяется. Идеи и отзывы приветствуются!</p>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="post-actions" style="margin-top:14px;">
-                            <span style="font-size:13px;color:var(--amber-600);font-weight:600;display:flex;align-items:center;gap:6px;">
-                                <i class="fas fa-heart" style="color:var(--amber-500);"></i> Добро пожаловать в LinkA!
-                            </span>
-                        </div>
-                    </div>
-                    <!-- /ЗАКРЕПЛЁННЫЙ ПОСТ -->
                     {% if feed_items and feed_items|length > 0 %}
                         {% for item in feed_items %}
                             {% if item.type == 'post' %}
@@ -620,6 +528,15 @@
                             <p>Начните с публикации первого поста!</p>
                         </div>
                     {% endif %}
+
+                    <!-- Sentinel для бесконечной прокрутки -->
+                    <div id="feed-sentinel" style="height:20px;"></div>
+                    <div id="feed-loader" style="display:none;text-align:center;padding:12px;">
+                        <div style="display:inline-flex;align-items:center;gap:10px;color:var(--text-muted);font-size:13px;font-weight:600;">
+                            <div class="loading-spinner"></div>
+                            Загружаем посты...
+                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -956,40 +873,129 @@
                 if (dd) dd.classList.remove('open');
             }
         });
+    </script>
+    <script>
+    // ── Бесконечная лента (цикличная) ─────────────────────────────
+    (function() {
+        const FILTER = new URLSearchParams(window.location.search).get('filter') || 'all';
+        let offset  = {{ feed_items | selectattr('type','equalto','post') | list | length }};
+        let loading = false;
 
-        // ── Новости LinkA (admin) ──────────────────────
-        function toggleAddNews() {
-            const f = document.getElementById('addNewsForm');
-            if (f) f.style.display = f.style.display === 'none' ? 'block' : 'none';
-        }
+        const sentinel = document.getElementById('feed-sentinel');
+        const loader   = document.getElementById('feed-loader');
+        const feed     = document.getElementById('posts-feed');
 
-        function submitSiteNews() {
-            const title   = (document.getElementById('newsTitle')   || {}).value || '';
-            const content = (document.getElementById('newsContent') || {}).value || '';
-            if (!title.trim() || !content.trim()) {
-                alert('Заполните заголовок и текст'); return;
+        function avatarHtml(avatar) {
+            if (avatar && avatar !== 'default_avatar.png' && avatar !== '') {
+                return `<img src="/static/uploads/avatars/${avatar}" class="author-avatar"
+                             onerror="this.src='/static/defaults/for_users.png'" alt="">`;
             }
-            fetch('/site_news/add', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({title, content})
-            })
-            .then(r => r.json())
-            .then(data => {
-                if (data.success) { location.reload(); }
-                else { alert('Ошибка: ' + (data.error || 'неизвестная')); }
-            });
+            return `<img src="/static/defaults/for_users.png" class="author-avatar" alt="">`;
         }
 
-        function deleteSiteNews(id) {
-            if (!confirm('Удалить эту новость?')) return;
-            fetch('/site_news/delete/' + id, {method: 'POST'})
-            .then(r => r.json())
-            .then(data => {
-                if (data.success) { location.reload(); }
-                else { alert('Ошибка: ' + (data.error || 'неизвестная')); }
-            });
+        function mediaHtml(mediaList) {
+            if (!mediaList || !mediaList.length) return '';
+            const inner = mediaList.map(m => {
+                if (m.file_type === 'image') {
+                    return `<div style="border-radius:var(--radius-md);overflow:hidden;cursor:pointer;"
+                                 onclick="openMediaViewer('/static/uploads/posts/${m.filename}','image')">
+                              <img src="/static/uploads/posts/${m.filename}"
+                                   style="width:100%;height:200px;object-fit:cover;" alt="">
+                            </div>`;
+                } else if (m.file_type === 'video') {
+                    return `<div class="video-container" style="border-radius:var(--radius-md);overflow:hidden;cursor:pointer;"
+                                 onclick="openMediaViewer('/static/uploads/posts/${m.filename}','video')">
+                              <video src="/static/uploads/posts/${m.filename}"
+                                     style="width:100%;height:200px;object-fit:cover;"></video>
+                              <span class="video-badge"><i class="fas fa-play"></i> Видео</span>
+                            </div>`;
+                } else {
+                    const nm = m.original_filename || m.filename;
+                    return `<div class="document-preview">
+                              <span class="document-icon">📄</span>
+                              <span class="document-name">${nm.substring(0,20)}</span>
+                            </div>`;
+                }
+            }).join('');
+            return `<div class="post-media-grid">${inner}</div>`;
         }
+
+        function buildPost(p) {
+            const canEdit = p.is_own ? `
+                <div class="post-actions" style="margin-left:auto;padding:0;border:none;">
+                    <button onclick="editPost(${p.id})" class="action-btn" style="padding:4px 10px;">
+                        <i class="fas fa-edit"></i>
+                    </button>
+                    <button onclick="deletePost(${p.id})" class="action-btn"
+                            style="padding:4px 10px;color:#dc2626;border-color:#fca5a5;">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </div>` : '';
+            const likedClass = p.is_liked ? 'liked' : '';
+            const likedIcon  = p.is_liked ? 'fas' : 'far';
+            return `<div id="dyn-post-${p.id}-${Date.now()}" class="post">
+                <div class="post-header">
+                    ${avatarHtml(p.author_avatar)}
+                    <div class="post-info">
+                        <strong class="post-author">
+                            <a href="/profile/${p.user_id}"
+                               style="text-decoration:none;color:var(--text-primary);">
+                                ${p.author_name || p.username}
+                            </a>
+                        </strong>
+                        <small class="post-time">${p.created_at}</small>
+                    </div>
+                    ${canEdit}
+                </div>
+                <p class="post-content">${p.content}</p>
+                ${mediaHtml(p.media)}
+                <div class="post-actions">
+                    <button class="like-button ${likedClass}" onclick="likePost(${p.id}, this)">
+                        <i class="${likedIcon} fa-heart"></i>
+                        <span class="likes-count">${p.likes_count}</span>
+                    </button>
+                    <a href="/post/${p.id}" class="like-button">
+                        <i class="far fa-comment"></i>
+                        <span>${p.comments_count}</span>
+                    </a>
+                </div>
+            </div>`;
+        }
+
+        async function loadMore() {
+            if (loading) return;
+            loading = true;
+            loader.style.display = 'block';
+            try {
+                const resp = await fetch(`/feed/more?offset=${offset}&filter=${FILTER}`);
+                const data = await resp.json();
+
+                if (data.posts && data.posts.length > 0) {
+                    data.posts.forEach(p => {
+                        feed.insertAdjacentHTML('beforeend', buildPost(p));
+                    });
+                    offset += data.posts.length;
+                }
+
+                // Когда посты закончились — начинаем с начала (цикл)
+                if (!data.has_more) {
+                    offset = 0;
+                }
+            } catch(e) {
+                console.error('Feed error:', e);
+            } finally {
+                loading = false;
+                loader.style.display = 'none';
+            }
+        }
+
+        // Запускаем наблюдатель — подгрузка когда sentinel виден
+        const observer = new IntersectionObserver(entries => {
+            if (entries[0].isIntersecting) loadMore();
+        }, { rootMargin: '300px' });
+
+        observer.observe(sentinel);
+    })();
     </script>
 </body>
 </html>

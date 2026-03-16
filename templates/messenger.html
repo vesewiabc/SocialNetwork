@@ -406,6 +406,27 @@ setInterval(refreshUnread, 5000);
                             {% endif %}
                         </div>
 
+                        {% if friends %}
+                        <div style="margin-top:10px;border-top:1px solid var(--border-light);padding-top:10px;">
+                            <div style="font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--text-muted);margin-bottom:8px;">
+                                <i class="fas fa-users" style="color:var(--amber-500);margin-right:4px;"></i> Друзья
+                            </div>
+                            {% for friend in friends %}
+                            <a href="/messenger/{{ friend.id }}"
+                               style="display:flex;align-items:center;gap:8px;padding:7px 8px;border-radius:var(--radius-md);text-decoration:none;color:var(--text-primary);transition:background .15s;"
+                               onmouseover="this.style.background='var(--amber-50)'"
+                               onmouseout="this.style.background='transparent'">
+                                {% if friend.avatar and friend.avatar != 'default_avatar.png' and friend.avatar != '' %}
+                                    <img src="/static/uploads/avatars/{{ friend.avatar }}" style="width:30px;height:30px;border-radius:50%;object-fit:cover;flex-shrink:0;" alt="">
+                                {% else %}
+                                    <div style="width:30px;height:30px;border-radius:50%;background:var(--accent-gradient);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:#111;flex-shrink:0;">{{ (friend.full_name or friend.username)[0]|upper }}</div>
+                                {% endif %}
+                                <span style="font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ friend.full_name or friend.username }}</span>
+                            </a>
+                            {% endfor %}
+                        </div>
+                        {% endif %}
+
                         <div class="new-chat-block">
                             <p>Новый диалог:</p>
                             <input type="text" id="userSearchInput" placeholder="Найти пользователя...">
@@ -428,6 +449,14 @@ setInterval(refreshUnread, 5000);
                             <a href="/profile/{{ partner.id }}" class="chat-header-link">
                                 <i class="fas fa-user"></i> Профиль
                             </a>
+                            <button onclick="clearHistory()" title="Очистить историю"
+                                style="padding:6px 12px;background:none;border:1px solid var(--border-light);border-radius:var(--radius-full);font-size:12px;font-weight:600;color:var(--text-secondary);cursor:pointer;display:flex;align-items:center;gap:5px;margin-left:6px;">
+                                <i class="fas fa-trash-alt"></i> Очистить
+                            </button>
+                            <button onclick="blockUser()" title="Заблокировать"
+                                style="padding:6px 12px;background:none;border:1px solid #fca5a5;border-radius:var(--radius-full);font-size:12px;font-weight:600;color:#dc2626;cursor:pointer;display:flex;align-items:center;gap:5px;margin-left:6px;">
+                                <i class="fas fa-ban"></i> Заблокировать
+                            </button>
                         </div>
 
                         <div class="chat-messages" id="chatMessages">
@@ -607,6 +636,24 @@ setInterval(refreshUnread, 5000);
             }
         });
     </script>
+    <script>
+        async function clearHistory(){
+            if(!PARTNER_ID)return;
+            if(!confirm('Очистить всю историю переписки? Это действие нельзя отменить.'))return;
+            const r=await fetch('/messenger/clear_history/'+PARTNER_ID,{method:'POST'});
+            const d=await r.json();
+            if(d.success){
+                document.getElementById('chatMessages').innerHTML='<div style="text-align:center;color:var(--text-muted);margin:auto;font-size:14px;">История очищена 🗑️</div>';
+            } else { alert('Ошибка: '+(d.error||'неизвестная')); }
+        }
+        async function blockUser(){
+            if(!PARTNER_ID)return;
+            if(!confirm('Добавить пользователя в чёрный список?'))return;
+            const r=await fetch('/messenger/block/'+PARTNER_ID,{method:'POST'});
+            const d=await r.json();
+            if(d.success){alert('Пользователь заблокирован.');window.location.href='/messenger';}
+            else{alert('Ошибка: '+(d.error||'неизвестная'));}
+        }
+    </script>
 </body>
 </html>
-```

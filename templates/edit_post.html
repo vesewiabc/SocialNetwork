@@ -82,19 +82,59 @@
                         <small style="color:var(--text-muted);font-size:11px;">Создан: {{ post.created_at }}</small>
                     </div>
 
-                    <form method="POST">
+                    {% if media_files %}
+                    <div style="margin-bottom:16px;">
+                        <div style="font-size:12px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;">
+                            <i class="fas fa-paperclip" style="color:var(--amber-500);"></i> Текущие файлы
+                        </div>
+                        <div style="display:flex;flex-wrap:wrap;gap:8px;">
+                            {% for media in media_files %}
+                            <div style="text-align:center;">
+                                {% if media.file_type == 'image' %}
+                                    <img src="/static/uploads/posts/{{ media.filename }}" style="width:100px;height:75px;object-fit:cover;border-radius:var(--radius-md);border:2px solid var(--amber-200);display:block;">
+                                {% else %}
+                                    <div style="width:100px;height:75px;background:var(--gray-100);border-radius:var(--radius-md);border:2px solid var(--amber-200);display:flex;align-items:center;justify-content:center;">
+                                        <i class="fas fa-file" style="font-size:24px;color:var(--amber-400);"></i>
+                                    </div>
+                                {% endif %}
+                                <div style="font-size:10px;color:var(--text-muted);margin-top:3px;">{{ (media.original_filename or media.filename)|truncate(14) }}</div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                        <p style="font-size:12px;color:var(--amber-700);margin-top:8px;"><i class="fas fa-info-circle"></i> Если загрузить новые файлы — старые будут заменены</p>
+                    </div>
+                    {% endif %}
+
+                    <form method="POST" enctype="multipart/form-data">
                         <div class="form-group">
                             <label class="form-label">Содержание поста</label>
                             <textarea name="content" id="content" class="form-control"
                                       style="min-height:200px;" required>{{ post.content }}</textarea>
                         </div>
-                        <div style="display:flex;gap:10px;">
+                        <div class="form-group" style="margin-top:12px;">
+                            <label class="form-label">Заменить файлы (необязательно)</label>
+                            <label for="media_files" style="display:inline-flex;align-items:center;gap:6px;padding:8px 16px;background:var(--amber-50);border:1px dashed var(--amber-400);border-radius:var(--radius-full);font-size:13px;font-weight:700;color:var(--amber-700);cursor:pointer;">
+                                <i class="fas fa-upload"></i> Выбрать файлы
+                            </label>
+                            <input type="file" id="media_files" name="media_files" multiple
+                                   accept="image/*,video/*,.pdf,.doc,.docx,.txt"
+                                   style="display:none;"
+                                   onchange="showSelected(this)">
+                            <span id="selectedFiles" style="font-size:12px;color:var(--text-muted);margin-left:10px;"></span>
+                        </div>
+                        <div style="display:flex;gap:10px;margin-top:16px;">
                             <button type="submit" class="btn btn-primary">
                                 <i class="fas fa-save"></i> Сохранить изменения
                             </button>
                             <a href="/my_posts" class="btn btn-secondary">Отмена</a>
                         </div>
                     </form>
+                    <script>
+                        function showSelected(input){
+                            const span=document.getElementById('selectedFiles');
+                            span.textContent=input.files.length?input.files.length+' файл(ов) выбрано':'';
+                        }
+                    </script>
                 </div>
             </div>
         </div>

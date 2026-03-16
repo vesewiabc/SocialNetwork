@@ -451,18 +451,6 @@ def create_tables():
     )
     ''')
 
-    # Таблица новостей соцсети (создаётся/управляется администратором)
-    cursor.execute('''
-    CREATE TABLE IF NOT EXISTS site_news (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        title TEXT NOT NULL,
-        content TEXT NOT NULL,
-        author_id INTEGER NOT NULL,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (author_id) REFERENCES users(id)
-    )
-    ''')
-
     # Таблица жалоб
     cursor.execute('''
     CREATE TABLE IF NOT EXISTS reports (
@@ -1475,7 +1463,8 @@ def index():
     if 'user_id' in session:
         username = session.get('username')
         return redirect_based_on_role(username)
-    return render_template('linka-promo.html')
+    return redirect('/login')
+
 
 @app.route('/home', methods=['GET', 'POST'])
 def home():
@@ -1579,6 +1568,16 @@ def home():
     feed_items = []
 
     try:
+        # Принудительный импорт при нажатии "Обновить ленту"
+        if request.args.get('refresh') == '1':
+            import_news_to_db()
+        else:
+            # Фоновый импорт раз в 5 запросов
+            import_counter = session.get('import_counter', 0) + 1
+            session['import_counter'] = import_counter % 100
+            if import_counter % 5 == 0:
+                import_news_to_db()
+
         filter_type = request.args.get('filter', 'all')
         feed_items = get_news_feed_with_media(user_id, limit=20, filter_type=filter_type)
         print(f"Получено {len(feed_items)} элементов в ленте")
@@ -1587,7 +1586,7 @@ def home():
         print(f"Ошибка при подготовке ленты: {e}")
         import traceback
         traceback.print_exc()
-        feed_items = []
+        flash('Не удалось загрузить все новости', 'info')
 
     # Получаем количество заявок в друзья
     friend_requests_count = 0
@@ -1603,71 +1602,10 @@ def home():
     finally:
         conn.close()
 
-    # Получаем новости сайта
-    site_news_items = []
-    conn2 = get_db_connection()
-    try:
-        site_news_items = rows_to_dicts(conn2.execute(
-            'SELECT sn.*, u.username as author_name FROM site_news sn JOIN users u ON u.id = sn.author_id ORDER BY sn.created_at DESC LIMIT 10'
-        ).fetchall())
-    except Exception as e:
-        print(f"Ошибка при получении новостей сайта: {e}")
-    finally:
-        conn2.close()
-
-    # Роль пользователя
-    user_role = session.get('role', 'user')
-
     return render_template('home.html',
                            username=session.get('username'),
                            friend_requests_count=friend_requests_count,
-                           feed_items=feed_items,
-                           site_news=site_news_items,
-                           user_role=user_role)
-
-
-# ── НОВОСТИ САЙТА (только для admin) ──────────────────────────────
-
-@app.route('/site_news/add', methods=['POST'])
-def site_news_add():
-    if 'user_id' not in session:
-        return jsonify({'success': False, 'error': 'Требуется авторизация'}), 401
-    if session.get('role') not in ('admin', 'techadmin'):
-        return jsonify({'success': False, 'error': 'Нет прав'}), 403
-    data = request.get_json()
-    title = (data.get('title') or '').strip()
-    body  = (data.get('content') or '').strip()
-    if not title or not body:
-        return jsonify({'success': False, 'error': 'Заголовок и текст обязательны'})
-    conn = get_db_connection()
-    try:
-        conn.execute(
-            'INSERT INTO site_news (title, content, author_id) VALUES (?, ?, ?)',
-            (title, body, session['user_id'])
-        )
-        conn.commit()
-        return jsonify({'success': True})
-    except Exception as e:
-        return jsonify({'success': False, 'error': str(e)})
-    finally:
-        conn.close()
-
-
-@app.route('/site_news/delete/<int:news_id>', methods=['POST'])
-def site_news_delete(news_id):
-    if 'user_id' not in session:
-        return jsonify({'success': False, 'error': 'Требуется авторизация'}), 401
-    if session.get('role') not in ('admin', 'techadmin'):
-        return jsonify({'success': False, 'error': 'Нет прав'}), 403
-    conn = get_db_connection()
-    try:
-        conn.execute('DELETE FROM site_news WHERE id = ?', (news_id,))
-        conn.commit()
-        return jsonify({'success': True})
-    except Exception as e:
-        return jsonify({'success': False, 'error': str(e)})
-    finally:
-        conn.close()
+                           feed_items=feed_items)
 
 
 @app.route('/import_news', methods=['POST'])
@@ -4052,7 +3990,6 @@ def login():
                     connection.close()
                     session['user_id'] = user['id']
                     session['username'] = user['username']
-                    session['role'] = user.get('role', 'user')
                     return redirect_based_on_role(user['username'])
             else:
                 connection.close()
@@ -4238,7 +4175,6 @@ def twofa_verify():
             session.pop('2fa_user_id', None)
             session['user_id'] = user['id']
             session['username'] = user['username']
-            session['role'] = user.get('role', 'user')
             return redirect_based_on_role(user['username'])
         else:
             conn.close()
@@ -4759,7 +4695,7 @@ def get_user_stats():
     })
 
 
-def get_news_feed_with_media(user_id=None, limit=20, filter_type='all'):
+def get_news_feed_with_media(user_id=None, limit=20, filter_type='all', offset=0):
     """Получение ленты новостей с медиафайлами"""
     conn = get_db_connection()
 
@@ -4785,6 +4721,13 @@ def get_news_feed_with_media(user_id=None, limit=20, filter_type='all'):
                     filter_clause = ''
                     filter_params = {}
 
+                if isinstance(filter_params, dict):
+                    filter_params['limit'] = limit
+                    filter_params['offset'] = offset
+                    offset_clause = 'LIMIT :limit OFFSET :offset'
+                else:
+                    offset_clause = f'LIMIT {limit} OFFSET {offset}'
+
                 user_posts_rows = conn.execute(f'''
                     SELECT p.*, u.username,
                            (SELECT COUNT(*) FROM post_likes WHERE post_id = p.id) as likes_count,
@@ -4793,7 +4736,7 @@ def get_news_feed_with_media(user_id=None, limit=20, filter_type='all'):
                     JOIN users u ON p.user_id = u.id
                     {filter_clause}
                     ORDER BY p.created_at DESC
-                    LIMIT 20
+                    {offset_clause}
                 ''', filter_params).fetchall()
 
                 if user_posts_rows:
@@ -4899,6 +4842,73 @@ def get_news_feed_with_media(user_id=None, limit=20, filter_type='all'):
         print(f"Ошибка сортировки: {e}")
 
     return all_feed[:limit]
+
+
+@app.route('/feed/more')
+def feed_more():
+    """Подгрузка следующей порции постов (бесконечная лента)"""
+    if 'user_id' not in session:
+        return jsonify({'posts': [], 'has_more': False})
+
+    user_id = session['user_id']
+    offset  = request.args.get('offset', 0, type=int)
+    filter_type = request.args.get('filter', 'all')
+    per_page = 10
+
+    try:
+        items = get_news_feed_with_media(user_id, limit=per_page + 1,
+                                         filter_type=filter_type, offset=offset)
+        has_more = len(items) > per_page
+        items    = items[:per_page]
+
+        result = []
+        for item in items:
+            if item.get('type') != 'post':
+                continue
+            # Получаем аватар автора
+            conn2 = get_db_connection()
+            try:
+                av = conn2.execute(
+                    'SELECT avatar FROM user_profiles WHERE user_id=?', (item['user_id'],)
+                ).fetchone()
+                author_avatar = av['avatar'] if av and av['avatar'] else ''
+                full_name_row = conn2.execute(
+                    'SELECT full_name FROM user_profiles WHERE user_id=?', (item['user_id'],)
+                ).fetchone()
+                author_name = (full_name_row['full_name'] if full_name_row and full_name_row['full_name'] else item.get('username', ''))
+                is_liked = conn2.execute(
+                    'SELECT id FROM post_likes WHERE post_id=? AND user_id=?',
+                    (item['id'], user_id)
+                ).fetchone() is not None
+            finally:
+                conn2.close()
+
+            media = []
+            for m in item.get('media_files', []):
+                if m.get('exists', True):
+                    media.append({'filename': m['filename'], 'file_type': m.get('file_type','image'),
+                                  'original_filename': m.get('original_filename',''), 'id': m.get('id',0)})
+
+            result.append({
+                'id':           item['id'],
+                'user_id':      item['user_id'],
+                'username':     item.get('username', ''),
+                'author_name':  author_name,
+                'author_avatar': author_avatar,
+                'content':      item.get('content', ''),
+                'created_at':   item.get('created_at', ''),
+                'likes_count':  item.get('likes_count', 0),
+                'comments_count': item.get('comments_count', 0),
+                'is_liked':     is_liked,
+                'is_own':       item['user_id'] == user_id,
+                'media':        media,
+            })
+
+        return jsonify({'posts': result, 'has_more': has_more})
+
+    except Exception as e:
+        import traceback; traceback.print_exc()
+        return jsonify({'posts': [], 'has_more': False, 'error': str(e)})
 
 
 @app.route('/debug_video')
