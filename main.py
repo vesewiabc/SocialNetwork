@@ -4,10 +4,8 @@ import os
 from datetime import datetime, timedelta
 import hashlib
 from werkzeug.utils import secure_filename
-import feedparser
-from bs4 import BeautifulSoup
-import requests
 import re
+import requests
 import random
 import string
 import threading
@@ -270,6 +268,21 @@ def migrate_database():
 
 
 # Таблицы для хранения пользователей и их данных
+def ensure_site_news_table():
+    conn = get_db_connection()
+    conn.execute('''
+        CREATE TABLE IF NOT EXISTS site_news (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            title TEXT NOT NULL,
+            body TEXT NOT NULL,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        )
+    ''')
+    conn.commit()
+    conn.close()
+
+
+
 def create_tables():
     connection = get_db_connection()
     cursor = connection.cursor()
@@ -469,6 +482,9 @@ def create_tables():
 
     connection.commit()
     connection.close()
+
+    # Создаём таблицу новостей соцсети
+    ensure_site_news_table()
 
     # Выполняем миграции для существующих таблиц
     migrate_database()
@@ -1024,436 +1040,85 @@ def check_post_permission(group_id, user_id, conn):
         return True
 
 
-# ==================== НОВОСТНЫЕ ФУНКЦИИ ====================
+# ==================== НОВОСТИ СОЦСЕТИ ====================
 
-def get_news_feed(user_id=None, limit=20):
-    """Получение ленты новостей (посты пользователей + импортированные новости)"""
+def get_posts_feed(user_id, limit=20, filter_type='all', offset=0):
+    """Получение ленты постов пользователей (без импортированных новостей)"""
     conn = get_db_connection()
-
-    user_posts = []
-    imported_news = []
-
     try:
-        # Получаем посты пользователей с количеством лайков, комментариев и медиа
-        if user_id:
-            try:
-                user_posts_rows = conn.execute('''
-                    SELECT p.*, u.username,
-                           (SELECT COUNT(*) FROM post_likes WHERE post_id = p.id) as likes_count,
-                           (SELECT COUNT(*) FROM comments WHERE post_id = p.id) as comments_count
-                    FROM posts p
-                    JOIN users u ON p.user_id = u.id
-                    ORDER BY p.created_at DESC
-                    LIMIT 10
-                ''').fetchall()
+        if filter_type == 'mine':
+            filter_clause = 'WHERE p.user_id = :uid'
+            params = {'uid': user_id, 'limit': limit, 'offset': offset}
+        elif filter_type == 'friends':
+            filter_clause = '''WHERE p.user_id IN (
+                SELECT CASE WHEN sender_id = :uid THEN receiver_id ELSE sender_id END
+                FROM friendships WHERE (sender_id = :uid OR receiver_id = :uid) AND status = 'accepted'
+            )'''
+            params = {'uid': user_id, 'limit': limit, 'offset': offset}
+        else:
+            filter_clause = ''
+            params = {'limit': limit, 'offset': offset}
 
-                if user_posts_rows:
-                    user_posts = rows_to_dicts(user_posts_rows)
+        rows = conn.execute(f'''
+            SELECT p.*, u.username,
+                   COALESCE(up.full_name, u.username) as author_name,
+                   COALESCE(up.avatar, '') as author_avatar,
+                   (SELECT COUNT(*) FROM post_likes WHERE post_id = p.id) as likes_count,
+                   (SELECT COUNT(*) FROM comments WHERE post_id = p.id) as comments_count,
+                   EXISTS(SELECT 1 FROM post_likes WHERE post_id = p.id AND user_id = :self_uid) as is_liked
+            FROM posts p
+            JOIN users u ON p.user_id = u.id
+            LEFT JOIN user_profiles up ON up.user_id = p.user_id
+            {filter_clause}
+            ORDER BY p.created_at DESC
+            LIMIT :limit OFFSET :offset
+        ''', {**params, 'self_uid': user_id}).fetchall()
 
-                    # Добавляем медиафайлы к каждому посту
-                    for post in user_posts:
-                        media_files = conn.execute('''
-                            SELECT filename, file_type FROM post_media 
-                            WHERE post_id = ?
-                            ORDER BY id
-                        ''', (post['id'],)).fetchall()
-                        post['media_files'] = rows_to_dicts(media_files) if media_files else []
-
-            except Exception as e:
-                print(f"Ошибка при получении постов: {e}")
-                import traceback
-                traceback.print_exc()
-
-        # Получаем импортированные новости
-        try:
-            news_rows = conn.execute('''
-                SELECT *, 'news' as type FROM imported_news
-                ORDER BY published DESC
-                LIMIT 10
-            ''').fetchall()
-
-            if news_rows:
-                imported_news = rows_to_dicts(news_rows)
-        except Exception as e:
-            print(f"Ошибка при получении новостей: {e}")
-
+        posts = rows_to_dicts(rows)
+        for post in posts:
+            post['type'] = 'post'
+            media_files = conn.execute(
+                'SELECT filename, file_type, original_filename FROM post_media WHERE post_id = ? ORDER BY id',
+                (post['id'],)
+            ).fetchall()
+            post['media_files'] = rows_to_dicts(media_files) if media_files else []
     except Exception as e:
-        print(f"Общая ошибка при получении ленты: {e}")
+        print(f"Ошибка get_posts_feed: {e}")
+        posts = []
     finally:
         conn.close()
-
-    # Объединяем
-    all_feed = []
-
-    # Добавляем посты
-    for post in user_posts:
-        post['type'] = 'post'
-        if 'likes_count' not in post:
-            post['likes_count'] = 0
-        if 'comments_count' not in post:
-            post['comments_count'] = 0
-        all_feed.append(post)
-
-    # Добавляем новости
-    for news in imported_news:
-        news['type'] = 'news'
-        all_feed.append(news)
-
-    # Сортировка
-    try:
-        def get_sort_key(item):
-            if item['type'] == 'post':
-                return item.get('created_at', '') if isinstance(item.get('created_at'), str) else ''
-            else:
-                return item.get('published', '')
-
-        all_feed.sort(key=lambda x: get_sort_key(x), reverse=True)
-    except Exception as e:
-        print(f"Ошибка сортировки: {e}")
-
-    return all_feed[:limit]
-
-
-def fetch_ria_news():
-    """Получение новостей с сайта RIA.ru"""
-    try:
-        print("Получаем новости с RIA.ru...")
-
-        # URL главной страницы RIA.ru
-        url = "https://ria.ru/"
-
-        headers = {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
-            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
-            'Accept-Language': 'ru-RU,ru;q=0.8,en-US;q=0.5,en;q=0.3',
-            'Accept-Encoding': 'gzip, deflate, br',
-            'Connection': 'keep-alive',
-        }
-
-        response = requests.get(url, headers=headers, timeout=15)
-        response.raise_for_status()
-
-        # Проверяем кодировку
-        response.encoding = 'utf-8'
-        html_content = response.text
-
-        print(f"Получено {len(html_content)} символов с RIA.ru")
-
-        all_news = []
-
-        # Ищем новости в HTML
-        # Паттерн для поиска новостных блоков на RIA.ru
-        news_patterns = [
-            r'<a[^>]*?class="[^"]*list-item__title[^"]*"[^>]*?href="([^"]+)"[^>]*?>([^<]+)</a>',
-            r'<a[^>]*?href="/[0-9]+/[^"]*"[^>]*?class="[^"]*cell__title[^"]*"[^>]*?>([^<]+)</a>',
-            r'<a[^>]*?href="([^"]+)"[^>]*?class="[^"]*item__title[^"]*"[^>]*?>([^<]+)</a>',
-            r'<a[^>]*?href="([^"]+)"[^>]*?title="([^"]+)"[^>]*?>',
-            r'<div[^>]*?class="[^"]*news-item[^"]*"[^>]*?>.*?<a[^>]*?href="([^"]+)"[^>]*?>([^<]+)</a>',
-        ]
-
-        for pattern in news_patterns:
-            matches = re.findall(pattern, html_content, re.DOTALL)
-            if matches:
-                print(f"Найдено {len(matches)} новостей по паттерну")
-
-                for match in matches[:10]:  # Берем первые 10
-                    try:
-                        if isinstance(match, tuple):
-                            if len(match) == 2:
-                                link_part = match[0]
-                                title = match[1]
-                            else:
-                                continue
-                        else:
-                            continue
-
-                        # Очищаем заголовок
-                        title = re.sub(r'\s+', ' ', title).strip()
-                        title = re.sub(r'<[^>]+>', '', title)
-
-                        # Формируем полную ссылку
-                        if link_part.startswith('http'):
-                            link = link_part
-                        elif link_part.startswith('/'):
-                            link = f"https://ria.ru{link_part}"
-                        else:
-                            continue
-
-                        # Получаем краткое описание (попробуем найти рядом)
-                        description = "Читать далее на RIA.ru"
-
-                        # Ищем описание рядом со ссылкой
-                        desc_pattern = r'<div[^>]*?class="[^"]*itemcontent[^"]*"[^>]*?>.*?<div[^>]*?class="[^"]*itemtext[^"]*"[^>]*?>([^<]+)</div>'
-                        desc_match = re.search(desc_pattern, html_content[
-                            html_content.find(link_part) - 500:html_content.find(
-
-                                link_part) + 500])
-                        if desc_match:
-                            description = desc_match.group(1).strip()
-                            description = re.sub(r'<[^>]+>', '', description)
-                            if len(description) > 150:
-                                description = description[:150] + '...'
-
-                        # Создаем объект новости
-                        news_item = {
-                            'title': title[:200],
-                            'description': description,
-                            'link': link,
-                            'published': datetime.now().strftime('%d.%m.%Y %H:%M'),
-                            'source': 'RIA.ru'
-                        }
-
-                        # Проверяем, нет ли дубликатов
-                        if not any(n['title'] == news_item['title'] for n in all_news):
-                            all_news.append(news_item)
-                            print(f"Добавлена новость: {title[:50]}...")
-
-                    except Exception as e:
-                        print(f"Ошибка при обработке новости: {e}")
-                        continue
-
-        # Если не нашли новости по паттернам, попробуем другой подход
-        if not all_news:
-            print("Пробуем альтернативный метод парсинга...")
-
-            # Ищем все ссылки с заголовками
-            link_pattern = r'<a[^>]*?href="(/[0-9]+/[^"/]*)"[^>]*?>([^<]+)</a>'
-            matches = re.findall(link_pattern, html_content)
-
-            for match in matches[:15]:  # Берем первые 15
-                try:
-                    link_part, title = match
-                    title = re.sub(r'\s+', ' ', title).strip()
-
-                    if len(title) > 10:  # Фильтруем короткие заголовки
-                        link = f"https://ria.ru{link_part}"
-
-                        news_item = {
-                            'title': title[:200],
-                            'description': "Новость с RIA.ru",
-                            'link': link,
-                            'published': datetime.now().strftime('%d.%m.%Y %H:%M'),
-                            'source': 'RIA.ru'
-                        }
-
-                        all_news.append(news_item)
-
-                except:
-                    continue
-
-        print(f"Всего собрано {len(all_news)} новостей с RIA.ru")
-        return all_news[:8]  # Возвращаем до 8 новостей
-
-    except requests.exceptions.RequestException as e:
-        print(f"Ошибка при запросе к RIA.ru: {e}")
-        return []
-    except Exception as e:
-        print(f"Неожиданная ошибка при парсинге RIA.ru: {e}")
-        import traceback
-        traceback.print_exc()
-        return []
-
-
-def fetch_lenta_news():
-    """Альтернативный источник - Lenta.ru"""
-    try:
-        print("Пробуем получить новости с Lenta.ru...")
-        url = "https://lenta.ru/rss/news"
-
-        headers = {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
-        }
-
-        response = requests.get(url, headers=headers, timeout=10)
-        response.raise_for_status()
-
-        # Простой парсинг RSS
-        content = response.text
-
-        all_news = []
-
-        # Ищем элементы item в RSS
-        item_pattern = r'<item>.*?<title>(.*?)</title>.*?<link>(.*?)</link>.*?<description>(.*?)</description>.*?</item>'
-        matches = re.findall(item_pattern, content, re.DOTALL)
-
-        for match in matches[:5]:
-            try:
-                title, link, description = match
-
-                # Очищаем HTML теги
-                title = re.sub(r'<[^>]+>', '', title).strip()
-                description = re.sub(r'<[^>]+>', '', description).strip()
-
-                if len(description) > 150:
-                    description = description[:150] + '...'
-
-                news_item = {
-                    'title': title[:200],
-                    'description': description,
-                    'link': link,
-                    'published': datetime.now().strftime('%d.%m.%Y %H:%M'),
-                    'source': 'Lenta.ru'
-                }
-
-                all_news.append(news_item)
-
-            except:
-                continue
-
-        return all_news
-
-    except:
-        return []
-
-
-def fetch_news_simple():
-    """Простой импорт новостей - создает тестовые новости если не удалось получить реальные"""
-    try:
-        print("Пробуем получить новости с реальных сайтов...")
-
-        # Сначала пробуем RIA.ru
-        news_items = fetch_ria_news()
-
-        # Если не получилось, пробуем Lenta.ru
-        if not news_items:
-            print("RIA.ru не сработал, пробуем Lenta.ru...")
-            news_items = fetch_lenta_news()
-
-        # Если все еще нет новостей, создаем тестовые
-        if not news_items:
-            print("Создаем тестовые новости...")
-            news_items = create_test_news()
-
-        return news_items
-
-    except Exception as e:
-        print(f"Ошибка в fetch_news_simple: {e}")
-        return create_test_news()
-
-
-def create_test_news():
-    """Создание тестовых новостей с уникальными заголовками"""
-    import random
-    import time
-
-    topics = [
-        ("Технологии", [
-            "Новый процессор установил мировой рекорд производительности",
-            "Учёные создали батарею с зарядкой за 5 минут",
-            "Квантовый компьютер решил задачу за секунды вместо тысяч лет",
-            "Выпущен открытый ИИ-ассистент для разработчиков",
-        ]),
-        ("Наука", [
-            "Обнаружена новая форма жизни в глубинах океана",
-            "Физики зафиксировали новую элементарную частицу",
-            "Учёные расшифровали геном вымершего животного",
-            "Открыта экзопланета с признаками атмосферы",
-        ]),
-        ("Экономика", [
-            "Центробанк изменил ключевую ставку",
-            "Мировые рынки показали рост второй день подряд",
-            "Инфляция в еврозоне достигла трёхлетнего минимума",
-            "Нефть подорожала на фоне сокращения добычи",
-        ]),
-        ("Спорт", [
-            "Российский спортсмен завоевал золото чемпионата мира",
-            "Футбольный клуб объявил о трансфере звёздного игрока",
-            "Установлен новый мировой рекорд в лёгкой атлетике",
-            "Чемпионат прошёл при рекордной посещаемости",
-        ]),
-        ("Общество", [
-            "В столице открылся новый культурный центр",
-            "Число волонтёров в стране выросло на 20%",
-            "Запущена программа поддержки молодых учёных",
-            "Принят закон об охране окружающей среды",
-        ]),
-        ("Игры", [
-            "Анонсировано продолжение культовой ролевой игры",
-            "Инди-студия выпустила хит за первые сутки продаж",
-            "Турнир по киберспорту собрал миллион зрителей онлайн",
-            "Классическая игра переиздана с обновлённой графикой",
-        ]),
-    ]
-
-    ts = int(time.time())
-    news_items = []
-    random.shuffle(topics)
-
-    for idx, (topic, headlines) in enumerate(topics):
-        headline = random.choice(headlines)
-        unique_ts = ts - idx * 300  # каждые 5 минут назад
-        news_items.append({
-            'title': f'[{topic}] {headline}',
-            'description': f'{headline}. Подробности и комментарии экспертов читайте в полной версии материала.',
-            'link': f'https://example.com/news/{unique_ts}_{idx}',
-            'published': datetime.fromtimestamp(unique_ts).strftime('%d.%m.%Y %H:%M'),
-            'source': 'Новостной портал'
-        })
-
-    return news_items
-
-
-def import_news_to_db():
-    """Импорт новостей в базу данных"""
-    try:
-        print("Начинаем импорт новостей...")
-
-        # Получаем новости
-        news_items = fetch_news_simple()
-
-        if not news_items:
-            print("Не удалось получить ни одной новости")
-            return False
-
-        print(f"Получено {len(news_items)} новостей для импорта")
-
-        conn = get_db_connection()
-
-        imported_count = 0
-        for i, news in enumerate(news_items, 1):
-            try:
-                # Проверяем, не существует ли уже такая новость (только по ссылке)
-                existing = conn.execute(
-                    'SELECT id FROM imported_news WHERE link = ?',
-                    (news['link'],)
-                ).fetchone()
-
-                if not existing:
-                    # Преобразуем строку даты в datetime объект
-                    published_str = news.get('published', '')
-                    try:
-                        published_dt = datetime.strptime(published_str, '%d.%m.%Y %H:%M')
-                    except:
-                        published_dt = datetime.now()
-
-                    conn.execute('''
-                        INSERT INTO imported_news (title, description, link, source, published)
-                        VALUES (?, ?, ?, ?, ?)
-                    ''', (
-                        news['title'][:250],
-                        news['description'][:500],
-                        news['link'][:300],
-                        news.get('source', 'RIA.ru')[:50],
-                        published_dt
-                    ))
-                    imported_count += 1
-                    print(f"[{i}] Импортировано: {news['title'][:50]}...")
-
-            except Exception as e:
-                print(f"Ошибка при импорте новости '{news.get('title', '')}': {e}")
-                continue
-
-        conn.commit()
-        conn.close()
-
-        print(f"Успешно импортировано {imported_count} новостей")
-        return imported_count > 0
-
-    except Exception as e:
-        print(f"Критическая ошибка при импорте новостей в БД: {e}")
-        import traceback
-        traceback.print_exc()
-        return False
+    return posts
+
+
+@app.route('/admin/news/add', methods=['POST'])
+def admin_add_news():
+    if 'user_id' not in session or session.get('role') != 'admin':
+        return jsonify({'success': False, 'error': 'Нет доступа'}), 403
+    ensure_site_news_table()
+    data = request.get_json()
+    title = (data.get('title') or '').strip()
+    body = (data.get('body') or '').strip()
+    if not title or not body:
+        return jsonify({'success': False, 'error': 'Заголовок и текст обязательны'})
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute('INSERT INTO site_news (title, body) VALUES (?, ?)', (title, body))
+    news_id = cursor.lastrowid
+    conn.commit()
+    news = row_to_dict(conn.execute('SELECT * FROM site_news WHERE id = ?', (news_id,)).fetchone())
+    conn.close()
+    return jsonify({'success': True, 'news': news})
+
+
+@app.route('/admin/news/delete/<int:news_id>', methods=['POST'])
+def admin_delete_news(news_id):
+    if 'user_id' not in session or session.get('role') != 'admin':
+        return jsonify({'success': False, 'error': 'Нет доступа'}), 403
+    conn = get_db_connection()
+    conn.execute('DELETE FROM site_news WHERE id = ?', (news_id,))
+    conn.commit()
+    conn.close()
+    return jsonify({'success': True})
 
 
 # ==================== ОСНОВНЫЕ МАРШРУТЫ ====================
@@ -1568,19 +1233,8 @@ def home():
     feed_items = []
 
     try:
-        # Принудительный импорт при нажатии "Обновить ленту"
-        if request.args.get('refresh') == '1':
-            import_news_to_db()
-        else:
-            # Фоновый импорт раз в 5 запросов
-            import_counter = session.get('import_counter', 0) + 1
-            session['import_counter'] = import_counter % 100
-            if import_counter % 5 == 0:
-                import_news_to_db()
-
         filter_type = request.args.get('filter', 'all')
-        feed_items = get_news_feed_with_media(user_id, limit=20, filter_type=filter_type)
-        print(f"Получено {len(feed_items)} элементов в ленте")
+        feed_items = get_posts_feed(user_id, limit=20, filter_type=filter_type, offset=0)
 
     except Exception as e:
         print(f"Ошибка при подготовке ленты: {e}")
@@ -1602,84 +1256,19 @@ def home():
     finally:
         conn.close()
 
+    conn3 = get_db_connection()
+    site_news = rows_to_dicts(conn3.execute(
+        'SELECT * FROM site_news ORDER BY created_at DESC LIMIT 10'
+    ).fetchall())
+    is_admin = session.get('role') == 'admin'
+    conn3.close()
+
     return render_template('home.html',
                            username=session.get('username'),
                            friend_requests_count=friend_requests_count,
-                           feed_items=feed_items)
-
-
-@app.route('/import_news', methods=['POST'])
-def import_news_route():
-    """Ручной импорт новостей"""
-    if 'user_id' not in session:
-        return jsonify({'success': False, 'message': 'Требуется авторизация'}), 401
-
-    try:
-        result = import_news_to_db()
-        if result:
-            return jsonify({'success': True, 'message': 'Новости успешно импортированы'})
-        else:
-            return jsonify({'success': False, 'message': 'Не удалось импортировать новости'})
-    except Exception as e:
-        print(f"Ошибка при ручном импорте новостей: {e}")
-        return jsonify({'success': False, 'message': str(e)[:100]})
-
-
-@app.route('/news_preview', methods=['POST'])
-def news_preview():
-    """Получить краткое содержание статьи по URL"""
-    if 'user_id' not in session:
-        return jsonify({'success': False}), 401
-    try:
-        data = request.get_json()
-        url = data.get('url', '')
-        if not url or not url.startswith('http'):
-            return jsonify({'success': False, 'text': ''})
-
-        headers = {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-            'Accept-Language': 'ru-RU,ru;q=0.9',
-        }
-        resp = requests.get(url, headers=headers, timeout=10)
-        resp.encoding = 'utf-8'
-        html = resp.text
-
-        # Убираем скрипты и стили
-        html = re.sub(r'<script[^>]*>.*?</script>', '', html, flags=re.DOTALL)
-        html = re.sub(r'<style[^>]*>.*?</style>', '', html, flags=re.DOTALL)
-
-        # Пробуем найти основной текст статьи
-        text = ''
-        patterns = [
-            r'<article[^>]*>(.*?)</article>',
-            r'<div[^>]*class="[^"]*article[^"]*"[^>]*>(.*?)</div>',
-            r'<div[^>]*class="[^"]*content[^"]*"[^>]*>(.*?)</div>',
-            r'<div[^>]*class="[^"]*text[^"]*"[^>]*>(.*?)</div>',
-        ]
-        for pat in patterns:
-            m = re.search(pat, html, re.DOTALL | re.IGNORECASE)
-            if m:
-                raw = re.sub(r'<[^>]+>', ' ', m.group(1))
-                raw = re.sub(r'\s+', ' ', raw).strip()
-                if len(raw) > 100:
-                    text = raw
-                    break
-
-        # Фолбэк — берём параграфы
-        if not text:
-            paras = re.findall(r'<p[^>]*>(.*?)</p>', html, re.DOTALL | re.IGNORECASE)
-            combined = ' '.join(re.sub(r'<[^>]+>', ' ', p) for p in paras)
-            combined = re.sub(r'\s+', ' ', combined).strip()
-            text = combined
-
-        # Берём первые ~400 символов
-        if len(text) > 400:
-            text = text[:400].rsplit(' ', 1)[0] + '...'
-
-        return jsonify({'success': True, 'text': text or 'Не удалось загрузить содержание статьи.'})
-    except Exception as e:
-        print(f"Ошибка news_preview: {e}")
-        return jsonify({'success': False, 'text': 'Не удалось загрузить статью.'})
+                           feed_items=feed_items,
+                           site_news=site_news,
+                           is_admin=is_admin)
 
 
 @app.route('/profile')
@@ -2752,70 +2341,6 @@ def group_detail(group_id):
                            pending_requests_count=pending_requests_count)
 
 
-@app.route('/news')
-def news_page():
-    """Страница со всеми новостями"""
-    if 'user_id' not in session:
-        return redirect('/login')
-
-    user_id = session['user_id']
-
-    # Получаем параметры фильтрации
-    page = request.args.get('page', 1, type=int)
-    filter_type = request.args.get('filter', 'all')
-    search_query = request.args.get('search', '').strip()
-
-    per_page = 12  # Новостей на странице
-
-    conn = get_db_connection()
-
-    # Базовый запрос
-    query = "SELECT *, 'news' as type FROM imported_news"
-    params = []
-
-    # Применяем фильтры
-    if filter_type == 'today':
-        query += " WHERE DATE(published) = DATE('now')"
-    elif filter_type == 'week':
-        query += " WHERE published >= DATE('now', '-7 days')"
-    elif filter_type == 'ria':
-        query += " WHERE source LIKE '%RIA%'"
-    elif filter_type == 'lenta':
-        query += " WHERE source LIKE '%Lenta%'"
-
-    # Поиск по заголовку и описанию
-    if search_query:
-        if 'WHERE' in query:
-            query += " AND"
-        else:
-            query += " WHERE"
-        query += " (title LIKE ? OR description LIKE ?)"
-        params.extend([f'%{search_query}%', f'%{search_query}%'])
-
-    # Получаем общее количество для пагинации
-    count_query = query.replace("SELECT *, 'news' as type", "SELECT COUNT(*) as count")
-    total = conn.execute(count_query, params).fetchone()['count']
-    total_pages = (total + per_page - 1) // per_page
-
-    # Добавляем сортировку и пагинацию
-    query += " ORDER BY published DESC LIMIT ? OFFSET ?"
-    params.extend([per_page, (page - 1) * per_page])
-
-    # Получаем новости
-    news_rows = conn.execute(query, params).fetchall()
-    news_items = rows_to_dicts(news_rows)
-
-    conn.close()
-
-    return render_template('news.html',
-                           news_items=news_items,
-                           current_page=page,
-                           total_pages=total_pages,
-                           current_filter=filter_type,
-                           search_query=search_query,
-                           now=datetime.now)
-
-
 @app.route('/group/<int:group_id>/create_post', methods=['POST'])
 def create_group_post(group_id):
     if 'user_id' not in session:
@@ -3548,14 +3073,6 @@ def feed():
             flash('Пост опубликован!', 'success')
         return redirect('/feed')
 
-    # При нажатии "Обновить ленту" — импортируем свежие новости
-    if request.args.get('refresh') == '1':
-        try:
-            import_news_to_db()
-        except Exception as e:
-            print(f"Ошибка импорта при обновлении ленты: {e}")
-        return redirect('/feed')
-
     conn = get_db_connection()
 
     user = conn.execute('SELECT username FROM users WHERE id = ?', (user_id,)).fetchone()
@@ -3581,7 +3098,7 @@ def feed():
 
     conn.close()
 
-    feed_items = get_news_feed(user_id=user_id, limit=50)
+    feed_items = get_posts_feed(user_id=user_id, limit=50)
 
     return render_template('feed.html',
                            feed_items=feed_items,
@@ -4695,213 +4212,45 @@ def get_user_stats():
     })
 
 
-def get_news_feed_with_media(user_id=None, limit=20, filter_type='all', offset=0):
-    """Получение ленты новостей с медиафайлами"""
-    conn = get_db_connection()
-
-    user_posts = []
-    imported_news = []
-
-    try:
-        # Получаем посты пользователей
-        if user_id:
-            try:
-                # Build query based on filter
-                if filter_type == 'mine':
-                    filter_clause = 'WHERE p.user_id = :uid'
-                    filter_params = {'uid': user_id}
-                elif filter_type == 'friends':
-                    filter_clause = '''WHERE p.user_id != :uid
-                        AND p.user_id IN (
-                            SELECT CASE WHEN sender_id = :uid THEN receiver_id ELSE sender_id END
-                            FROM friendships WHERE (sender_id = :uid OR receiver_id = :uid) AND status = 'accepted'
-                        )'''
-                    filter_params = {'uid': user_id}
-                else:
-                    filter_clause = ''
-                    filter_params = {}
-
-                if isinstance(filter_params, dict):
-                    filter_params['limit'] = limit
-                    filter_params['offset'] = offset
-                    offset_clause = 'LIMIT :limit OFFSET :offset'
-                else:
-                    offset_clause = f'LIMIT {limit} OFFSET {offset}'
-
-                user_posts_rows = conn.execute(f'''
-                    SELECT p.*, u.username,
-                           (SELECT COUNT(*) FROM post_likes WHERE post_id = p.id) as likes_count,
-                           (SELECT COUNT(*) FROM comments WHERE post_id = p.id) as comments_count
-                    FROM posts p
-                    JOIN users u ON p.user_id = u.id
-                    {filter_clause}
-                    ORDER BY p.created_at DESC
-                    {offset_clause}
-                ''', filter_params).fetchall()
-
-                if user_posts_rows:
-                    user_posts = rows_to_dicts(user_posts_rows)
-
-                    # Добавляем медиафайлы к каждому посту
-                    for post in user_posts:
-                        # Получаем медиафайлы для поста
-                        media_files = conn.execute('''
-                            SELECT filename, file_type FROM post_media 
-                            WHERE post_id = ?
-                            ORDER BY id
-                        ''', (post['id'],)).fetchall()
-
-                        # Преобразуем в список словарей
-                        media_list = []
-                        for media in media_files:
-                            media_dict = dict(media)
-
-                            # Если file_type не указан, определяем по расширению
-                            if not media_dict.get('file_type'):
-                                ext = media_dict['filename'].split('.')[-1].lower()
-                                if ext in ALLOWED_IMAGE_EXTENSIONS:
-                                    media_dict['file_type'] = 'image'
-                                elif ext in ALLOWED_VIDEO_EXTENSIONS:
-                                    media_dict['file_type'] = 'video'
-                                else:
-                                    media_dict['file_type'] = 'unknown'
-
-                            # Убеждаемся, что файл физически существует
-                            file_path = os.path.join(app.config['POST_MEDIA_FOLDER'], media_dict['filename'])
-                            if os.path.exists(file_path):
-                                media_dict['exists'] = True
-                                media_dict['file_size'] = os.path.getsize(file_path)
-                            else:
-                                media_dict['exists'] = False
-                                print(f"Файл не найден: {file_path}")
-
-                            media_list.append(media_dict)
-
-                        post['media_files'] = media_list
-                        print(f"Пост {post['id']}: найдено {len(media_list)} медиафайлов")
-
-            except Exception as e:
-                print(f"Ошибка при получении постов: {e}")
-                import traceback
-                traceback.print_exc()
-
-        # Получаем импортированные новости
-        try:
-            news_rows = conn.execute('''
-                SELECT *, 'news' as type FROM imported_news
-                ORDER BY published DESC
-                LIMIT 10
-            ''').fetchall()
-
-            if news_rows:
-                imported_news = rows_to_dicts(news_rows)
-                for news in imported_news:
-                    news['media_files'] = []
-        except Exception as e:
-            print(f"Ошибка при получении новостей: {e}")
-
-    except Exception as e:
-        print(f"Общая ошибка при получении ленты: {e}")
-        import traceback
-        traceback.print_exc()
-    finally:
-        conn.close()
-
-    # Объединяем
-    all_feed = []
-
-    # Добавляем посты
-    for post in user_posts:
-        post['type'] = 'post'
-        if 'likes_count' not in post:
-            post['likes_count'] = 0
-        if 'comments_count' not in post:
-            post['comments_count'] = 0
-        if 'media_files' not in post:
-            post['media_files'] = []
-        all_feed.append(post)
-
-    # Добавляем новости (только при фильтре 'all')
-    if filter_type == 'all':
-        for news in imported_news:
-            news['type'] = 'news'
-            if 'media_files' not in news:
-                news['media_files'] = []
-            all_feed.append(news)
-
-    # Сортировка
-    try:
-        def get_sort_key(item):
-            if item['type'] == 'post':
-                return item.get('created_at', '')
-            else:
-                return item.get('published', '')
-
-        all_feed.sort(key=lambda x: get_sort_key(x), reverse=True)
-    except Exception as e:
-        print(f"Ошибка сортировки: {e}")
-
-    return all_feed[:limit]
-
-
 @app.route('/feed/more')
 def feed_more():
     """Подгрузка следующей порции постов (бесконечная лента)"""
     if 'user_id' not in session:
         return jsonify({'posts': [], 'has_more': False})
 
-    user_id = session['user_id']
-    offset  = request.args.get('offset', 0, type=int)
+    user_id     = session['user_id']
+    offset      = request.args.get('offset', 0, type=int)
     filter_type = request.args.get('filter', 'all')
-    per_page = 10
+    per_page    = 10
 
     try:
-        items = get_news_feed_with_media(user_id, limit=per_page + 1,
-                                         filter_type=filter_type, offset=offset)
+        items    = get_posts_feed(user_id, limit=per_page + 1, filter_type=filter_type, offset=offset)
         has_more = len(items) > per_page
         items    = items[:per_page]
 
         result = []
         for item in items:
-            if item.get('type') != 'post':
-                continue
-            # Получаем аватар автора
-            conn2 = get_db_connection()
-            try:
-                av = conn2.execute(
-                    'SELECT avatar FROM user_profiles WHERE user_id=?', (item['user_id'],)
-                ).fetchone()
-                author_avatar = av['avatar'] if av and av['avatar'] else ''
-                full_name_row = conn2.execute(
-                    'SELECT full_name FROM user_profiles WHERE user_id=?', (item['user_id'],)
-                ).fetchone()
-                author_name = (full_name_row['full_name'] if full_name_row and full_name_row['full_name'] else item.get('username', ''))
-                is_liked = conn2.execute(
-                    'SELECT id FROM post_likes WHERE post_id=? AND user_id=?',
-                    (item['id'], user_id)
-                ).fetchone() is not None
-            finally:
-                conn2.close()
-
             media = []
             for m in item.get('media_files', []):
-                if m.get('exists', True):
-                    media.append({'filename': m['filename'], 'file_type': m.get('file_type','image'),
-                                  'original_filename': m.get('original_filename',''), 'id': m.get('id',0)})
-
+                media.append({
+                    'filename':          m.get('filename', ''),
+                    'file_type':         m.get('file_type', 'image'),
+                    'original_filename': m.get('original_filename', ''),
+                    'id':                m.get('id', 0),
+                })
             result.append({
-                'id':           item['id'],
-                'user_id':      item['user_id'],
-                'username':     item.get('username', ''),
-                'author_name':  author_name,
-                'author_avatar': author_avatar,
-                'content':      item.get('content', ''),
-                'created_at':   item.get('created_at', ''),
-                'likes_count':  item.get('likes_count', 0),
+                'id':             item['id'],
+                'user_id':        item['user_id'],
+                'username':       item.get('username', ''),
+                'author_name':    item.get('author_name', item.get('username', '')),
+                'author_avatar':  item.get('author_avatar', ''),
+                'content':        item.get('content', ''),
+                'created_at':     item.get('created_at', ''),
+                'likes_count':    item.get('likes_count', 0),
                 'comments_count': item.get('comments_count', 0),
-                'is_liked':     is_liked,
-                'is_own':       item['user_id'] == user_id,
-                'media':        media,
+                'is_liked':       bool(item.get('is_liked', 0)),
+                'is_own':         item['user_id'] == user_id,
+                'media':          media,
             })
 
         return jsonify({'posts': result, 'has_more': has_more})
@@ -4909,7 +4258,6 @@ def feed_more():
     except Exception as e:
         import traceback; traceback.print_exc()
         return jsonify({'posts': [], 'has_more': False, 'error': str(e)})
-
 
 @app.route('/debug_video')
 def debug_video():
@@ -5587,6 +4935,14 @@ def messenger_chat(partner_id):
         LEFT JOIN user_profiles up ON up.user_id = u.id
         WHERE u.id = ?
     ''', (partner_id,)).fetchone())
+    is_blocked_by_me = conn.execute(
+        'SELECT id FROM blacklist WHERE blocker_id = ? AND blocked_id = ?',
+        (user_id, partner_id)
+    ).fetchone() is not None
+    is_blocked_by_them = conn.execute(
+        'SELECT id FROM blacklist WHERE blocker_id = ? AND blocked_id = ?',
+        (partner_id, user_id)
+    ).fetchone() is not None
     conn.close()
     conversations = get_conversations_list(user_id)
     total_unread = sum(c['unread_count'] for c in conversations)
@@ -5598,7 +4954,9 @@ def messenger_chat(partner_id):
                            partner=partner,
                            partner_id=partner_id,
                            current_user_id=user_id,
-                           user_id=user_id)
+                           user_id=user_id,
+                           is_blocked_by_me=is_blocked_by_me,
+                           is_blocked_by_them=is_blocked_by_them)
 
 
 @app.route('/messenger/send_ajax', methods=['POST'])
@@ -5707,6 +5065,82 @@ def messenger_search_users():
     ''', (f'%{q}%', f'%{q}%', user_id)).fetchall())
     conn.close()
     return jsonify({'users': users})
+
+
+@app.route('/messenger/delete_conv/<int:partner_id>', methods=['POST'])
+def messenger_delete_conv(partner_id):
+    if 'user_id' not in session:
+        return jsonify({'success': False}), 401
+    ensure_messenger_tables()
+    user_id = session['user_id']
+    conn = get_db_connection()
+    conv = conn.execute(
+        'SELECT id FROM conversations WHERE (user1_id=? AND user2_id=?) OR (user1_id=? AND user2_id=?)',
+        (user_id, partner_id, partner_id, user_id)
+    ).fetchone()
+    if conv:
+        conn.execute('DELETE FROM messages WHERE conversation_id = ?', (conv['id'],))
+        conn.execute('DELETE FROM conversations WHERE id = ?', (conv['id'],))
+        conn.commit()
+    conn.close()
+    return jsonify({'success': True})
+
+
+@app.route('/messenger/clear_history/<int:partner_id>', methods=['POST'])
+def messenger_clear_history(partner_id):
+    if 'user_id' not in session:
+        return jsonify({'success': False}), 401
+    ensure_messenger_tables()
+    user_id = session['user_id']
+    conn = get_db_connection()
+    conv = conn.execute(
+        'SELECT id FROM conversations WHERE (user1_id=? AND user2_id=?) OR (user1_id=? AND user2_id=?)',
+        (user_id, partner_id, partner_id, user_id)
+    ).fetchone()
+    if not conv:
+        conn.close()
+        return jsonify({'success': False, 'error': 'Диалог не найден'})
+    conn.execute('DELETE FROM messages WHERE conversation_id = ?', (conv['id'],))
+    conn.commit()
+    conn.close()
+    return jsonify({'success': True})
+
+
+@app.route('/messenger/block/<int:partner_id>', methods=['POST'])
+def messenger_block(partner_id):
+    if 'user_id' not in session:
+        return jsonify({'success': False}), 401
+    user_id = session['user_id']
+    if user_id == partner_id:
+        return jsonify({'success': False, 'error': 'Нельзя заблокировать себя'})
+    conn = get_db_connection()
+    existing = conn.execute(
+        'SELECT id FROM blacklist WHERE blocker_id = ? AND blocked_id = ?',
+        (user_id, partner_id)
+    ).fetchone()
+    if not existing:
+        conn.execute(
+            'INSERT INTO blacklist (blocker_id, blocked_id, reason) VALUES (?, ?, ?)',
+            (user_id, partner_id, 'Заблокирован из мессенджера')
+        )
+        conn.commit()
+    conn.close()
+    return jsonify({'success': True})
+
+
+@app.route('/messenger/unblock/<int:partner_id>', methods=['POST'])
+def messenger_unblock(partner_id):
+    if 'user_id' not in session:
+        return jsonify({'success': False}), 401
+    user_id = session['user_id']
+    conn = get_db_connection()
+    conn.execute(
+        'DELETE FROM blacklist WHERE blocker_id = ? AND blocked_id = ?',
+        (user_id, partner_id)
+    )
+    conn.commit()
+    conn.close()
+    return jsonify({'success': True})
 
 
 if __name__ == '__main__':

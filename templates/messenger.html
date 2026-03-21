@@ -62,9 +62,29 @@
             text-decoration: none;
             color: inherit;
             transition: background 0.15s;
+            position: relative;
         }
         .conv-item:hover { background: #fffbeb; }
         .conv-item.active { background: #fffbeb; border-left: 3px solid var(--amber-500); }
+        .conv-delete-btn {
+            display: none;
+            position: absolute;
+            right: 8px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: none;
+            border: none;
+            color: #dc2626;
+            cursor: pointer;
+            font-size: 13px;
+            padding: 4px 6px;
+            border-radius: 50%;
+            line-height: 1;
+            z-index: 10;
+            transition: background 0.15s;
+        }
+        .conv-delete-btn:hover { background: #fee2e2; }
+        .conv-item:hover .conv-delete-btn { display: flex; align-items: center; justify-content: center; }
         .conv-avatar {
             width: 42px; height: 42px;
             border-radius: 50%;
@@ -157,13 +177,20 @@
             background: var(--bg-card);
         }
         .chat-header {
-            padding: 14px 20px;
+            padding: 10px 16px;
             border-bottom: 1px solid var(--border-light);
             display: flex;
             align-items: center;
-            gap: 12px;
+            gap: 8px;
             background: var(--bg-card);
             flex-shrink: 0;
+            flex-wrap: wrap;
+            min-width: 0;
+        }
+        .chat-header-info {
+            flex: 1;
+            min-width: 0;
+            overflow: hidden;
         }
         .chat-header-avatar {
             width: 40px; height: 40px;
@@ -381,9 +408,11 @@ setInterval(refreshUnread, 5000);
                         <div class="conv-list" id="convList">
                             {% if conversations %}
                                 {% for conv in conversations %}
+                                <div class="conv-item-wrap">
                                 <a href="/messenger/{{ conv.partner_id }}"
                                    class="conv-item {% if active_conv == conv.conv_id %}active{% endif %}"
-                                   data-name="{{ conv.partner_name|lower }}">
+                                   data-name="{{ conv.partner_name|lower }}"
+                                   data-partner-id="{{ conv.partner_id }}">
                                     {% if conv.partner_avatar and conv.partner_avatar != 'default_avatar.png' %}
                                         <img src="/static/uploads/avatars/{{ conv.partner_avatar }}" class="conv-avatar" alt="">
                                     {% else %}
@@ -394,9 +423,18 @@ setInterval(refreshUnread, 5000);
                                         <div class="conv-last">{{ conv.last_message or 'Нет сообщений' }}</div>
                                     </div>
                                     {% if conv.unread_count > 0 %}
-                                        <span class="conv-badge">{{ conv.unread_count }}</span>
+                                        <span class="conv-badge" style="margin-right:24px;">{{ conv.unread_count }}</span>
                                     {% endif %}
+                                    <button class="conv-delete-btn" title="Удалить чат"
+                                        onclick="deleteConv(event, {{ conv.partner_id }})">
+                                        <i class="fas fa-times"></i>
+                                    </button>
                                 </a>
+                                <button class="conv-delete-btn" title="Удалить чат"
+                                    onclick="deleteChat(event, {{ conv.partner_id }})">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                                </div>
                                 {% endfor %}
                             {% else %}
                                 <div class="no-conv">
@@ -442,21 +480,39 @@ setInterval(refreshUnread, 5000);
                             {% else %}
                                 <div class="chat-header-placeholder">{{ (partner.full_name or partner.username)[0]|upper }}</div>
                             {% endif %}
-                            <div>
-                                <div class="chat-header-name">{{ partner.full_name or partner.username }}</div>
+                            <div class="chat-header-info">
+                                <div class="chat-header-name">
+                                    {{ partner.full_name or partner.username }}
+                                    {% if is_blocked_by_me %}
+                                        <span style="font-size:11px;font-weight:600;color:#dc2626;background:#fee2e2;padding:2px 7px;border-radius:10px;margin-left:6px;vertical-align:middle;">
+                                            <i class="fas fa-ban"></i> Заблокирован
+                                        </span>
+                                    {% elif is_blocked_by_them %}
+                                        <span style="font-size:11px;font-weight:600;color:#dc2626;background:#fee2e2;padding:2px 7px;border-radius:10px;margin-left:6px;vertical-align:middle;">
+                                            <i class="fas fa-ban"></i> Заблокирован
+                                        </span>
+                                    {% endif %}
+                                </div>
                                 <div class="chat-header-sub">@{{ partner.username }}</div>
                             </div>
-                            <a href="/profile/{{ partner.id }}" class="chat-header-link">
+                            <a href="/profile/{{ partner.id }}" class="chat-header-link" style="white-space:nowrap;">
                                 <i class="fas fa-user"></i> Профиль
                             </a>
                             <button onclick="clearHistory()" title="Очистить историю"
-                                style="padding:6px 12px;background:none;border:1px solid var(--border-light);border-radius:var(--radius-full);font-size:12px;font-weight:600;color:var(--text-secondary);cursor:pointer;display:flex;align-items:center;gap:5px;margin-left:6px;">
+                                style="padding:6px 10px;background:none;border:1px solid var(--border-light);border-radius:var(--radius-full);font-size:12px;font-weight:600;color:var(--text-secondary);cursor:pointer;display:flex;align-items:center;gap:4px;white-space:nowrap;flex-shrink:0;">
                                 <i class="fas fa-trash-alt"></i> Очистить
                             </button>
-                            <button onclick="blockUser()" title="Заблокировать"
-                                style="padding:6px 12px;background:none;border:1px solid #fca5a5;border-radius:var(--radius-full);font-size:12px;font-weight:600;color:#dc2626;cursor:pointer;display:flex;align-items:center;gap:5px;margin-left:6px;">
-                                <i class="fas fa-ban"></i> Заблокировать
+                            {% if is_blocked_by_me %}
+                            <button onclick="unblockUser()" title="Разблокировать"
+                                style="padding:6px 10px;background:#dc2626;border:none;border-radius:var(--radius-full);font-size:12px;font-weight:600;color:white;cursor:pointer;display:flex;align-items:center;gap:4px;white-space:nowrap;flex-shrink:0;">
+                                <i class="fas fa-ban"></i> Разблокировать
                             </button>
+                            {% else %}
+                            <button onclick="blockUser()" title="Заблокировать"
+                                style="padding:6px 10px;background:none;border:1px solid #fca5a5;border-radius:var(--radius-full);font-size:12px;font-weight:600;color:#dc2626;cursor:pointer;display:flex;align-items:center;gap:4px;white-space:nowrap;flex-shrink:0;">
+                                <i class="fas fa-ban"></i> Блок
+                            </button>
+                            {% endif %}
                         </div>
 
                         <div class="chat-messages" id="chatMessages">
@@ -477,11 +533,19 @@ setInterval(refreshUnread, 5000);
                             {% endif %}
                         </div>
 
-                        <div class="chat-input-area">
+                        <div class="chat-input-area" id="chatInputArea">
+                            {% if is_blocked_by_me %}
+                            <textarea id="msgInput" placeholder="🚫 Вы заблокировали этого пользователя" rows="1" disabled
+                                style="color:var(--text-muted); cursor:not-allowed; opacity:0.7;"></textarea>
+                            {% elif is_blocked_by_them %}
+                            <textarea id="msgInput" placeholder="🚫 Вы заблокированы этим пользователем" rows="1" disabled
+                                style="color:var(--text-muted); cursor:not-allowed; opacity:0.7;"></textarea>
+                            {% else %}
                             <textarea id="msgInput" placeholder="Написать сообщение... (Enter — отправить)" rows="1"></textarea>
                             <button class="send-btn" id="sendBtn" title="Отправить">
                                 <i class="fas fa-paper-plane"></i>
                             </button>
+                            {% endif %}
                         </div>
 
                         {% else %}
@@ -503,10 +567,20 @@ setInterval(refreshUnread, 5000);
         {% if partner %}
         const PARTNER_ID = {{ partner_id }};
         const CONV_ID    = {{ active_conv }};
+        const IS_BLOCKED_BY_ME   = {{ 'true' if is_blocked_by_me else 'false' }};
+        const IS_BLOCKED_BY_THEM = {{ 'true' if is_blocked_by_them else 'false' }};
         {% else %}
         const PARTNER_ID = null;
         const CONV_ID    = null;
+        const IS_BLOCKED_BY_ME   = false;
+        const IS_BLOCKED_BY_THEM = false;
         {% endif %}
+
+        // Hide input area if blocked
+        if (IS_BLOCKED_BY_ME || IS_BLOCKED_BY_THEM) {
+            const inputArea = document.getElementById('chatInputArea');
+            if (inputArea) inputArea.style.display = 'none';
+        }
 
         let lastMsgId = 0;
         document.querySelectorAll('.msg-row[data-id]').forEach(el => {
@@ -651,8 +725,28 @@ setInterval(refreshUnread, 5000);
             if(!confirm('Добавить пользователя в чёрный список?'))return;
             const r=await fetch('/messenger/block/'+PARTNER_ID,{method:'POST'});
             const d=await r.json();
-            if(d.success){alert('Пользователь заблокирован.');window.location.href='/messenger';}
+            if(d.success){alert('Пользователь заблокирован.');window.location.reload();}
             else{alert('Ошибка: '+(d.error||'неизвестная'));}
+        }
+        async function unblockUser(){
+            if(!PARTNER_ID)return;
+            if(!confirm('Разблокировать пользователя?'))return;
+            const r=await fetch('/messenger/unblock/'+PARTNER_ID,{method:'POST'});
+            const d=await r.json();
+            if(d.success){window.location.reload();}
+            else{alert('Ошибка: '+(d.error||'неизвестная'));}
+        }
+        async function deleteConv(e, partnerId){
+            e.preventDefault();
+            e.stopPropagation();
+            if(!confirm('Удалить чат? Все сообщения будут удалены.'))return;
+            const r=await fetch('/messenger/delete_conv/'+partnerId,{method:'POST'});
+            const d=await r.json();
+            if(d.success){
+                const item = e.target.closest('.conv-item');
+                if(item) item.remove();
+                if(PARTNER_ID === partnerId) window.location.href='/messenger';
+            } else { alert('Ошибка: '+(d.error||'неизвестная')); }
         }
     </script>
 </body>
