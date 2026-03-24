@@ -1649,11 +1649,7 @@ def friends():
 
     conn.close()
 
-    return render_template('friends.html',
-                           friends=friends,
-                           incoming_requests=incoming_requests,
-                           outgoing_requests=outgoing_requests)
-
+    return render_template('friends.html') 
 
 @app.route('/friend_action/<int:request_id>/<action>')
 def friend_action(request_id, action):
