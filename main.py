@@ -1387,6 +1387,29 @@ def admin_delete_news(news_id):
     return jsonify({'success': True})
 
 
+@app.route('/admin/news/edit/<int:news_id>', methods=['POST'])
+def admin_edit_news(news_id):
+    """Редактирование существующей новости платформы (только для администратора)."""
+    if 'user_id' not in session or session.get('role') != 'admin':
+        return jsonify({'success': False, 'error': 'Нет доступа'}), 403
+    data = request.get_json()
+    title = (data.get('title') or '').strip()
+    body  = (data.get('body')  or '').strip()
+    if not title or not body:
+        return jsonify({'success': False, 'error': 'Заголовок и текст обязательны'})
+    conn = get_db_connection()
+    conn.execute(
+        'UPDATE site_news SET title = ?, body = ? WHERE id = ?',
+        (title, body, news_id)
+    )
+    conn.commit()
+    news = conn.execute('SELECT * FROM site_news WHERE id = ?', (news_id,)).fetchone()
+    conn.close()
+    if not news:
+        return jsonify({'success': False, 'error': 'Новость не найдена'})
+    return jsonify({'success': True, 'news': row_to_dict(news)})
+
+
 # ==================== ОСНОВНЫЕ МАРШРУТЫ ====================
 
 @app.route('/')
