@@ -60,7 +60,22 @@ LinkA/
 ├── main.py                # основной файл приложения
 ├── users.db               # база данных SQLite (создаётся автоматически)
 │
+├── requirements.txt
 ├── templates/             # все HTML-файлы
+│   ├── 2fa_setup.html
+│   ├── 2fa_verify.html
+│   ├── add_to_blacklist.html
+│   ├── admin_banned.html
+│   ├── admin_base.html
+│   ├── admin_users.html
+│   ├── edit_post.html
+│   ├── edit_posts.html
+│   ├── fuq.html
+│   ├── linka-promo.html
+│   ├── messenger.html
+│   ├── settings.html
+│   ├── terms.html
+│   ├── view_post.html
 │   ├── edit_profile.html
 │   ├── feed.html
 │   ├── find_friends.html
@@ -78,12 +93,13 @@ LinkA/
 │   ├── techadmin_reports.html
 │   ├── view_profile.html
 │   ├── blacklist.html
-│   └── add_to_blacklist.html
+│   └── group_detail2.html
 │
 ├── static/                 # стили, скрипты, изображения
 │   ├── defaults/           
 │   │   ├── for_groups.png
 │   │   └── for_users.png
+│   │   └── style.css
 │   └── uploads/
 │       ├── avatars/  
 │       ├── groups/
@@ -108,10 +124,12 @@ LinkA/
 ---
 
 ## ▶️ Запуск проекта
+```
 pip install flask
-python app.py
-После запуска открой в браузере:
-👉 http://127.0.0.1:5000
+```
+```
+python main.py
+```
 
 ---
 
@@ -122,12 +140,6 @@ python app.py
 
 ---
 
-## 🤝 Вклад
-
-Идеи, улучшения и pull request’ы приветствуются 🚀
-Проект открыт для развития.
-
----
 
 ## LinkA 🔗
 Cоздаём связи,а не просто ленты.
