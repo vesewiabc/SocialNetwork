@@ -335,14 +335,46 @@
                             {% endif %}
 
                             <div class="post-actions">
-                                <button class="action-btn like-post-btn"
+                                <button type="button" class="action-btn like-post-btn"
                                         onclick="likeGroupPost(this.dataset.postId)"
                                         data-post-id="{{ post.id }}">
                                     <i class="fas fa-thumbs-up"></i> {{ post.likes_count or 0 }}
                                 </button>
-                                <button class="action-btn" onclick="commentOnPost(this.dataset.postId)" data-post-id="{{ post.id }}">
-                                    <i class="fas fa-comment"></i> Комментировать
+                                <button type="button" class="action-btn"
+                                        onclick="toggleComments({{ post.id }})"
+                                        id="comment-btn-{{ post.id }}">
+                                    <i class="fas fa-comment"></i>
+                                    <span id="comments-count-{{ post.id }}">{{ post.comments_count or 0 }}</span>
                                 </button>
+                            </div>
+
+                            <!-- Секция комментариев (скрыта по умолчанию) -->
+                            <div id="comments-section-{{ post.id }}" style="display:none;margin-top:12px;border-top:1px solid var(--border-light);padding-top:14px;">
+                                <div id="comments-list-{{ post.id }}" style="display:flex;flex-direction:column;gap:10px;margin-bottom:12px;"></div>
+                                {% if is_member %}
+                                <div style="display:flex;flex-direction:column;gap:8px;">
+                                    <textarea class="form-control" id="comment-text-{{ post.id }}"
+                                              placeholder="Напишите комментарий..." rows="2"
+                                              style="font-size:13px;"></textarea>
+                                    <div id="comment-photo-preview-{{ post.id }}" style="display:none;position:relative;width:fit-content;">
+                                        <img id="comment-photo-img-{{ post.id }}" src=""
+                                             style="max-height:100px;max-width:200px;border-radius:var(--radius-md);border:2px solid var(--amber-200);object-fit:cover;">
+                                        <button type="button" onclick="removeGroupCommentPhoto({{ post.id }})"
+                                                style="position:absolute;top:-8px;right:-8px;width:22px;height:22px;border-radius:50%;background:#dc2626;color:#fff;border:none;cursor:pointer;font-size:13px;line-height:1;display:flex;align-items:center;justify-content:center;">×</button>
+                                    </div>
+                                    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+                                        <button type="button" class="btn btn-primary btn-sm" onclick="addGroupComment({{ post.id }})">
+                                            <i class="fas fa-paper-plane"></i> Отправить
+                                        </button>
+                                        <label for="comment-photo-input-{{ post.id }}" class="btn btn-secondary btn-sm" style="cursor:pointer;margin:0;">
+                                            <i class="fas fa-image"></i> Фото
+                                        </label>
+                                        <input type="file" id="comment-photo-input-{{ post.id }}" accept="image/*"
+                                               style="display:none;"
+                                               onchange="previewGroupCommentPhoto({{ post.id }}, this)">
+                                    </div>
+                                </div>
+                                {% endif %}
                             </div>
                         </div>
                         {% endfor %}
@@ -1012,7 +1044,119 @@
                 .then(d => { if (d.success) location.reload(); else alert('Ошибка: ' + d.error); });
         }
 
-        function commentOnPost(postId) { window.location.href = `/post/${postId}`; }
+        // ===== КОММЕНТАРИИ =====
+        const loadedComments = {}; // постID -> уже загружены?
+
+        function toggleComments(postId) {
+            const section = document.getElementById(`comments-section-${postId}`);
+            const isHidden = section.style.display === 'none';
+            section.style.display = isHidden ? 'block' : 'none';
+            if (isHidden && !loadedComments[postId]) {
+                loadGroupComments(postId);
+            }
+        }
+
+        function loadGroupComments(postId) {
+            fetch(`/group_post/${postId}/comments`)
+                .then(r => r.json())
+                .then(data => {
+                    if (!data.success) return;
+                    loadedComments[postId] = true;
+                    const list = document.getElementById(`comments-list-${postId}`);
+                    list.innerHTML = '';
+                    if (!data.comments.length) {
+                        list.innerHTML = '<div style="color:var(--text-muted);font-size:13px;text-align:center;padding:8px 0;">Комментариев пока нет</div>';
+                        return;
+                    }
+                    data.comments.forEach(c => {
+                        list.appendChild(buildCommentEl(postId, c, {{ session_user_id }}));
+                    });
+                });
+        }
+
+        function buildCommentEl(postId, c, currentUserId) {
+            const div = document.createElement('div');
+            div.id = `gcomment-${c.id}`;
+            div.style.cssText = 'background:var(--gray-50);border-radius:var(--radius-md);padding:10px 12px;border:1px solid var(--border-light);';
+            const avatarUrl = c.avatar ? `/static/uploads/avatars/${c.avatar}` : '/static/defaults/for_users.png';
+            const photoHtml = c.photo
+                ? `<div style="margin-top:6px;"><img src="/static/uploads/posts/${c.photo}" style="max-height:180px;max-width:100%;border-radius:var(--radius-md);border:1px solid var(--border-light);cursor:pointer;" onclick="this.style.maxHeight=this.style.maxHeight==='none'?'180px':'none'"></div>`
+                : '';
+            const canDelete = c.user_id === currentUserId;
+            const deleteBtn = canDelete
+                ? `<button onclick="deleteGroupComment(${c.id}, ${postId})" style="margin-left:auto;background:none;border:none;cursor:pointer;color:var(--text-muted);font-size:12px;padding:2px 4px;" title="Удалить"><i class="fas fa-trash"></i></button>`
+                : '';
+            div.innerHTML = `
+                <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
+                    <img src="${avatarUrl}" onerror="this.src='/static/defaults/for_users.png'"
+                         style="width:28px;height:28px;border-radius:50%;object-fit:cover;border:1px solid var(--amber-200);flex-shrink:0;">
+                    <span style="font-weight:700;font-size:13px;">${c.full_name || c.username}</span>
+                    <span style="font-size:11px;color:var(--text-muted);">${c.created_at ? c.created_at.substring(0,16) : 'только что'}</span>
+                    ${deleteBtn}
+                </div>
+                <div style="font-size:13px;line-height:1.5;word-break:break-word;">${c.content}</div>
+                ${photoHtml}`;
+            return div;
+        }
+
+        function previewGroupCommentPhoto(postId, input) {
+            if (input.files && input.files[0]) {
+                const reader = new FileReader();
+                reader.onload = e => {
+                    document.getElementById(`comment-photo-img-${postId}`).src = e.target.result;
+                    document.getElementById(`comment-photo-preview-${postId}`).style.display = 'block';
+                };
+                reader.readAsDataURL(input.files[0]);
+            }
+        }
+
+        function removeGroupCommentPhoto(postId) {
+            document.getElementById(`comment-photo-input-${postId}`).value = '';
+            document.getElementById(`comment-photo-preview-${postId}`).style.display = 'none';
+            document.getElementById(`comment-photo-img-${postId}`).src = '';
+        }
+
+        function addGroupComment(postId) {
+            const textarea = document.getElementById(`comment-text-${postId}`);
+            const content = textarea.value.trim();
+            const photoInput = document.getElementById(`comment-photo-input-${postId}`);
+            const hasPhoto = photoInput.files && photoInput.files[0];
+            if (!content && !hasPhoto) { alert('Введите текст или прикрепите фото'); return; }
+
+            const formData = new FormData();
+            formData.append('content', content);
+            if (hasPhoto) formData.append('photo', photoInput.files[0]);
+
+            fetch(`/group_post/${postId}/add_comment`, { method: 'POST', body: formData })
+                .then(r => r.json())
+                .then(data => {
+                    if (!data.success) { alert('Ошибка: ' + data.error); return; }
+                    textarea.value = '';
+                    removeGroupCommentPhoto(postId);
+                    loadedComments[postId] = true;
+                    const list = document.getElementById(`comments-list-${postId}`);
+                    const noMsg = list.querySelector('div[style*="color:var(--text-muted)"]');
+                    if (noMsg) noMsg.remove();
+                    list.appendChild(buildCommentEl(postId, data.comment, {{ session_user_id }}));
+                    document.getElementById(`comments-count-${postId}`).textContent = data.comments_count;
+                })
+                .catch(() => alert('Ошибка сервера'));
+        }
+
+        function deleteGroupComment(commentId, postId) {
+            if (!confirm('Удалить комментарий?')) return;
+            fetch(`/group_post_comment/${commentId}/delete`, { method: 'POST' })
+                .then(r => r.json())
+                .then(data => {
+                    if (!data.success) { alert('Ошибка: ' + data.error); return; }
+                    document.getElementById(`gcomment-${commentId}`)?.remove();
+                    document.getElementById(`comments-count-${postId}`).textContent = data.comments_count;
+                    const list = document.getElementById(`comments-list-${postId}`);
+                    if (list && !list.children.length) {
+                        list.innerHTML = '<div style="color:var(--text-muted);font-size:13px;text-align:center;padding:8px 0;">Комментариев пока нет</div>';
+                    }
+                });
+        }
     </script>
 
 

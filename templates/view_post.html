@@ -114,10 +114,19 @@
                     <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:20px;">
                         <textarea class="form-control" id="comment-text"
                                   placeholder="Напишите комментарий..." rows="3"></textarea>
-                        <div>
+                        <!-- Превью фото -->
+                        <div id="comment-photo-preview" style="display:none;position:relative;width:fit-content;">
+                            <img id="comment-photo-img" src="" style="max-height:120px;max-width:240px;border-radius:var(--radius-md);border:2px solid var(--amber-200);object-fit:cover;">
+                            <button onclick="removeCommentPhoto()" style="position:absolute;top:-8px;right:-8px;width:22px;height:22px;border-radius:50%;background:#dc2626;color:#fff;border:none;cursor:pointer;font-size:13px;line-height:1;display:flex;align-items:center;justify-content:center;">×</button>
+                        </div>
+                        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
                             <button class="btn btn-primary btn-sm" onclick="addComment({{ post.id }})">
                                 <i class="fas fa-paper-plane"></i> Отправить
                             </button>
+                            <label for="comment-photo-input" class="btn btn-secondary btn-sm" style="cursor:pointer;margin:0;">
+                                <i class="fas fa-image"></i> Фото
+                            </label>
+                            <input type="file" id="comment-photo-input" accept="image/*" style="display:none;" onchange="previewCommentPhoto(this)">
                         </div>
                     </div>
 
@@ -139,6 +148,14 @@
                                 {% endif %}
                             </div>
                             <div class="comment-content">{{ comment.content }}</div>
+                            {% if comment.photo %}
+                            <div style="margin-top:8px;">
+                                <img src="{{ url_for('static', filename='uploads/posts/' + comment.photo) }}"
+                                     style="max-height:200px;max-width:100%;border-radius:var(--radius-md);border:1px solid var(--border-light);cursor:pointer;"
+                                     onclick="this.style.maxHeight=this.style.maxHeight==='none'?'200px':'none'"
+                                     onerror="this.style.display='none'">
+                            </div>
+                            {% endif %}
                         </div>
                         {% else %}
                         <div style="text-align:center;color:var(--text-muted);padding:20px 0;" id="no-comments">
@@ -154,20 +171,49 @@
 
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script>
+        function previewCommentPhoto(input) {
+            if (input.files && input.files[0]) {
+                const reader = new FileReader();
+                reader.onload = e => {
+                    document.getElementById('comment-photo-img').src = e.target.result;
+                    document.getElementById('comment-photo-preview').style.display = 'block';
+                };
+                reader.readAsDataURL(input.files[0]);
+            }
+        }
+
+        function removeCommentPhoto() {
+            document.getElementById('comment-photo-input').value = '';
+            document.getElementById('comment-photo-preview').style.display = 'none';
+            document.getElementById('comment-photo-img').src = '';
+        }
+
         function addComment(postId) {
             const content = $('#comment-text').val().trim();
-            if (!content) { alert('Введите текст комментария'); return; }
+            const photoInput = document.getElementById('comment-photo-input');
+            const hasPhoto = photoInput.files && photoInput.files[0];
+            if (!content && !hasPhoto) { alert('Введите текст или прикрепите фото'); return; }
+
+            const formData = new FormData();
+            formData.append('content', content);
+            if (hasPhoto) formData.append('photo', photoInput.files[0]);
+
             $.ajax({
                 url: `/add_comment/${postId}`,
                 type: 'POST',
-                contentType: 'application/json',
-                data: JSON.stringify({ content }),
+                data: formData,
+                processData: false,
+                contentType: false,
                 success: function(response) {
                     if (response.success) {
                         $('#comment-text').val('');
+                        removeCommentPhoto();
                         $('#comments-count').text(response.comments_count);
                         $('#no-comments').remove();
                         const c = response.comment;
+                        const photoHtml = c.photo
+                            ? `<div style="margin-top:8px;"><img src="/static/uploads/posts/${c.photo}" style="max-height:200px;max-width:100%;border-radius:var(--radius-md);border:1px solid var(--border-light);cursor:pointer;" onclick="this.style.maxHeight=this.style.maxHeight==='none'?'200px':'none'"></div>`
+                            : '';
                         const html = `
                             <div class="comment-item" id="comment-${c.id}">
                                 <div class="comment-header">
@@ -180,6 +226,7 @@
                                     </button>
                                 </div>
                                 <div class="comment-content">${c.content}</div>
+                                ${photoHtml}
                             </div>`;
                         $('#comments-list').prepend(html);
                     } else { alert('Ошибка: ' + response.error); }

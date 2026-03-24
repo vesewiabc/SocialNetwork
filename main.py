@@ -263,6 +263,32 @@ def migrate_database():
     )
     ''')
 
+    # Мигрируем: создаём group_post_comments если нет
+    cursor.execute('''
+    CREATE TABLE IF NOT EXISTS group_post_comments (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        post_id INTEGER NOT NULL,
+        user_id INTEGER NOT NULL,
+        content TEXT NOT NULL DEFAULT '',
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (post_id) REFERENCES group_posts(id) ON DELETE CASCADE,
+        FOREIGN KEY (user_id) REFERENCES users(id)
+    )
+    ''')
+
+    # Мигрируем: создаём comment_media если нет
+    cursor.execute('''
+    CREATE TABLE IF NOT EXISTS comment_media (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        comment_id INTEGER,
+        group_comment_id INTEGER,
+        filename TEXT NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (comment_id) REFERENCES comments(id) ON DELETE CASCADE,
+        FOREIGN KEY (group_comment_id) REFERENCES group_post_comments(id) ON DELETE CASCADE
+    )
+    ''')
+
     conn.commit()
     conn.close()
 
@@ -464,6 +490,32 @@ def create_tables():
     )
     ''')
 
+    # Таблица комментариев к постам групп
+    cursor.execute('''
+    CREATE TABLE IF NOT EXISTS group_post_comments (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        post_id INTEGER NOT NULL,
+        user_id INTEGER NOT NULL,
+        content TEXT NOT NULL DEFAULT '',
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (post_id) REFERENCES group_posts(id) ON DELETE CASCADE,
+        FOREIGN KEY (user_id) REFERENCES users(id)
+    )
+    ''')
+
+    # Таблица медиа для комментариев (фото)
+    cursor.execute('''
+    CREATE TABLE IF NOT EXISTS comment_media (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        comment_id INTEGER,
+        group_comment_id INTEGER,
+        filename TEXT NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (comment_id) REFERENCES comments(id) ON DELETE CASCADE,
+        FOREIGN KEY (group_comment_id) REFERENCES group_post_comments(id) ON DELETE CASCADE
+    )
+    ''')
+
     # Таблица жалоб
     cursor.execute('''
     CREATE TABLE IF NOT EXISTS reports (
@@ -638,6 +690,11 @@ def get_post_comments(post_id):
         WHERE c.post_id = ?
         ORDER BY c.created_at DESC
     ''', (post_id,)).fetchall())
+    for c in comments:
+        media = conn.execute(
+            'SELECT filename FROM comment_media WHERE comment_id = ?', (c['id'],)
+        ).fetchone()
+        c['photo'] = media['filename'] if media else None
     conn.close()
     return comments
 
@@ -823,56 +880,74 @@ def like_post_action(post_id):
 
 @app.route('/add_comment/<int:post_id>', methods=['POST'])
 def add_comment(post_id):
-    """Добавить комментарий к посту"""
+    """Добавить комментарий к посту (с поддержкой фото)"""
     if 'user_id' not in session:
         return jsonify({'success': False, 'error': 'Требуется авторизация'}), 401
 
+    ensure_comment_tables()
     user_id = session['user_id']
-    data = request.get_json()
-    content = data.get('content', '').strip()
 
-    if not content:
+    # Поддерживаем как JSON, так и multipart/form-data
+    if request.content_type and 'application/json' in request.content_type:
+        data = request.get_json()
+        content = (data.get('content') or '').strip()
+        photo_file = None
+    else:
+        content = (request.form.get('content') or '').strip()
+        photo_file = request.files.get('photo')
+
+    if not content and not photo_file:
         return jsonify({'success': False, 'error': 'Комментарий не может быть пустым'})
 
     conn = get_db_connection()
 
     try:
-        # Проверяем, существует ли пост
         post = conn.execute('SELECT id FROM posts WHERE id = ?', (post_id,)).fetchone()
         if not post:
             conn.close()
             return jsonify({'success': False, 'error': 'Пост не найден'})
 
-        # Добавляем комментарий - ИСПОЛЬЗУЕМ CURSOR
         cursor = conn.cursor()
         cursor.execute('''
             INSERT INTO comments (post_id, user_id, content)
             VALUES (?, ?, ?)
         ''', (post_id, user_id, content))
-
-        # Получаем ID нового комментария через cursor.lastrowid
         comment_id = cursor.lastrowid
 
-        # Получаем информацию о комментаторе для ответа
-        comment_data = conn.execute('''
-            SELECT c.*, u.username, up.full_name, 
+        # Сохраняем фото если есть
+        photo_filename = None
+        if photo_file and photo_file.filename and allowed_image_file(photo_file.filename):
+            import time
+            ext = photo_file.filename.rsplit('.', 1)[1].lower()
+            photo_filename = f"comment_{comment_id}_{int(time.time())}.{ext}"
+            photo_file.save(os.path.join(app.config['POST_MEDIA_FOLDER'], photo_filename))
+            cursor.execute(
+                'INSERT INTO comment_media (comment_id, filename) VALUES (?, ?)',
+                (comment_id, photo_filename)
+            )
+
+        comment_data = dict(conn.execute('''
+            SELECT c.*, u.username, up.full_name,
                    COALESCE(up.avatar, 'default_avatar.png') as avatar
             FROM comments c
             JOIN users u ON c.user_id = u.id
             LEFT JOIN user_profiles up ON u.id = up.user_id
             WHERE c.id = ?
-        ''', (comment_id,)).fetchone()
+        ''', (comment_id,)).fetchone())
 
-        # Получаем общее количество комментариев
-        comments_count = \
-            conn.execute('SELECT COUNT(*) as count FROM comments WHERE post_id = ?', (post_id,)).fetchone()['count']
+        if photo_filename:
+            comment_data['photo'] = photo_filename
+
+        comments_count = conn.execute(
+            'SELECT COUNT(*) as count FROM comments WHERE post_id = ?', (post_id,)
+        ).fetchone()['count']
 
         conn.commit()
         conn.close()
 
         return jsonify({
             'success': True,
-            'comment': dict(comment_data),
+            'comment': comment_data,
             'comments_count': comments_count
         })
 
@@ -909,6 +984,15 @@ def delete_comment(comment_id):
         # Получаем post_id перед удалением
         post_id = comment['post_id']
 
+        # Удаляем медиафайлы комментария если есть
+        media = conn.execute('SELECT filename FROM comment_media WHERE comment_id = ?', (comment_id,)).fetchall()
+        for m in media:
+            try:
+                os.remove(os.path.join(app.config['POST_MEDIA_FOLDER'], m['filename']))
+            except:
+                pass
+        conn.execute('DELETE FROM comment_media WHERE comment_id = ?', (comment_id,))
+
         # Удаляем комментарий
         conn.execute('DELETE FROM comments WHERE id = ?', (comment_id,))
 
@@ -923,6 +1007,188 @@ def delete_comment(comment_id):
             'success': True,
             'comments_count': comments_count
         })
+
+    except Exception as e:
+        conn.rollback()
+        conn.close()
+        return jsonify({'success': False, 'error': str(e)})
+
+
+def ensure_comment_tables():
+    """Создаёт таблицы комментариев если их нет (для совместимости со старой БД)"""
+    conn = get_db_connection()
+    conn.execute('''
+        CREATE TABLE IF NOT EXISTS group_post_comments (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            post_id INTEGER NOT NULL,
+            user_id INTEGER NOT NULL,
+            content TEXT NOT NULL DEFAULT '',
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (post_id) REFERENCES group_posts(id) ON DELETE CASCADE,
+            FOREIGN KEY (user_id) REFERENCES users(id)
+        )
+    ''')
+    conn.execute('''
+        CREATE TABLE IF NOT EXISTS comment_media (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            comment_id INTEGER,
+            group_comment_id INTEGER,
+            filename TEXT NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (comment_id) REFERENCES comments(id) ON DELETE CASCADE,
+            FOREIGN KEY (group_comment_id) REFERENCES group_post_comments(id) ON DELETE CASCADE
+        )
+    ''')
+    conn.commit()
+    conn.close()
+
+
+@app.route('/group_post/<int:post_id>/comments', methods=['GET'])
+def get_group_post_comments(post_id):
+    """Получить комментарии к посту группы"""
+    if 'user_id' not in session:
+        return jsonify({'success': False, 'error': 'Требуется авторизация'}), 401
+    ensure_comment_tables()
+    conn = get_db_connection()
+    comments = rows_to_dicts(conn.execute('''
+        SELECT c.*, u.username, up.full_name,
+               COALESCE(up.avatar, 'default_avatar.png') as avatar
+        FROM group_post_comments c
+        JOIN users u ON c.user_id = u.id
+        LEFT JOIN user_profiles up ON u.id = up.user_id
+        WHERE c.post_id = ?
+        ORDER BY c.created_at ASC
+    ''', (post_id,)).fetchall())
+    # Добавляем фото к каждому комментарию
+    for c in comments:
+        media = conn.execute(
+            'SELECT filename FROM comment_media WHERE group_comment_id = ?', (c['id'],)
+        ).fetchone()
+        c['photo'] = media['filename'] if media else None
+    conn.close()
+    return jsonify({'success': True, 'comments': comments})
+
+
+@app.route('/group_post/<int:post_id>/add_comment', methods=['POST'])
+def add_group_post_comment(post_id):
+    """Добавить комментарий к посту группы (с поддержкой фото)"""
+    if 'user_id' not in session:
+        return jsonify({'success': False, 'error': 'Требуется авторизация'}), 401
+
+    # Убедимся что таблицы существуют
+    ensure_comment_tables()
+
+    user_id = session['user_id']
+
+    if request.content_type and 'application/json' in request.content_type:
+        data = request.get_json()
+        content = (data.get('content') or '').strip()
+        photo_file = None
+    else:
+        content = (request.form.get('content') or '').strip()
+        photo_file = request.files.get('photo')
+
+    if not content and not photo_file:
+        return jsonify({'success': False, 'error': 'Комментарий не может быть пустым'})
+
+    conn = get_db_connection()
+    try:
+        post = conn.execute('SELECT id FROM group_posts WHERE id = ?', (post_id,)).fetchone()
+        if not post:
+            conn.close()
+            return jsonify({'success': False, 'error': 'Пост не найден'})
+
+        cursor = conn.cursor()
+        cursor.execute('''
+            INSERT INTO group_post_comments (post_id, user_id, content)
+            VALUES (?, ?, ?)
+        ''', (post_id, user_id, content))
+        comment_id = cursor.lastrowid
+
+        photo_filename = None
+        if photo_file and photo_file.filename and allowed_image_file(photo_file.filename):
+            import time
+            ext = photo_file.filename.rsplit('.', 1)[1].lower()
+            photo_filename = f"gcomment_{comment_id}_{int(time.time())}.{ext}"
+            photo_file.save(os.path.join(app.config['POST_MEDIA_FOLDER'], photo_filename))
+            cursor.execute(
+                'INSERT INTO comment_media (group_comment_id, filename) VALUES (?, ?)',
+                (comment_id, photo_filename)
+            )
+
+        comment_data = dict(conn.execute('''
+            SELECT c.*, u.username, up.full_name,
+                   COALESCE(up.avatar, 'default_avatar.png') as avatar
+            FROM group_post_comments c
+            JOIN users u ON c.user_id = u.id
+            LEFT JOIN user_profiles up ON u.id = up.user_id
+            WHERE c.id = ?
+        ''', (comment_id,)).fetchone())
+        comment_data['photo'] = photo_filename
+
+        comments_count = conn.execute(
+            'SELECT COUNT(*) as count FROM group_post_comments WHERE post_id = ?', (post_id,)
+        ).fetchone()['count']
+
+        conn.commit()
+        conn.close()
+        return jsonify({'success': True, 'comment': comment_data, 'comments_count': comments_count})
+
+    except Exception as e:
+        conn.rollback()
+        conn.close()
+        return jsonify({'success': False, 'error': str(e)})
+
+
+@app.route('/group_post_comment/<int:comment_id>/delete', methods=['POST'])
+def delete_group_post_comment(comment_id):
+    """Удалить комментарий к посту группы"""
+    if 'user_id' not in session:
+        return jsonify({'success': False, 'error': 'Требуется авторизация'}), 401
+    ensure_comment_tables()
+
+    user_id = session['user_id']
+    conn = get_db_connection()
+    try:
+        comment = conn.execute('SELECT * FROM group_post_comments WHERE id = ?', (comment_id,)).fetchone()
+        if not comment:
+            conn.close()
+            return jsonify({'success': False, 'error': 'Комментарий не найден'})
+
+        if comment['user_id'] != user_id:
+            # Проверяем, является ли пользователь автором поста или админом/модером группы
+            post = conn.execute('SELECT author_id, group_id FROM group_posts WHERE id = ?', (comment['post_id'],)).fetchone()
+            is_post_author = post and post['author_id'] == user_id
+            is_group_mod = False
+            if post:
+                membership = conn.execute(
+                    'SELECT role FROM group_members WHERE group_id = ? AND user_id = ?',
+                    (post['group_id'], user_id)
+                ).fetchone()
+                is_group_mod = membership and membership['role'] in ('admin', 'moderator')
+            if not is_post_author and not is_group_mod:
+                conn.close()
+                return jsonify({'success': False, 'error': 'Нет прав на удаление'})
+
+        post_id = comment['post_id']
+
+        # Удаляем медиафайлы
+        media = conn.execute('SELECT filename FROM comment_media WHERE group_comment_id = ?', (comment_id,)).fetchall()
+        for m in media:
+            try:
+                os.remove(os.path.join(app.config['POST_MEDIA_FOLDER'], m['filename']))
+            except:
+                pass
+        conn.execute('DELETE FROM comment_media WHERE group_comment_id = ?', (comment_id,))
+        conn.execute('DELETE FROM group_post_comments WHERE id = ?', (comment_id,))
+
+        comments_count = conn.execute(
+            'SELECT COUNT(*) as count FROM group_post_comments WHERE post_id = ?', (post_id,)
+        ).fetchone()['count']
+
+        conn.commit()
+        conn.close()
+        return jsonify({'success': True, 'comments_count': comments_count})
 
     except Exception as e:
         conn.rollback()
@@ -2283,6 +2549,17 @@ def group_detail(group_id):
 
             # Получаем медиафайлы для поста
             post['media_files'] = get_post_media(post['id'], is_group_post=True)
+
+            # Количество комментариев
+            post['comments_count'] = conn.execute(
+                'SELECT COUNT(*) as c FROM group_post_comments WHERE post_id = ?', (post['id'],)
+            ).fetchone()['c']
+
+            # Лайкнул ли текущий пользователь
+            post['is_liked'] = conn.execute(
+                'SELECT id FROM group_post_likes WHERE post_id = ? AND user_id = ?',
+                (post['id'], user_id)
+            ).fetchone() is not None
 
             posts_data.append(post)
 

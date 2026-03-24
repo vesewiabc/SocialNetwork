@@ -351,61 +351,7 @@
                 </ul>
             
                 <!-- Блок новостей в левой панели -->
-                <div style="margin-top:20px; border-top:1px solid var(--border-light); padding-top:16px;">
-                    <h3 style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
-                        <span><i class="fas fa-newspaper" style="color:var(--amber-500);margin-right:6px;"></i>Новости</span>
-                        {% if is_admin %}
-                        <button onclick="toggleAddNews()" title="Добавить новость"
-                            style="background:var(--accent-gradient);border:none;color:white;font-size:11px;font-weight:700;padding:4px 10px;border-radius:var(--radius-full);cursor:pointer;">
-                            <i class="fas fa-plus"></i>
-                        </button>
-                        {% endif %}
-                    </h3>
-
-                    {% if is_admin %}
-                    <div id="addNewsForm" style="display:none;margin-bottom:14px;background:var(--bg-main);border:1px solid var(--border-light);border-radius:var(--radius-md);padding:12px;">
-                        <input id="newsTitle" type="text" placeholder="Заголовок..."
-                            style="width:100%;padding:7px 10px;border:1px solid var(--border-medium);border-radius:var(--radius-md);font-size:13px;outline:none;margin-bottom:8px;background:var(--bg-card);color:var(--text-primary);box-sizing:border-box;">
-                        <textarea id="newsBody" placeholder="Текст новости..." rows="3"
-                            style="width:100%;padding:7px 10px;border:1px solid var(--border-medium);border-radius:var(--radius-md);font-size:13px;outline:none;resize:none;background:var(--bg-card);color:var(--text-primary);font-family:inherit;box-sizing:border-box;"></textarea>
-                        <div style="display:flex;gap:8px;margin-top:8px;">
-                            <button onclick="submitNews()"
-                                style="flex:1;padding:7px;background:var(--accent-gradient);border:none;color:white;font-size:13px;font-weight:700;border-radius:var(--radius-md);cursor:pointer;">
-                                Опубликовать
-                            </button>
-                            <button onclick="toggleAddNews()"
-                                style="padding:7px 12px;background:none;border:1px solid var(--border-light);border-radius:var(--radius-md);font-size:13px;cursor:pointer;color:var(--text-muted);">
-                                Отмена
-                            </button>
-                        </div>
-                    </div>
-                    {% endif %}
-
-                    <div id="newsList">
-                        {% if site_news %}
-                            {% for n in site_news %}
-                            <div class="site-news-item" id="news-item-{{ n.id }}">
-                                <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:6px;">
-                                    <div style="font-size:13px;font-weight:700;color:var(--text-primary);line-height:1.3;">{{ n.title }}</div>
-                                    {% if is_admin %}
-                                    <button onclick="deleteNews({{ n.id }})" title="Удалить"
-                                        style="flex-shrink:0;background:none;border:none;color:#dc2626;cursor:pointer;font-size:13px;padding:0 2px;line-height:1;">
-                                        <i class="fas fa-times"></i>
-                                    </button>
-                                    {% endif %}
-                                </div>
-                                <div style="font-size:12px;color:var(--text-secondary);margin-top:4px;line-height:1.4;">{{ n.body }}</div>
-                                <div style="font-size:11px;color:var(--text-muted);margin-top:4px;">{{ n.created_at[:16] if n.created_at else '' }}</div>
-                            </div>
-                            {% endfor %}
-                        {% else %}
-                            <div id="noNewsMsg" style="font-size:13px;color:var(--text-muted);text-align:center;padding:16px 0;">
-                                <i class="fas fa-newspaper" style="font-size:24px;color:var(--amber-200);display:block;margin-bottom:8px;"></i>
-                                Новостей пока нет
-                            </div>
-                        {% endif %}
-                    </div>
-                </div>
+                
             </div>
 
             <!-- Основная лента -->
@@ -1067,60 +1013,6 @@
     function toggleAddNews() {
         const form = document.getElementById('addNewsForm');
         if (form) form.style.display = form.style.display === 'none' ? 'block' : 'none';
-    }
-    async function submitNews() {
-        const title = document.getElementById('newsTitle').value.trim();
-        const body  = document.getElementById('newsBody').value.trim();
-        if (!title || !body) { alert('Заполните заголовок и текст'); return; }
-        const r = await fetch('/admin/news/add', {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({title, body})
-        });
-        const d = await r.json();
-        if (d.success) {
-            const n = d.news;
-            const noMsg = document.getElementById('noNewsMsg');
-            if (noMsg) noMsg.remove();
-            const list = document.getElementById('newsList');
-            const el = document.createElement('div');
-            el.className = 'site-news-item';
-            el.id = 'news-item-' + n.id;
-            el.innerHTML = `
-                <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:6px;">
-                    <div style="font-size:13px;font-weight:700;color:var(--text-primary);line-height:1.3;">${n.title}</div>
-                    <button onclick="deleteNews(${n.id})" title="Удалить"
-                        style="flex-shrink:0;background:none;border:none;color:#dc2626;cursor:pointer;font-size:13px;padding:0 2px;line-height:1;">
-                        <i class="fas fa-times"></i>
-                    </button>
-                </div>
-                <div style="font-size:12px;color:var(--text-secondary);margin-top:4px;line-height:1.4;">${n.body}</div>
-                <div style="font-size:11px;color:var(--text-muted);margin-top:4px;">${(n.created_at||'').slice(0,16)}</div>
-            `;
-            list.insertAdjacentElement('afterbegin', el);
-            document.getElementById('newsTitle').value = '';
-            document.getElementById('newsBody').value = '';
-            toggleAddNews();
-        } else {
-            alert('Ошибка: ' + (d.error || 'неизвестная'));
-        }
-    }
-    async function deleteNews(newsId) {
-        if (!confirm('Удалить новость?')) return;
-        const r = await fetch('/admin/news/delete/' + newsId, {method: 'POST'});
-        const d = await r.json();
-        if (d.success) {
-            const el = document.getElementById('news-item-' + newsId);
-            if (el) el.remove();
-            if (!document.querySelector('.site-news-item')) {
-                document.getElementById('newsList').innerHTML =
-                    '<div id="noNewsMsg" style="font-size:13px;color:var(--text-muted);text-align:center;padding:16px 0;">' +
-                    '<i class="fas fa-newspaper" style="font-size:24px;color:var(--amber-200);display:block;margin-bottom:8px;"></i>' +
-                    'Новостей пока нет</div>';
-            }
-        } else {
-            alert('Ошибка: ' + (d.error || 'неизвестная'));
-        }
     }
     </script>
 </body>
