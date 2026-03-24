@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Отправить жалобу</title>
+    <title>Профиль - {{ user.username }}</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <link rel="stylesheet" href="{{ url_for('static', filename='defaults/style.css') }}">
     <link rel="icon" type="image/png" href="{{ url_for('static', filename='uploads/favicon.png') }}">
@@ -67,68 +67,89 @@
             </div>
 
             <div class="feed">
-                <div class="card" style="max-width:620px;">
+                <div class="card" style="padding:28px;">
                     <a href="javascript:history.back()" class="back-link" style="display:inline-flex;margin-bottom:20px;">
                         <i class="fas fa-arrow-left"></i>&nbsp; Назад
                     </a>
 
-                    <h2 style="font-family:var(--font-display);font-size:18px;margin-bottom:20px;">
-                        <i class="fas fa-flag" style="color:var(--amber-500);"></i> Отправить жалобу
-                    </h2>
+                    <div style="display:flex;align-items:center;gap:24px;flex-wrap:wrap;">
+                        {% set avatar_filename = profile.avatar if profile and profile.avatar else 'default_avatar.png' %}
+                        <img src="{{ url_for('static', filename='uploads/avatars/' + avatar_filename) }}"
+                             alt="Аватар"
+                             style="width:110px;height:110px;border-radius:50%;object-fit:cover;border:3px solid var(--amber-300);"
+                             onerror="this.src='/static/defaults/for_users.png'">
 
-                    <div class="alert alert-info" style="margin-bottom:20px;">
-                        Вы отправляете жалобу на
-                        <strong>{{ full_name if full_name else username }}</strong> (@{{ username }}).<br><br>
-                        Пожалуйста, опишите проблему подробно: что произошло, когда, есть ли доказательства.
-                    </div>
+                        <div style="flex:1;">
+                            <h2 style="margin:0 0 6px;font-family:var(--font-display);font-size:22px;">
+                                {{ profile.full_name if profile and profile.full_name else user.username }}
+                            </h2>
+                            <p style="margin:0 0 4px;color:var(--text-secondary);font-size:14px;">
+                                <i class="fas fa-at" style="color:var(--amber-500);"></i> {{ user.username }}
+                            </p>
+                            {% if profile and profile.location %}
+                            <p style="margin:0 0 12px;color:var(--text-muted);font-size:14px;">
+                                <i class="fas fa-map-marker-alt" style="color:var(--amber-500);"></i> {{ profile.location }}
+                            </p>
+                            {% endif %}
 
-                    <form method="POST" action="/report_user/{{ user_id }}" id="reportForm">
-                        <div class="form-group">
-                            <label class="form-label">Тип нарушения</label>
-                            <select name="violation_type" class="form-control">
-                                <option value="spam">Спам</option>
-                                <option value="harassment">Оскорбления / травля</option>
-                                <option value="inappropriate_content">Неуместный контент</option>
-                                <option value="fake_account">Фейковый аккаунт</option>
-                                <option value="scam">Мошенничество</option>
-                                <option value="other">Другое</option>
-                            </select>
-                        </div>
+                            {% if not is_own_profile %}
+                            <div style="margin-top:16px;">
+                                {% if friend_status == 'accepted' %}
+                                    <span class="badge badge-success" style="font-size:13px;padding:6px 14px;">
+                                        <i class="fas fa-check"></i> У вас в друзьях
+                                    </span>
+                                {% elif friend_status == 'pending' %}
+                                    <span class="badge" style="font-size:13px;padding:6px 14px;background:var(--amber-100);color:var(--amber-700);">
+                                        <i class="fas fa-clock"></i> Заявка отправлена
+                                    </span>
+                                {% else %}
+                                    <form method="POST" action="{{ url_for('add_friend', friend_id=user.id) }}" style="display:inline;">
+                                        <button type="submit" class="btn btn-primary btn-sm">
+                                            <i class="fas fa-user-plus"></i> Добавить в друзья
+                                        </button>
+                                    </form>
+                                {% endif %}
 
-                        <div class="form-group">
-                            <label class="form-label">Описание жалобы</label>
-                            <textarea name="reason"
-                                      class="form-control"
-                                      placeholder="Опишите причину жалобы подробно (минимум 10 символов)..."
-                                      required></textarea>
-                        </div>
-
-                        <div style="display:flex;gap:10px;">
-                            <button type="submit" class="btn btn-danger">
-                                <i class="fas fa-paper-plane"></i> Отправить жалобу
-                            </button>
-                            <a href="javascript:history.back()" class="btn btn-secondary">
-                                Отмена
+                                <!-- Значок приватности сообщений -->
+                                <div style="margin-top:10px;">
+                                    {% if message_privacy == 'nobody' %}
+                                        <span style="display:inline-flex;align-items:center;gap:6px;padding:5px 12px;background:#fee2e2;border-radius:999px;font-size:12px;font-weight:700;color:#dc2626;">
+                                            <i class="fas fa-ban"></i> Сообщения отключены
+                                        </span>
+                                    {% elif message_privacy == 'friends' %}
+                                        <span style="display:inline-flex;align-items:center;gap:6px;padding:5px 12px;background:var(--amber-100);border-radius:999px;font-size:12px;font-weight:700;color:var(--amber-700);">
+                                            <i class="fas fa-user-friends"></i> Пишет только друзьям
+                                        </span>
+                                    {% else %}
+                                        <a href="/messenger/{{ user.id }}" style="display:inline-flex;align-items:center;gap:6px;padding:5px 12px;background:#dbeafe;border-radius:999px;font-size:12px;font-weight:700;color:#2563eb;text-decoration:none;">
+                                            <i class="fas fa-comment"></i> Написать сообщение
+                                        </a>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            {% else %}
+                            <a href="/profile/edit" class="btn btn-primary btn-sm" style="margin-top:16px;">
+                                <i class="fas fa-edit"></i> Редактировать профиль
                             </a>
+                            {% endif %}
                         </div>
-                    </form>
+                    </div>
                 </div>
+
+                <div class="stat-box" style="text-align:center;">
+                    <div class="stat-number">{{ posts_count }}</div>
+                    <div class="stat-label">Публикации</div>
+                </div>
+
+                {% if profile and profile.bio %}
+                <div class="card">
+                    <h3 style="font-family:var(--font-display);font-size:13px;text-transform:uppercase;letter-spacing:1px;color:var(--amber-600);margin-bottom:12px;">О себе</h3>
+                    <p style="white-space:pre-line;color:var(--text-primary);line-height:1.7;margin:0;">{{ profile.bio }}</p>
+                </div>
+                {% endif %}
             </div>
         </div>
     </div>
-
-    <script>
-    document.getElementById('reportForm').addEventListener('submit', function(e) {
-        e.preventDefault();
-        fetch(this.action, {
-            method: 'POST',
-            body: new FormData(this),
-            headers: { 'X-Requested-With': 'XMLHttpRequest' }
-        })
-        .then(r => r.ok ? window.location.href = '/friends' : alert('Ошибка при отправке жалобы'))
-        .catch(() => alert('Ошибка сети'));
-    });
-    </script>
 
     <!-- Футер -->
     <footer style="
