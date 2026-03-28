@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="{{ url_for('static', filename='defaults/style.css') }}">
+    <title>Публикации - {{ user.username }}</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background: #f0f2f5; }
+        .container { max-width: 800px; margin: 0 auto; padding: 20px; }
+        .header { background: white; padding: 20px; border-radius: 8px; margin-bottom: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+        .header h1 { font-size: 24px; margin-bottom: 10px; }
+        .header a { color: #1877f2; text-decoration: none; }
+        .header a:hover { text-decoration: underline; }
+        .post { background: white; border-radius: 8px; margin-bottom: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); overflow: hidden; }
+        .post-header { padding: 15px; display: flex; align-items: center; gap: 12px; }
+        .avatar { width: 40px; height: 40px; border-radius: 50%; object-fit: cover; }
+        .post-info h3 { font-size: 16px; margin-bottom: 4px; }
+        .post-info span { font-size: 14px; color: #65676b; }
+        .post-content { padding: 0 15px 15px; }
+        .post-content p { font-size: 15px; line-height: 1.5; white-space: pre-wrap; }
+        .post-media { margin: 10px 0; }
+        .post-media img, .post-media video { max-width: 100%; border-radius: 8px; }
+        .post-stats { padding: 10px 15px; border-top: 1px solid #e4e6eb; display: flex; gap: 20px; color: #65676b; font-size: 14px; }
+        .empty-state { text-align: center; padding: 60px 20px; background: white; border-radius: 8px; }
+        .empty-state h2 { color: #65676b; margin-bottom: 10px; }
+        .back-link { display: inline-block; margin-top: 15px; color: #1877f2; text-decoration: none; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📄 Публикации {{ profile.full_name if profile and profile.full_name else user.username }}</h1>
+            <p><a href="/profile/{{ user.id }}">← Назад к профилю</a></p>
+        </div>
+        
+        {% if posts %}
+            {% for post in posts %}
+            <div class="post">
+                <div class="post-header">
+                    <img src="/static/uploads/avatars/{{ profile.avatar if profile and profile.avatar else 'default_avatar.png' }}" 
+                         alt="Avatar" class="avatar">
+                    <div class="post-info">
+                        <h3>{{ profile.full_name if profile and profile.full_name else user.username }}</h3>
+                        <span>{{ post.created_at | format_date if post.created_at else '' }}</span>
+                    </div>
+                </div>
+                
+                {% if post.content %}
+                <div class="post-content">
+                    <p>{{ post.content }}</p>
+                </div>
+                {% endif %}
+                
+                {% if post.media_files %}
+                <div class="post-media">
+                    {% for media in post.media_files %}
+                        {% if media.file_type == 'image' %}
+                            <img src="/static/uploads/posts/{{ media.filename }}" alt="Post image">
+                        {% elif media.file_type == 'video' %}
+                            <video controls>
+                                <source src="/static/uploads/posts/{{ media.filename }}" type="video/mp4">
+                                Ваш браузер не поддерживает видео
+                            </video>
+                        {% else %}
+                            <a href="/static/uploads/posts/{{ media.filename }}" download>📎 {{ media.original_filename or media.filename }}</a>
+                        {% endif %}
+                    {% endfor %}
+                </div>
+                {% endif %}
+                
+                <div class="post-stats">
+                    <span>❤️ {{ post.likes_count }} лайков</span>
+                    <span>💬 {{ post.comments_count }} комментариев</span>
+                </div>
+            </div>
+            {% endfor %}
+        {% else %}
+            <div class="empty-state">
+                <h2>Нет публикаций</h2>
+                <p>Этот пользователь ещё ничего не опубликовал</p>
+                <a href="/profile/{{ user.id }}" class="back-link">← Назад к профилю</a>
+            </div>
+        {% endif %}
+    </div>
+</body>
+</html>

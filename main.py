@@ -1349,6 +1349,55 @@ def view_profile(user_id):
                            friend_status=friend_status,
                            is_own_profile=(user_id == session['user_id']))
 
+@app.route('/profile/<int:user_id>/posts')
+def view_user_posts(user_id):
+    """Просмотр публикаций пользователя"""
+    if 'user_id' not in session:
+        return redirect('/login')
+    
+    conn = get_db_connection()
+    
+    # Получаем информацию о пользователе
+    user = row_to_dict(conn.execute('SELECT * FROM users WHERE id = ?', (user_id,)).fetchone())
+    
+    if not user:
+        flash('Пользователь не найден', 'error')
+        conn.close()
+        return redirect('/home')
+    
+    # Получаем профиль пользователя
+    profile_data = row_to_dict(conn.execute('SELECT * FROM user_profiles WHERE user_id = ?', (user_id,)).fetchone())
+    
+    # Получаем посты пользователя с лайками и комментариями
+    posts_rows = conn.execute('''
+        SELECT p.*, 
+               (SELECT COUNT(*) FROM post_likes WHERE post_id = p.id) as likes_count,
+               (SELECT COUNT(*) FROM comments WHERE post_id = p.id) as comments_count,
+               EXISTS(SELECT 1 FROM post_likes WHERE post_id = p.id AND user_id = ?) as is_liked
+        FROM posts p 
+        WHERE user_id = ? 
+        ORDER BY created_at DESC
+    ''', (session['user_id'], user_id)).fetchall()
+    
+    posts = rows_to_dicts(posts_rows)
+    
+    # Получаем медиафайлы для каждого поста
+    for post in posts:
+        media_files = conn.execute('''
+            SELECT filename, file_type, original_filename 
+            FROM post_media 
+            WHERE post_id = ? 
+            ORDER BY id
+        ''', (post['id'],)).fetchall()
+        post['media_files'] = rows_to_dicts(media_files) if media_files else []
+    
+    conn.close()
+    
+    return render_template('user_posts.html',
+                           user=user,
+                           profile=profile_data,
+                           posts=posts,
+                           posts_count=len(posts))
 
 @app.route('/profile/edit', methods=['GET', 'POST'])
 def edit_profile():
