@@ -1649,7 +1649,27 @@ def friends():
 
     conn.close()
 
-    return render_template('friends.html') 
+    conn.close()
+
+    return render_template('friends.html',
+                           friends=friends,
+                           incoming_requests=incoming_requests,
+                           outgoing_requests=outgoing_requests)
+
+
+@app.route('/friends/pending_count')
+def friends_pending_count():
+    """Количество входящих заявок в друзья (для бейджа)"""
+    if 'user_id' not in session:
+        return jsonify({'count': 0})
+    conn = get_db_connection()
+    count = conn.execute('''
+        SELECT COUNT(*) as count FROM friendships
+        WHERE receiver_id = ? AND status = 'pending'
+    ''', (session['user_id'],)).fetchone()['count']
+    conn.close()
+    return jsonify({'count': count})
+
 
 @app.route('/friend_action/<int:request_id>/<action>')
 def friend_action(request_id, action):
@@ -4147,6 +4167,260 @@ def admin_get_user_stats():
         'active_users': active_users,
         'roles_stats': roles_stats
     })
+
+
+@app.route('/admin/groups')
+def admin_groups():
+    """Управление группами"""
+    if 'user_id' not in session:
+        return redirect('/login')
+    if not is_admin(session['user_id']):
+        flash('Доступ запрещен', 'error')
+        return redirect('/home')
+
+    search_query = request.args.get('search', '').strip()
+    conn = get_db_connection()
+
+    query = """
+        SELECT g.*,
+               u.username as creator_username,
+               COUNT(DISTINCT gm.user_id) as members_count,
+               COUNT(DISTINCT gp.id)      as posts_count
+        FROM groups g
+        LEFT JOIN users u ON g.creator_id = u.id
+        LEFT JOIN group_members gm ON gm.group_id = g.id
+        LEFT JOIN group_posts gp ON gp.group_id = g.id
+    """
+    params = []
+    if search_query:
+        query += " WHERE g.name LIKE ? OR g.description LIKE ?"
+        params.extend([f'%{search_query}%', f'%{search_query}%'])
+    query += " GROUP BY g.id ORDER BY members_count DESC"
+
+    groups = rows_to_dicts(conn.execute(query, params).fetchall())
+    total_groups  = conn.execute('SELECT COUNT(*) as c FROM groups').fetchone()['c']
+    total_members = conn.execute('SELECT COUNT(*) as c FROM group_members').fetchone()['c']
+    total_posts   = conn.execute('SELECT COUNT(*) as c FROM group_posts').fetchone()['c']
+    conn.close()
+
+    return render_template('admin_groups.html',
+                           groups=groups,
+                           search_query=search_query,
+                           total_groups=total_groups,
+                           total_members=total_members,
+                           total_posts=total_posts)
+
+
+@app.route('/admin/posts')
+def admin_posts():
+    """Управление постами"""
+    if 'user_id' not in session:
+        return redirect('/login')
+    if not is_admin(session['user_id']):
+        flash('Доступ запрещен', 'error')
+        return redirect('/home')
+
+    search_query = request.args.get('search', '').strip()
+    post_type    = request.args.get('type', 'all')   # all | personal | group
+    conn = get_db_connection()
+
+    personal_posts = []
+    group_posts    = []
+
+    if post_type in ('all', 'personal'):
+        q = """
+            SELECT p.id, p.content, p.created_at, p.user_id,
+                   u.username as author_username,
+                   COALESCE(up.full_name, u.username) as author_name,
+                   (SELECT COUNT(*) FROM post_likes  WHERE post_id = p.id) as likes_count,
+                   (SELECT COUNT(*) FROM comments    WHERE post_id = p.id) as comments_count
+            FROM posts p
+            JOIN users u ON p.user_id = u.id
+            LEFT JOIN user_profiles up ON up.user_id = u.id
+        """
+        p = []
+        if search_query:
+            q += " WHERE p.content LIKE ? OR u.username LIKE ?"
+            p.extend([f'%{search_query}%', f'%{search_query}%'])
+        q += " ORDER BY p.created_at DESC LIMIT 200"
+        personal_posts = rows_to_dicts(conn.execute(q, p).fetchall())
+
+    if post_type in ('all', 'group'):
+        q = """
+            SELECT gp.id, gp.content, gp.created_at, gp.group_id, gp.author_id,
+                   u.username as author_username,
+                   COALESCE(up.full_name, u.username) as author_name,
+                   g.name as group_name,
+                   (SELECT COUNT(*) FROM group_post_likes WHERE post_id = gp.id) as likes_count
+            FROM group_posts gp
+            JOIN users u  ON gp.author_id = u.id
+            LEFT JOIN user_profiles up ON up.user_id = u.id
+            JOIN groups g ON gp.group_id = g.id
+        """
+        p = []
+        if search_query:
+            q += " WHERE gp.content LIKE ? OR u.username LIKE ? OR g.name LIKE ?"
+            p.extend([f'%{search_query}%', f'%{search_query}%', f'%{search_query}%'])
+        q += " ORDER BY gp.created_at DESC LIMIT 200"
+        group_posts = rows_to_dicts(conn.execute(q, p).fetchall())
+
+    total_personal = conn.execute('SELECT COUNT(*) as c FROM posts').fetchone()['c']
+    total_group    = conn.execute('SELECT COUNT(*) as c FROM group_posts').fetchone()['c']
+    conn.close()
+
+    return render_template('admin_posts.html',
+                           personal_posts=personal_posts,
+                           group_posts=group_posts,
+                           search_query=search_query,
+                           post_type=post_type,
+                           total_personal=total_personal,
+                           total_group=total_group)
+
+
+def is_admin(user_id):
+    """Проверяет, является ли пользователь администратором"""
+    conn = get_db_connection()
+    user = conn.execute('SELECT role FROM users WHERE id = ?', (user_id,)).fetchone()
+    conn.close()
+    return user and user['role'] == 'admin'
+
+
+@app.route('/admin/delete_group/<int:group_id>', methods=['POST'])
+def admin_delete_group(group_id):
+    """Удаление любой группы администратором"""
+    if 'user_id' not in session:
+        return jsonify({'success': False, 'error': 'Требуется авторизация'}), 401
+
+    if not is_admin(session['user_id']):
+        return jsonify({'success': False, 'error': 'Доступ запрещен'}), 403
+
+    conn = get_db_connection()
+    try:
+        group = conn.execute('SELECT name, avatar FROM groups WHERE id = ?', (group_id,)).fetchone()
+        if not group:
+            return jsonify({'success': False, 'error': 'Группа не найдена'})
+
+        # Удаляем медиафайлы постов группы
+        media_files = conn.execute('''
+            SELECT filename FROM post_media
+            WHERE group_post_id IN (SELECT id FROM group_posts WHERE group_id = ?)
+        ''', (group_id,)).fetchall()
+        for m in media_files:
+            try:
+                os.remove(os.path.join(app.config['POST_MEDIA_FOLDER'], m['filename']))
+            except:
+                pass
+
+        # Удаляем аватар группы
+        if group['avatar'] and group['avatar'] != 'default_group.png':
+            try:
+                os.remove(os.path.join(app.config['GROUP_UPLOAD_FOLDER'], group['avatar']))
+            except:
+                pass
+
+        # Удаляем все связанные данные
+        conn.execute('DELETE FROM post_media WHERE group_post_id IN (SELECT id FROM group_posts WHERE group_id = ?)', (group_id,))
+        conn.execute('DELETE FROM group_post_likes WHERE post_id IN (SELECT id FROM group_posts WHERE group_id = ?)', (group_id,))
+        conn.execute('DELETE FROM group_posts WHERE group_id = ?', (group_id,))
+        conn.execute('DELETE FROM group_members WHERE group_id = ?', (group_id,))
+        conn.execute('DELETE FROM group_requests WHERE group_id = ?', (group_id,))
+        conn.execute('DELETE FROM groups WHERE id = ?', (group_id,))
+        conn.commit()
+
+        return jsonify({'success': True, 'message': f'Группа "{group["name"]}" удалена'})
+
+    except Exception as e:
+        conn.rollback()
+        return jsonify({'success': False, 'error': str(e)})
+    finally:
+        conn.close()
+
+
+@app.route('/admin/delete_post/<int:post_id>', methods=['POST'])
+def admin_delete_post(post_id):
+    """Удаление любого поста администратором"""
+    if 'user_id' not in session:
+        return jsonify({'success': False, 'error': 'Требуется авторизация'}), 401
+
+    if not is_admin(session['user_id']):
+        return jsonify({'success': False, 'error': 'Доступ запрещен'}), 403
+
+    data = request.get_json() or {}
+    is_group_post = data.get('is_group_post', False)
+
+    conn = get_db_connection()
+    try:
+        if is_group_post:
+            post = conn.execute('SELECT id FROM group_posts WHERE id = ?', (post_id,)).fetchone()
+            if not post:
+                return jsonify({'success': False, 'error': 'Пост не найден'})
+
+            # Удаляем медиафайлы
+            media_files = conn.execute('SELECT filename FROM post_media WHERE group_post_id = ?', (post_id,)).fetchall()
+            for m in media_files:
+                try:
+                    os.remove(os.path.join(app.config['POST_MEDIA_FOLDER'], m['filename']))
+                except:
+                    pass
+
+            conn.execute('DELETE FROM post_media WHERE group_post_id = ?', (post_id,))
+            conn.execute('DELETE FROM group_post_likes WHERE post_id = ?', (post_id,))
+            conn.execute('DELETE FROM group_posts WHERE id = ?', (post_id,))
+        else:
+            post = conn.execute('SELECT id FROM posts WHERE id = ?', (post_id,)).fetchone()
+            if not post:
+                return jsonify({'success': False, 'error': 'Пост не найден'})
+
+            # Удаляем медиафайлы
+            media_files = conn.execute('SELECT filename FROM post_media WHERE post_id = ?', (post_id,)).fetchall()
+            for m in media_files:
+                try:
+                    os.remove(os.path.join(app.config['POST_MEDIA_FOLDER'], m['filename']))
+                except:
+                    pass
+
+            conn.execute('DELETE FROM post_media WHERE post_id = ?', (post_id,))
+            conn.execute('DELETE FROM post_likes WHERE post_id = ?', (post_id,))
+            conn.execute('DELETE FROM comments WHERE post_id = ?', (post_id,))
+            conn.execute('DELETE FROM posts WHERE id = ?', (post_id,))
+
+        conn.commit()
+        return jsonify({'success': True, 'message': 'Пост удален'})
+
+    except Exception as e:
+        conn.rollback()
+        return jsonify({'success': False, 'error': str(e)})
+    finally:
+        conn.close()
+
+
+@app.route('/admin/delete_comment/<int:comment_id>', methods=['POST'])
+def admin_delete_comment(comment_id):
+    """Удаление любого комментария администратором"""
+    if 'user_id' not in session:
+        return jsonify({'success': False, 'error': 'Требуется авторизация'}), 401
+
+    if not is_admin(session['user_id']):
+        return jsonify({'success': False, 'error': 'Доступ запрещен'}), 403
+
+    conn = get_db_connection()
+    try:
+        comment = conn.execute('SELECT id, post_id FROM comments WHERE id = ?', (comment_id,)).fetchone()
+        if not comment:
+            return jsonify({'success': False, 'error': 'Комментарий не найден'})
+
+        post_id = comment['post_id']
+        conn.execute('DELETE FROM comments WHERE id = ?', (comment_id,))
+        comments_count = conn.execute('SELECT COUNT(*) as count FROM comments WHERE post_id = ?', (post_id,)).fetchone()['count']
+        conn.commit()
+
+        return jsonify({'success': True, 'message': 'Комментарий удален', 'comments_count': comments_count})
+
+    except Exception as e:
+        conn.rollback()
+        return jsonify({'success': False, 'error': str(e)})
+    finally:
+        conn.close()
 
 
 def redirect_based_on_role(username):

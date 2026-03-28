@@ -64,8 +64,21 @@ function refreshUnread() {
             }
         }).catch(() => {});
 }
+function refreshFriendsBadge() {
+    fetch('/friends/pending_count')
+        .then(r => r.json())
+        .then(d => {
+            const badge = document.getElementById('friendsBadge');
+            if (badge) {
+                badge.textContent = d.count || '';
+                badge.style.display = d.count > 0 ? 'inline-block' : 'none';
+            }
+        }).catch(() => {});
+}
 refreshUnread();
+refreshFriendsBadge();
 setInterval(refreshUnread, 5000);
+setInterval(refreshFriendsBadge, 10000);
 </script>
 <body>
         <header>
@@ -104,7 +117,12 @@ setInterval(refreshUnread, 5000);
                 <h3>Меню</h3>
                 <ul>
                     <li><a href="/profile"><i class="fas fa-user-circle"></i> Мой профиль</a></li>
-                    <li><a href="/friends"><i class="fas fa-users"></i> Друзья</a></li>
+                    <li>
+                        <a href="/friends">
+                            <i class="fas fa-users"></i> Друзья
+                            <span id="friendsBadge" style="display:none; background:#e53935; color:white; border-radius:10px; padding:1px 7px; font-size:11px; font-weight:700; margin-left:6px;"></span>
+                        </a>
+                    </li>
                     <li><a href="/find_friends"><i class="fas fa-search"></i> Найти друзей</a></li>
                     <li><a href="/my_posts"><i class="fas fa-newspaper"></i> Мои посты</a></li>
                     <li><a href="/groups"><i class="fas fa-layer-group"></i> Группы</a></li>
@@ -139,7 +157,9 @@ setInterval(refreshUnread, 5000);
                                  onerror="this.src='/static/defaults/for_users.png'">
                             <div style="flex:1;">
                                 <div style="font-weight:700;font-size:14px;">
-                                    {{ req.full_name if req.full_name else req.username }}
+                                    <a href="/profile/{{ req.id }}" style="color:inherit;text-decoration:none;" onmouseover="this.style.textDecoration='underline'" onmouseout="this.style.textDecoration='none'">
+                                        {{ req.full_name if req.full_name else req.username }}
+                                    </a>
                                     <span class="request-pending">Новая заявка</span>
                                 </div>
                                 <div style="font-size:12px;color:var(--text-muted);">@{{ req.username }}</div>
@@ -148,6 +168,9 @@ setInterval(refreshUnread, 5000);
                                 </div>
                             </div>
                             <div class="actions">
+                                <a href="/profile/{{ req.id }}" class="btn btn-secondary btn-sm" data-tooltip="Профиль">
+                                    <i class="fas fa-user"></i>
+                                </a>
                                 <a href="/friend_action/{{ req.request_id }}/accept" class="btn btn-success btn-sm">
                                     <i class="fas fa-check"></i> Принять
                                 </a>
@@ -176,12 +199,17 @@ setInterval(refreshUnread, 5000);
                                  onerror="this.src='/static/defaults/for_users.png'">
                             <div style="flex:1;">
                                 <div style="font-weight:700;font-size:14px;">
-                                    {{ req.full_name if req.full_name else req.username }}
+                                    <a href="/profile/{{ req.id }}" style="color:inherit;text-decoration:none;" onmouseover="this.style.textDecoration='underline'" onmouseout="this.style.textDecoration='none'">
+                                        {{ req.full_name if req.full_name else req.username }}
+                                    </a>
                                     <span class="request-pending">Ожидает ответа</span>
                                 </div>
                                 <div style="font-size:12px;color:var(--text-muted);">@{{ req.username }}</div>
                             </div>
                             <div class="actions">
+                                <a href="/profile/{{ req.id }}" class="btn btn-secondary btn-sm" data-tooltip="Профиль">
+                                    <i class="fas fa-user"></i>
+                                </a>
                                 <a href="/friend_action/{{ req.request_id }}/cancel" class="btn btn-secondary btn-sm">
                                     <i class="fas fa-ban"></i> Отменить
                                 </a>
@@ -208,12 +236,19 @@ setInterval(refreshUnread, 5000);
                                  onerror="this.src='/static/defaults/for_users.png'">
                             <div style="flex:1;">
                                 <div style="font-weight:700;font-size:14px;">
-                                    {{ friend.full_name if friend.full_name else friend.username }}
+                                    <a href="/profile/{{ friend.id }}" style="color:inherit;text-decoration:none;" onmouseover="this.style.textDecoration='underline'" onmouseout="this.style.textDecoration='none'">
+                                        {{ friend.full_name if friend.full_name else friend.username }}
+                                    </a>
                                     <span class="badge badge-success" style="font-size:10px;">Друг</span>
                                 </div>
                                 <div style="font-size:12px;color:var(--text-muted);">@{{ friend.username }}</div>
                             </div>
                             <div class="actions" style="flex-wrap:wrap;justify-content:flex-end;">
+                                <a href="/profile/{{ friend.id }}"
+                                   class="btn btn-primary btn-sm"
+                                   data-tooltip="Профиль">
+                                    <i class="fas fa-user"></i>
+                                </a>
                                 <a href="/add_friend_to_blacklist/{{ friend.id }}"
                                    onclick="return confirm('Добавить {{ friend.username }} в чёрный список?')"
                                    class="btn btn-warning btn-sm"

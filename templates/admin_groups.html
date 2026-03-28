@@ -1,0 +1,231 @@
+{% extends "admin_base.html" %}
+
+{% block title %}Управление группами{% endblock %}
+{% block header %}Управление группами{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+
+    <!-- Статистика -->
+    <div class="row mb-4">
+        <div class="col-md-4">
+            <div class="stats-card bg-primary-light">
+                <h5>Всего групп</h5>
+                <h2>{{ total_groups }}</h2>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="stats-card bg-success-light">
+                <h5>Всего участников</h5>
+                <h2>{{ total_members }}</h2>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="stats-card bg-warning-light">
+                <h5>Всего постов в группах</h5>
+                <h2>{{ total_posts }}</h2>
+            </div>
+        </div>
+    </div>
+
+    <!-- Поиск -->
+    <div class="card mb-4">
+        <div class="card-body">
+            <form method="get" action="/admin/groups" class="row g-3">
+                <div class="col-md-8">
+                    <input type="text" name="search" class="form-control"
+                           placeholder="Поиск по названию или описанию группы"
+                           value="{{ search_query }}">
+                </div>
+                <div class="col-md-2">
+                    <button type="submit" class="btn btn-primary w-100">
+                        <i class="bi bi-search"></i> Найти
+                    </button>
+                </div>
+                {% if search_query %}
+                <div class="col-md-2">
+                    <a href="/admin/groups" class="btn btn-outline-secondary w-100">
+                        <i class="bi bi-x-circle"></i> Сбросить
+                    </a>
+                </div>
+                {% endif %}
+            </form>
+        </div>
+    </div>
+
+    <!-- Таблица групп -->
+    <div class="card">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <h5 class="mb-0">
+                Группы
+                {% if search_query %}
+                    <span class="badge bg-secondary ms-2">Найдено: {{ groups|length }}</span>
+                {% endif %}
+            </h5>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover mb-0">
+                    <thead class="table-dark">
+                        <tr>
+                            <th>ID</th>
+                            <th>Название</th>
+                            <th>Создатель</th>
+                            <th>Тип</th>
+                            <th>Участники</th>
+                            <th>Посты</th>
+                            <th>Дата создания</th>
+                            <th class="text-center">Действия</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for group in groups %}
+                        <tr id="group-row-{{ group.id }}">
+                            <td class="text-muted">{{ group.id }}</td>
+                            <td>
+                                <div class="d-flex align-items-center gap-2">
+                                    <img src="/static/uploads/groups/{{ group.avatar or 'default_group.png' }}"
+                                         onerror="this.src='/static/defaults/for_groups.png'"
+                                         style="width:36px;height:36px;border-radius:8px;object-fit:cover;flex-shrink:0;">
+                                    <div>
+                                        <strong>{{ group.name }}</strong>
+                                        {% if group.description %}
+                                        <div class="text-muted" style="font-size:12px;max-width:240px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
+                                            {{ group.description }}
+                                        </div>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </td>
+                            <td>
+                                <a href="/profile/{{ group.creator_id }}" target="_blank" class="text-decoration-none">
+                                    @{{ group.creator_username or '—' }}
+                                </a>
+                            </td>
+                            <td>
+                                {% if group.is_public %}
+                                    <span class="badge bg-success">Публичная</span>
+                                {% else %}
+                                    <span class="badge bg-secondary">Приватная</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <span class="badge bg-info text-dark">{{ group.members_count }}</span>
+                            </td>
+                            <td>
+                                <span class="badge bg-light text-dark border">{{ group.posts_count }}</span>
+                            </td>
+                            <td class="text-muted" style="font-size:13px;">{{ group.created_at[:10] if group.created_at else '—' }}</td>
+                            <td class="text-center">
+                                <a href="/group/{{ group.id }}" target="_blank"
+                                   class="btn btn-outline-primary btn-sm"
+                                   title="Открыть группу">
+                                    <i class="bi bi-box-arrow-up-right"></i>
+                                </a>
+                                <button class="btn btn-danger btn-sm btn-delete-group"
+                                        data-group-id="{{ group.id }}"
+                                        data-group-name="{{ group.name }}"
+                                        title="Удалить группу">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="8" class="text-center py-4 text-muted">
+                                <i class="bi bi-folder-x fs-3 d-block mb-2"></i>
+                                Группы не найдены
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Модальное окно подтверждения удаления группы -->
+<div class="modal fade" id="deleteGroupModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title"><i class="bi bi-exclamation-triangle"></i> Удаление группы</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p>Вы уверены, что хотите удалить группу <strong id="deleteGroupName"></strong>?</p>
+                <div class="alert alert-danger mb-0">
+                    <i class="bi bi-exclamation-circle"></i>
+                    <strong>Внимание!</strong> Будут удалены все посты, медиафайлы и участники группы. Это действие необратимо.
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
+                <button type="button" class="btn btn-danger" id="confirmDeleteGroup">
+                    <i class="bi bi-trash"></i> Удалить
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Toast уведомление -->
+<div class="position-fixed bottom-0 end-0 p-3" style="z-index:9999">
+    <div id="adminToast" class="toast align-items-center text-white border-0" role="alert">
+        <div class="d-flex">
+            <div class="toast-body" id="adminToastMsg"></div>
+            <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+$(document).ready(function () {
+    let pendingGroupId = null;
+
+    // Клик на кнопку удалить группу
+    $(document).on('click', '.btn-delete-group', function () {
+        pendingGroupId = $(this).data('group-id');
+        const name = $(this).data('group-name');
+        $('#deleteGroupName').text(name);
+        $('#deleteGroupModal').modal('show');
+    });
+
+    // Подтверждение удаления
+    $('#confirmDeleteGroup').click(function () {
+        if (!pendingGroupId) return;
+        const btn = $(this);
+        btn.prop('disabled', true).html('<i class="bi bi-hourglass"></i> Удаление...');
+
+        $.ajax({
+            url: `/admin/delete_group/${pendingGroupId}`,
+            type: 'POST',
+            success: function (resp) {
+                if (resp.success) {
+                    $('#deleteGroupModal').modal('hide');
+                    $(`#group-row-${pendingGroupId}`).fadeOut(300, function () { $(this).remove(); });
+                    showToast(resp.message, 'success');
+                } else {
+                    showToast('Ошибка: ' + resp.error, 'danger');
+                }
+            },
+            error: function () { showToast('Ошибка сервера', 'danger'); },
+            complete: function () {
+                btn.prop('disabled', false).html('<i class="bi bi-trash"></i> Удалить');
+                pendingGroupId = null;
+            }
+        });
+    });
+
+    function showToast(msg, type) {
+        const toast = $('#adminToast');
+        toast.removeClass('bg-success bg-danger bg-warning').addClass('bg-' + type);
+        $('#adminToastMsg').text(msg);
+        new bootstrap.Toast(toast[0], { delay: 3500 }).show();
+    }
+});
+</script>
+{% endblock %}
