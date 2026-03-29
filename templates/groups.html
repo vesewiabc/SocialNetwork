@@ -1,0 +1,428 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Группы</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='defaults/style.css') }}">
+    <link rel="icon" type="image/png" href="{{ url_for('static', filename='uploads/favicon.png') }}">
+</head>
+<body>
+        <header>
+        <div class="container">
+            <div class="header-content">
+                <div class="logo">LinkA</div>
+                <div class="user-menu-wrap">
+                    <button class="user-menu-btn" onclick="toggleUserMenu()" aria-label="Меню пользователя">
+                        {% set _avatar = current_user_avatar() %}
+                        {% if _avatar %}
+                            <img src="{{ url_for('static', filename='uploads/avatars/' + _avatar) }}"
+                                 onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';"
+                                 alt="Аватар">
+                            <i class="fas fa-user" style="display:none;"></i>
+                        {% else %}
+                            <i class="fas fa-user"></i>
+                        {% endif %}
+                    </button>
+                    <div class="user-dropdown" id="userDropdown">
+                        {% set _uinfo = current_user_info() %}
+                        {% if _uinfo %}
+                        <a href="/profile" style="text-decoration:none;color:inherit;display:block;padding:0;">
+                            <div class="user-dropdown-header">
+                                <div class="uname">{{ _uinfo.full_name }}</div>
+                                <div class="ulogin">@{{ _uinfo.username }}</div>
+                            </div>
+                        </a>
+                        {% endif %}
+                        <a href="/settings">
+                            <i class="fas fa-cog"></i> Настройки
+                        </a>
+                        <div class="divider"></div>
+                        <a href="/logout" class="logout-item">
+                            <i class="fas fa-sign-out-alt"></i> Выйти
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <div class="container">
+        <div class="main-content">
+            <div class="sidebar-left">
+                <h3>Меню</h3>
+                <ul>
+                    <li><a href="/profile"><i class="fas fa-user-circle"></i> Мой профиль</a></li>
+                    <li><a href="/friends"><i class="fas fa-users"></i> Друзья</a></li>
+                    <li><a href="/find_friends"><i class="fas fa-search"></i> Найти друзей</a></li>
+                    <li><a href="/my_posts"><i class="fas fa-newspaper"></i> Мои посты</a></li>
+                    <li><a href="/groups"><i class="fas fa-layer-group"></i> Группы</a></li>
+                    <li>
+                        <a href="/messenger">
+                            <i class="fas fa-comment"></i> Мессенджер
+                            <span id="messengerBadge" style="display:none; background:#e53935; color:white; border-radius:10px; padding:1px 7px; font-size:11px; font-weight:700; margin-left:6px;"></span>
+                        </a>
+                    </li>
+                    <li><a href="/home"><i class="fas fa-home"></i> Главная</a></li>
+                </ul>
+            </div>
+
+            <div class="feed">
+                <!-- Поиск + создать -->
+                <div class="card" style="padding:20px;">
+                    <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+                        <form method="GET" action="/groups" style="flex:1;display:flex;gap:8px;">
+                            <input type="text" name="search" placeholder="Поиск групп..."
+                                   value="{{ search_query }}" class="form-control">
+                            <input type="hidden" name="tab" value="{{ current_tab }}">
+                            <button type="submit" class="btn btn-secondary">
+                                <i class="fas fa-search"></i>
+                            </button>
+                        </form>
+                        <button class="btn btn-primary" onclick="openCreateGroupModal()">
+                            <i class="fas fa-plus"></i> Создать группу
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Вкладки -->
+                <div style="display:flex;border-bottom:2px solid var(--border-light);background:var(--bg-card);border-radius:var(--radius-lg) var(--radius-lg) 0 0;padding:0 16px;">
+                    <a href="/groups?tab=all"
+                       style="padding:14px 20px;font-weight:700;font-size:14px;text-decoration:none;border-bottom:2px solid {{ 'var(--amber-500)' if current_tab == 'all' else 'transparent' }};color:{{ 'var(--amber-600)' if current_tab == 'all' else 'var(--text-muted)' }};margin-bottom:-2px;">
+                        Все группы
+                    </a>
+                    <a href="/groups?tab=my"
+                       style="padding:14px 20px;font-weight:700;font-size:14px;text-decoration:none;border-bottom:2px solid {{ 'var(--amber-500)' if current_tab == 'my' else 'transparent' }};color:{{ 'var(--amber-600)' if current_tab == 'my' else 'var(--text-muted)' }};margin-bottom:-2px;">
+                        Мои группы
+                    </a>
+                </div>
+
+                <!-- Список групп -->
+                {% if groups %}
+                    {% for group in groups %}
+                    <div class="group-card" style="display:flex;gap:16px;align-items:center;min-height:100px;padding:16px;">
+                        <a href="/group/{{ group.id }}" style="flex-shrink:0;">
+                            <img src="{{ url_for('static', filename='uploads/groups/' + group.avatar) if group.avatar else '/static/defaults/for_groups.png' }}"
+                                 style="width:80px;height:80px;border-radius:var(--radius-md);object-fit:cover;border:2px solid var(--amber-200);"
+                                 onerror="this.src='/static/defaults/for_groups.png'">
+                        </a>
+
+                        <div class="group-info" style="flex:1;min-width:0;overflow:hidden;">
+                            <h2 style="margin:0 0 6px;font-size:16px;">
+                                <a href="/group/{{ group.id }}" style="color:var(--amber-600);font-weight:700;text-decoration:none;">
+                                    {{ group.name }}
+                                </a>
+                                {% if group.role %}
+                                <span class="badge {% if group.role == 'admin' %}badge-danger{% elif group.role == 'moderator' %}badge-primary{% else %}badge-secondary{% endif %}" style="font-size:10px;margin-left:6px;">
+                                    {% if group.role == 'admin' %}Администратор
+                                    {% elif group.role == 'moderator' %}Модератор
+                                    {% else %}Участник{% endif %}
+                                </span>
+                                {% endif %}
+                            </h2>
+                            <div style="display:flex;gap:14px;font-size:13px;color:var(--text-muted);">
+                                <span><i class="fas fa-users" style="color:var(--amber-500);"></i> {{ group.members_count }}</span>
+                                <span><i class="fas fa-file-alt" style="color:var(--amber-500);"></i> {{ group.posts_count }}</span>
+                                <span><i class="fas fa-calendar" style="color:var(--amber-500);"></i> {{ group.created_at[:10] if group.created_at else '' }}</span>
+                            </div>
+                        </div>
+
+                        <div style="display:flex;flex-direction:column;gap:8px;flex-shrink:0;width:130px;margin-right:4px;">
+                            {% if group.is_member %}
+                                <form method="POST" action="/leave_group/{{ group.id }}" class="leave-group-form"
+                                      data-is-creator="{{ '1' if group.role == 'admin' else '0' }}"
+                                      data-group-name="{{ group.name }}">
+                                    <button type="submit" class="btn btn-danger btn-sm" style="width:100%;justify-content:center;">
+                                        <i class="fas fa-sign-out-alt"></i> Отписаться
+                                    </button>
+                                </form>
+                            {% else %}
+                                {% if group.has_pending_request %}
+                                <span class="badge" style="padding:8px 12px;font-size:12px;">
+                                    <i class="fas fa-clock"></i> Заявка отправлена
+                                </span>
+                                {% else %}
+                                <form method="POST" action="/join_group/{{ group.id }}">
+                                    <button type="submit" class="btn btn-primary btn-sm" style="width:100%;justify-content:center;">
+                                        <i class="fas fa-plus-circle"></i>
+                                        {% if group.is_public %}Подписаться{% else %}Подать заявку{% endif %}
+                                    </button>
+                                </form>
+                                {% endif %}
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                <div class="empty-feed">
+                    <i class="fas fa-layer-group fa-3x"></i>
+                    <h3>
+                        {% if current_tab == 'my' %}У вас нет групп
+                        {% else %}Группы не найдены{% endif %}
+                    </h3>
+                    <p>
+                        {% if current_tab == 'my' %}Найдите интересные группы или создайте свою!
+                        {% else %}Создайте первую группу или измените поисковый запрос{% endif %}
+                    </p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Модальное окно создания группы -->
+    <div id="createGroupModal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:1000;overflow-y:auto;">
+        <div style="position:relative;background:var(--bg-card);margin:60px auto;padding:32px;border-radius:var(--radius-xl);width:500px;max-width:90%;border-top:3px solid var(--amber-400);box-shadow:var(--shadow-lg);">
+            <h2 style="font-family:var(--font-display);font-size:18px;margin-bottom:24px;">
+                <i class="fas fa-plus-circle" style="color:var(--amber-500);"></i> Создать группу
+            </h2>
+            <form method="POST" action="/create_group" enctype="multipart/form-data">
+                <div class="form-group">
+                    <label class="form-label">Название группы *</label>
+                    <input type="text" name="name" required class="form-control" placeholder="Введите название">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Описание</label>
+                    <textarea name="description" class="form-control" placeholder="О чём эта группа?"></textarea>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Аватар</label>
+                    <input type="file" name="avatar" accept="image/*" class="form-control">
+                </div>
+                <div class="form-group">
+                    <label style="display:flex;align-items:center;gap:8px;font-size:14px;font-weight:600;cursor:pointer;">
+                        <input type="checkbox" name="is_public" checked style="accent-color:var(--amber-500);width:16px;height:16px;">
+                        Публичная группа (видна всем)
+                    </label>
+                </div>
+                <div style="display:flex;gap:10px;justify-content:flex-end;">
+                    <button type="button" onclick="closeCreateGroupModal()" class="btn btn-secondary">Отмена</button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-plus"></i> Создать
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        let currentGroupId = null;
+        let friendsList = [];
+        let groupMemberIds = [];
+
+        function openInviteModal(groupId, groupName) {
+            currentGroupId = groupId;
+            document.getElementById('inviteGroupName').textContent = `"${groupName}"`;
+            document.getElementById('inviteModal').style.display = 'block';
+            document.body.style.overflow = 'hidden';
+            switchInviteTabDirect('friends');
+            loadFriends(groupId);
+        }
+
+        function openInviteLinkModal(groupId, groupName) {
+            currentGroupId = groupId;
+            document.getElementById('inviteGroupName').textContent = `"${groupName}"`;
+            document.getElementById('inviteModal').style.display = 'block';
+            document.body.style.overflow = 'hidden';
+            switchInviteTabDirect('link');
+            loadInviteLink(groupId);
+        }
+
+        function closeInviteModal() {
+            document.getElementById('inviteModal').style.display = 'none';
+            document.body.style.overflow = 'auto';
+            currentGroupId = null; friendsList = []; groupMemberIds = [];
+            document.getElementById('inviteSearch').value = '';
+        }
+
+        function switchInviteTab(tabName) {
+            document.querySelectorAll('.invite-tab').forEach(t => t.classList.remove('active', 'btn-primary'));
+            if (event && event.target) { event.target.classList.add('active', 'btn-primary'); }
+            switchInviteTabDirect(tabName);
+        }
+
+        function switchInviteTabDirect(tabName) {
+            document.getElementById('inviteFriendsSection').style.display = tabName === 'friends' ? 'block' : 'none';
+            document.getElementById('inviteLinkSection').style.display = tabName === 'link' ? 'block' : 'none';
+        }
+
+        function loadFriends(groupId) {
+            const container = document.getElementById('inviteFriendsList');
+            container.innerHTML = '<div style="text-align:center;padding:20px;color:var(--text-muted);"><i class="fas fa-spinner fa-spin"></i> Загрузка...</div>';
+            fetch('/friends/list')
+                .then(r => r.json())
+                .then(data => {
+                    return fetch(`/group/${groupId}/members`)
+                        .then(r => r.json())
+                        .then(membersData => {
+                            if (membersData.success) groupMemberIds = membersData.member_ids;
+                            return data;
+                        });
+                })
+                .then(data => {
+                    if (data.success) { friendsList = data.friends; displayFriends(friendsList); }
+                    else container.innerHTML = '<div style="text-align:center;padding:20px;color:var(--text-muted);">Ошибка загрузки</div>';
+                })
+                .catch(() => container.innerHTML = '<div style="text-align:center;padding:20px;color:var(--text-muted);">Ошибка загрузки</div>');
+        }
+
+        function loadInviteLink(groupId) {
+            document.getElementById('inviteLinkInput').value = `${window.location.origin}/group/${groupId}`;
+        }
+
+        function displayFriends(friends) {
+            const container = document.getElementById('inviteFriendsList');
+            const searchTerm = document.getElementById('inviteSearch').value.toLowerCase();
+            if (friends.length === 0) {
+                container.innerHTML = '<div style="text-align:center;padding:20px;color:var(--text-muted);">У вас пока нет друзей для приглашения</div>';
+                return;
+            }
+            let filtered = searchTerm ? friends.filter(f =>
+                f.username.toLowerCase().includes(searchTerm) || (f.full_name||'').toLowerCase().includes(searchTerm)
+            ) : friends;
+            if (filtered.length === 0) {
+                container.innerHTML = '<div style="text-align:center;padding:20px;color:var(--text-muted);">Ничего не найдено</div>';
+                return;
+            }
+            container.innerHTML = '';
+            filtered.forEach(friend => {
+                const isMember = groupMemberIds.includes(friend.id);
+                const avatarUrl = friend.avatar ? `/static/uploads/avatars/${friend.avatar}` : '/static/defaults/for_users.png';
+                const item = document.createElement('div');
+                item.style.cssText = `display:flex;align-items:center;gap:12px;padding:10px;border-radius:var(--radius-md);margin-bottom:6px;border:1px solid var(--border-light);opacity:${isMember?'0.6':'1'};`;
+                item.innerHTML = `
+                    <img src="${avatarUrl}" style="width:40px;height:40px;border-radius:50%;object-fit:cover;border:2px solid var(--amber-200);" onerror="this.src='/static/defaults/for_users.png'">
+                    <div style="flex:1;">
+                        <div style="font-weight:700;font-size:14px;">${friend.full_name||friend.username}${isMember?'<span style="font-size:11px;color:var(--text-muted);margin-left:6px;">уже в группе</span>':''}</div>
+                        <div style="font-size:12px;color:var(--text-muted);">@${friend.username}</div>
+                    </div>
+                    ${!isMember ? `<input type="checkbox" class="friend-select" value="${friend.id}" onchange="updateInviteCounter()" style="width:18px;height:18px;accent-color:var(--amber-500);cursor:pointer;">` : ''}
+                `;
+                container.appendChild(item);
+            });
+            updateInviteCounter();
+        }
+
+        function filterFriends() { displayFriends(friendsList); }
+
+        function updateInviteCounter() {
+            const selected = document.querySelectorAll('.friend-select:checked').length;
+            document.getElementById('inviteCounter').textContent = selected;
+            const btn = document.getElementById('sendInviteBtn');
+            btn.disabled = selected === 0;
+            btn.innerHTML = selected > 0 ? `<i class="fas fa-paper-plane"></i> Отправить (${selected})` : '<i class="fas fa-paper-plane"></i> Отправить';
+        }
+
+        function sendInvitations() {
+            const selected = Array.from(document.querySelectorAll('.friend-select:checked')).map(cb => parseInt(cb.value));
+            if (!selected.length) return;
+            if (!confirm(`Отправить приглашения ${selected.length} друг(у/зьям)?`)) return;
+            const btn = document.getElementById('sendInviteBtn');
+            btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+            fetch(`/group/${currentGroupId}/invite`, {
+                method: 'POST', headers: {'Content-Type':'application/json'},
+                body: JSON.stringify({user_ids: selected})
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    showSuccessMessage(`Приглашения отправлены ${data.sent_count} пользователям`);
+                    if (data.sent_ids) groupMemberIds = [...groupMemberIds, ...data.sent_ids];
+                    displayFriends(friendsList);
+                } else alert('Ошибка: ' + (data.error || 'Неизвестная ошибка'));
+            })
+            .catch(err => alert('Ошибка сети: ' + err))
+            .finally(() => { btn.disabled = false; updateInviteCounter(); });
+        }
+
+        function copyInviteLink() {
+            const input = document.getElementById('inviteLinkInput');
+            input.select(); input.setSelectionRange(0, 99999);
+            try { document.execCommand('copy'); showSuccessMessage('Ссылка скопирована!'); }
+            catch { alert('Не удалось скопировать'); }
+        }
+
+        function showSuccessMessage(msg) {
+            const div = document.createElement('div');
+            div.style.cssText = 'position:fixed;top:20px;right:20px;background:var(--accent-gradient);color:#111;padding:14px 22px;border-radius:var(--radius-lg);box-shadow:var(--shadow-md);z-index:1100;font-weight:700;font-size:14px;';
+            div.innerHTML = `<i class="fas fa-check-circle"></i> ${msg}`;
+            document.body.appendChild(div);
+            setTimeout(() => div.remove(), 3000);
+        }
+
+        function openCreateGroupModal() { document.getElementById('createGroupModal').style.display = 'block'; }
+        function closeCreateGroupModal() { document.getElementById('createGroupModal').style.display = 'none'; }
+
+        document.addEventListener('DOMContentLoaded', function() {
+            const createModal = document.getElementById('createGroupModal');
+            if (createModal) createModal.addEventListener('click', function(e) {
+                if (e.target === this) closeCreateGroupModal();
+            });
+            const invModal = document.getElementById('inviteModal');
+            if (invModal) invModal.addEventListener('click', function(e) {
+                if (e.target === this) closeInviteModal();
+            });
+        });
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') { closeInviteModal(); closeCreateGroupModal(); }
+        });
+
+        document.querySelectorAll('.leave-group-form').forEach(form => {
+            form.addEventListener('submit', function(e) {
+                const isCreator = this.dataset.isCreator === '1';
+                const name = this.dataset.groupName || '';
+                const msg = isCreator
+                    ? `ВНИМАНИЕ! Вы создатель группы "${name}".\n\nГруппа будет УДАЛЕНА вместе со всеми данными!\n\nВы уверены?`
+                    : `Отписаться от группы "${name}"?`;
+                if (!confirm(msg)) e.preventDefault();
+            });
+        });
+
+        document.addEventListener('keydown', function(e) {
+            if (e.key === '/' && document.activeElement.tagName !== 'INPUT' && document.activeElement.tagName !== 'TEXTAREA') {
+                e.preventDefault();
+                const s = document.querySelector('input[name="search"]');
+                if (s) s.focus();
+            }
+        });
+    </script>
+
+    <!-- Футер -->
+    <footer style="
+        margin-top:auto; padding:20px 24px;
+        border-top:1px solid var(--border-light);
+        background:var(--bg-card);
+        text-align:center;
+        font-size:13px;
+        color:var(--text-muted);">
+        <div style="max-width:1200px; margin:0 auto; display:flex; align-items:center; justify-content:center; gap:20px; flex-wrap:wrap;">
+            <span style="font-family:var(--font-display);font-size:13px;background:var(--accent-gradient);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;">LinkA</span>
+            <span style="color:var(--border-medium);">·</span>
+            <a href="/faq" style="color:var(--text-muted);font-weight:600;transition:color 0.2s;" onmouseover="this.style.color='var(--amber-600)'" onmouseout="this.style.color='var(--text-muted)'">
+                <i class="fas fa-question-circle"></i> FAQ
+            </a>
+            <span style="color:var(--border-medium);">·</span>
+            <a href="/terms" style="color:var(--text-muted);font-weight:600;transition:color 0.2s;" onmouseover="this.style.color='var(--amber-600)'" onmouseout="this.style.color='var(--text-muted)'">
+                <i class="fas fa-file-alt"></i> Соглашение
+            </a>
+            <span style="color:var(--border-medium);">·</span>
+            <span>© 2025 LinkA</span>
+        </div>
+    </footer>
+</body>
+
+    <script>
+        function toggleUserMenu() {
+            document.getElementById('userDropdown').classList.toggle('open');
+        }
+        document.addEventListener('click', function(e) {
+            const wrap = document.querySelector('.user-menu-wrap');
+            if (wrap && !wrap.contains(e.target)) {
+                const dd = document.getElementById('userDropdown');
+                if (dd) dd.classList.remove('open');
+            }
+        });
+    </script>
+</body>
+</html>

@@ -4,89 +4,171 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Редактирование профиля</title>
-    <style>
-        .avatar-preview {
-            width: 100px;
-            height: 100px;
-            border-radius: 50%;
-            object-fit: cover;
-            border: 3px solid #007bff;
-            margin-bottom: 15px;
-        }
-        .current-avatar {
-            margin-bottom: 20px;
-        }
-    </style>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='defaults/style.css') }}">
+    <link rel="icon" type="image/png" href="{{ url_for('static', filename='uploads/favicon.png') }}">
 </head>
 <body>
-    <div style="padding: 20px; max-width: 600px; margin: 0 auto;">
-        <h1>Редактирование профиля</h1>
-        
-        <div style="margin-bottom: 20px;">
-            <a href="/profile" style="margin-right: 10px;">← Назад к профилю</a>
-            <a href="/home">Главная</a>
+        <header>
+        <div class="container">
+            <div class="header-content">
+                <div class="logo">LinkA</div>
+                <div class="user-menu-wrap">
+                    <button class="user-menu-btn" onclick="toggleUserMenu()" aria-label="Меню пользователя">
+                        {% set _avatar = current_user_avatar() %}
+                        {% if _avatar %}
+                            <img src="{{ url_for('static', filename='uploads/avatars/' + _avatar) }}"
+                                 onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';"
+                                 alt="Аватар">
+                            <i class="fas fa-user" style="display:none;"></i>
+                        {% else %}
+                            <i class="fas fa-user"></i>
+                        {% endif %}
+                    </button>
+                    <div class="user-dropdown" id="userDropdown">
+                        {% set _uinfo = current_user_info() %}
+                        {% if _uinfo %}
+                        <div class="user-dropdown-header">
+                            <div class="uname">{{ _uinfo.full_name }}</div>
+                            <div class="ulogin">@{{ _uinfo.username }}</div>
+                        </div>
+                        {% endif %}
+                        <a href="/settings">
+                            <i class="fas fa-cog"></i> Настройки
+                        </a>
+                        <div class="divider"></div>
+                        <a href="/logout" class="logout-item">
+                            <i class="fas fa-sign-out-alt"></i> Выйти
+                        </a>
+                    </div>
+                </div>
+            </div>
         </div>
-        
-        <!-- Текущая аватарка -->
-        {% if profile and profile.avatar %}
-        <div class="current-avatar">
-            <h3>Текущая аватарка:</h3>
-            <img src="{{ url_for('static', filename='uploads/avatars/' + profile.avatar) }}" 
-                 alt="Текущая аватарка" 
-                 class="avatar-preview"
-                 onerror="this.src='https://via.placeholder.com/100?text=Avatar'">
-        </div>
-        {% endif %}
-        
-        <form method="POST" action="/profile/edit" enctype="multipart/form-data" style="background: #f5f5f5; padding: 20px; border-radius: 5px;">
-            <!-- Поле для загрузки аватарки -->
-            <div style="margin-bottom: 20px;">
-                <label style="display: block; margin-bottom: 10px;"><strong>Новая аватарка:</strong></label>
-                <input type="file" 
-                       name="avatar" 
-                       accept=".jpg,.jpeg,.png,.gif"
-                       style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
-                <p style="margin-top: 5px; color: #666; font-size: 12px;">
-                    Поддерживаемые форматы: JPG, PNG, GIF. Максимальный размер: 2MB
-                </p>
+    </header>
+
+    <div class="container">
+        <div class="main-content">
+                        <div class="sidebar-left">
+                <h3>Меню</h3>
+                <ul>
+                    <li><a href="/home"><i class="fas fa-home"></i> Лента</a></li>
+                    <li>
+                        <a href="/friends">
+                            <i class="fas fa-users"></i> Друзья
+                            {% if friend_requests_count and friend_requests_count > 0 %}
+                                <span style="background:var(--amber-400);color:#111;padding:2px 6px;border-radius:10px;font-size:12px;margin-left:4px;">{{ friend_requests_count }}</span>
+                            {% endif %}
+                        </a>
+                    </li>
+                    <li><a href="/groups"><i class="fas fa-layer-group"></i> Группы</a></li>
+                </ul>
             </div>
-            
-            <div style="margin-bottom: 15px;">
-                <label style="display: block; margin-bottom: 5px;"><strong>ФИО:</strong></label>
-                <input type="text" name="full_name" value="{{ profile.full_name if profile else '' }}" 
-                       style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;"
-                       placeholder="Введите ваше полное имя">
+
+            <div class="feed">
+                <div class="card" style="padding:28px;">
+                    <a href="/profile" class="back-link" style="display:inline-flex;margin-bottom:20px;">
+                        <i class="fas fa-arrow-left"></i>&nbsp; Назад к профилю
+                    </a>
+                    <h2 style="font-family:var(--font-display);font-size:18px;margin-bottom:24px;">
+                        <i class="fas fa-user-edit" style="color:var(--amber-500);"></i> Редактирование профиля
+                    </h2>
+
+                    {% if profile and profile.avatar %}
+                    <div style="margin-bottom:20px;">
+                        <p style="font-size:13px;font-weight:700;color:var(--text-secondary);margin-bottom:8px;">Текущая аватарка:</p>
+                        <img src="{{ url_for('static', filename='uploads/avatars/' + profile.avatar) }}"
+                             alt="Аватарка"
+                             style="width:80px;height:80px;border-radius:50%;object-fit:cover;border:3px solid var(--amber-300);"
+                             onerror="this.src='/static/defaults/for_users.png'">
+                    </div>
+                    {% endif %}
+
+                    <form method="POST" action="/profile/edit" enctype="multipart/form-data">
+                        <div class="form-group">
+                            <label class="form-label">
+                                <i class="fas fa-camera" style="color:var(--amber-500);"></i> Новая аватарка
+                            </label>
+                            <input type="file" name="avatar" accept=".jpg,.jpeg,.png,.gif" class="form-control">
+                            <small style="color:var(--text-muted);font-size:12px;display:block;margin-top:4px;">
+                                JPG, PNG, GIF — не более 2 МБ
+                            </small>
+                        </div>
+
+                        <div class="form-group">
+                            <label class="form-label">
+                                <i class="fas fa-id-card" style="color:var(--amber-500);"></i> ФИО
+                            </label>
+                            <input type="text" name="full_name"
+                                   value="{{ profile.full_name if profile else '' }}"
+                                   class="form-control"
+                                   placeholder="Введите ваше полное имя">
+                        </div>
+
+                        <div class="form-group">
+                            <label class="form-label">
+                                <i class="fas fa-align-left" style="color:var(--amber-500);"></i> О себе
+                            </label>
+                            <textarea name="bio" class="form-control"
+                                      placeholder="Расскажите о себе...">{{ profile.bio if profile else '' }}</textarea>
+                        </div>
+
+                        <div class="form-group">
+                            <label class="form-label">
+                                <i class="fas fa-map-marker-alt" style="color:var(--amber-500);"></i> Местоположение
+                            </label>
+                            <input type="text" name="location"
+                                   value="{{ profile.location if profile else '' }}"
+                                   class="form-control"
+                                   placeholder="Город, страна">
+                        </div>
+
+                        <div style="display:flex;gap:10px;">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-save"></i> Сохранить изменения
+                            </button>
+                            <a href="/profile" class="btn btn-secondary">Отмена</a>
+                        </div>
+                    </form>
+                </div>
             </div>
-            
-            <div style="margin-bottom: 15px;">
-                <label style="display: block; margin-bottom: 5px;"><strong>О себе:</strong></label>
-                <textarea name="bio" 
-                          style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px; height: 100px;"
-                          placeholder="Расскажите о себе">{{ profile.bio if profile else '' }}</textarea>
-            </div>
-            
-            <div style="margin-bottom: 20px;">
-                <label style="display: block; margin-bottom: 5px;"><strong>Местоположение:</strong></label>
-                <input type="text" name="location" value="{{ profile.location if profile else '' }}" 
-                       style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;"
-                       placeholder="Город, страна">
-            </div>
-            
-            <button type="submit" style="padding: 10px 20px; background: #007bff; color: white; border: none; border-radius: 5px; cursor: pointer;">
-                Сохранить изменения
-            </button>
-        </form>
-        
-        <div style="margin-top: 20px;">
-            <h3>Что можно добавить в профиль:</h3>
-            <ul>
-                <li>Дату рождения</li>
-                <li>Интересы и хобби</li>
-                <li>Образование и работу</li>
-                <li>Контактную информацию</li>
-                <li>Социальные сети</li>
-            </ul>
         </div>
     </div>
+
+    <!-- Футер -->
+    <footer style="
+        margin-top:auto; padding:20px 24px;
+        border-top:1px solid var(--border-light);
+        background:var(--bg-card);
+        text-align:center;
+        font-size:13px;
+        color:var(--text-muted);">
+        <div style="max-width:1200px; margin:0 auto; display:flex; align-items:center; justify-content:center; gap:20px; flex-wrap:wrap;">
+            <span style="font-family:var(--font-display);font-size:13px;background:var(--accent-gradient);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;">LinkA</span>
+            <span style="color:var(--border-medium);">·</span>
+            <a href="/faq" style="color:var(--text-muted);font-weight:600;transition:color 0.2s;" onmouseover="this.style.color='var(--amber-600)'" onmouseout="this.style.color='var(--text-muted)'">
+                <i class="fas fa-question-circle"></i> FAQ
+            </a>
+            <span style="color:var(--border-medium);">·</span>
+            <a href="/terms" style="color:var(--text-muted);font-weight:600;transition:color 0.2s;" onmouseover="this.style.color='var(--amber-600)'" onmouseout="this.style.color='var(--text-muted)'">
+                <i class="fas fa-file-alt"></i> Соглашение
+            </a>
+            <span style="color:var(--border-medium);">·</span>
+            <span>© 2025 LinkA</span>
+        </div>
+    </footer>
+</body>
+
+    <script>
+        function toggleUserMenu() {
+            document.getElementById('userDropdown').classList.toggle('open');
+        }
+        document.addEventListener('click', function(e) {
+            const wrap = document.querySelector('.user-menu-wrap');
+            if (wrap && !wrap.contains(e.target)) {
+                const dd = document.getElementById('userDropdown');
+                if (dd) dd.classList.remove('open');
+            }
+        });
+    </script>
 </body>
 </html>

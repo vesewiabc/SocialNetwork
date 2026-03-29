@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Просмотр поста</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='defaults/style.css') }}">
+    <link rel="icon" type="image/png" href="{{ url_for('static', filename='uploads/favicon.png') }}">
+</head>
+<body>
+        <header>
+        <div class="container">
+            <div class="header-content">
+                <div class="logo">LinkA</div>
+                <div class="user-menu-wrap">
+                    <button class="user-menu-btn" onclick="toggleUserMenu()" aria-label="Меню пользователя">
+                        {% set _avatar = current_user_avatar() %}
+                        {% if _avatar %}
+                            <img src="{{ url_for('static', filename='uploads/avatars/' + _avatar) }}"
+                                 onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';"
+                                 alt="Аватар">
+                            <i class="fas fa-user" style="display:none;"></i>
+                        {% else %}
+                            <i class="fas fa-user"></i>
+                        {% endif %}
+                    </button>
+                    <div class="user-dropdown" id="userDropdown">
+                        {% set _uinfo = current_user_info() %}
+                        {% if _uinfo %}
+                        <a href="/profile" style="text-decoration:none;color:inherit;display:block;padding:0;">
+                            <div class="user-dropdown-header">
+                                <div class="uname">{{ _uinfo.full_name }}</div>
+                                <div class="ulogin">@{{ _uinfo.username }}</div>
+                            </div>
+                        </a>
+                        {% endif %}
+                        <a href="/settings">
+                            <i class="fas fa-cog"></i> Настройки
+                        </a>
+                        <div class="divider"></div>
+                        <a href="/logout" class="logout-item">
+                            <i class="fas fa-sign-out-alt"></i> Выйти
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <div class="container">
+        <div class="main-content">
+                        <div class="sidebar-left">
+                <h3>Меню</h3>
+                <ul>
+                    <li><a href="/home"><i class="fas fa-home"></i> Лента</a></li>
+                    <li>
+                        <a href="/friends">
+                            <i class="fas fa-users"></i> Друзья
+                            {% if friend_requests_count and friend_requests_count > 0 %}
+                                <span style="background:var(--amber-400);color:#111;padding:2px 6px;border-radius:10px;font-size:12px;margin-left:4px;">{{ friend_requests_count }}</span>
+                            {% endif %}
+                        </a>
+                    </li>
+                    <li><a href="/groups"><i class="fas fa-layer-group"></i> Группы</a></li>
+                </ul>
+            </div>
+
+            <div class="feed">
+                <a href="/home" class="back-link" style="display:inline-flex;margin-bottom:4px;">
+                    <i class="fas fa-arrow-left"></i>&nbsp; Назад к ленте
+                </a>
+
+                <!-- Пост -->
+                <div class="post">
+                    <div class="post-header">
+                        <div class="avatar">
+                            {{ post.username[0].upper() if post.username else '?' }}
+                        </div>
+                        <div class="post-info">
+                            <strong class="post-author">{{ post.full_name or post.username or 'Пользователь' }}</strong>
+                            <small class="post-time">{{ post.created_at[:16] if post.created_at else 'Дата неизвестна' }}</small>
+                        </div>
+                    </div>
+
+                    <div class="post-content">{{ post.content }}</div>
+
+                    <div class="post-stats">
+                        <span><i class="far fa-comment" style="color:var(--amber-500);"></i>
+                            <span id="comments-count">{{ comments_count }}</span> комментариев
+                        </span>
+                    </div>
+
+                    <div class="post-actions">
+                        {% if post.user_id == current_user_id %}
+                        <a href="/edit_post/{{ post.id }}" class="action-btn">
+                            <i class="fas fa-edit"></i> Редактировать
+                        </a>
+                        <button class="action-btn" onclick="deletePost({{ post.id }})"
+                                style="color:#dc2626;border-color:#fca5a5;">
+                            <i class="fas fa-trash"></i> Удалить
+                        </button>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <!-- Комментарии -->
+                <div class="post" id="comments">
+                    <h3 style="font-family:var(--font-display);font-size:13px;text-transform:uppercase;letter-spacing:1px;color:var(--amber-600);margin-bottom:16px;">
+                        <i class="fas fa-comments"></i> Комментарии
+                    </h3>
+
+                    <!-- Форма -->
+                    <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:20px;">
+                        <textarea class="form-control" id="comment-text"
+                                  placeholder="Напишите комментарий..." rows="3"></textarea>
+                        <div>
+                            <button class="btn btn-primary btn-sm" onclick="addComment({{ post.id }})">
+                                <i class="fas fa-paper-plane"></i> Отправить
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Список комментариев -->
+                    <div class="comments-list" id="comments-list">
+                        {% for comment in comments %}
+                        <div class="comment-item" id="comment-{{ comment.id }}">
+                            <div class="comment-header">
+                                <div class="comment-avatar">
+                                    {{ comment.username[0].upper() if comment.username else '?' }}
+                                </div>
+                                <span class="comment-author">{{ comment.full_name or comment.username or 'Пользователь' }}</span>
+                                <span class="comment-time">{{ comment.created_at[:16] if comment.created_at else '' }}</span>
+                                {% if comment.user_id == current_user_id or post.user_id == current_user_id %}
+                                <button onclick="deleteComment({{ comment.id }})"
+                                        style="margin-left:auto;background:none;border:none;cursor:pointer;color:var(--text-muted);font-size:13px;padding:2px 6px;border-radius:var(--radius-sm);">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                                {% endif %}
+                            </div>
+                            <div class="comment-content">{{ comment.content }}</div>
+                        </div>
+                        {% else %}
+                        <div style="text-align:center;color:var(--text-muted);padding:20px 0;" id="no-comments">
+                            Комментариев пока нет. Будьте первым!
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script>
+        function addComment(postId) {
+            const content = $('#comment-text').val().trim();
+            if (!content) { alert('Введите текст комментария'); return; }
+            $.ajax({
+                url: `/add_comment/${postId}`,
+                type: 'POST',
+                contentType: 'application/json',
+                data: JSON.stringify({ content }),
+                success: function(response) {
+                    if (response.success) {
+                        $('#comment-text').val('');
+                        $('#comments-count').text(response.comments_count);
+                        $('#no-comments').remove();
+                        const c = response.comment;
+                        const html = `
+                            <div class="comment-item" id="comment-${c.id}">
+                                <div class="comment-header">
+                                    <div class="comment-avatar">${c.username ? c.username[0].toUpperCase() : '?'}</div>
+                                    <span class="comment-author">${c.full_name || c.username || 'Пользователь'}</span>
+                                    <span class="comment-time">Только что</span>
+                                    <button onclick="deleteComment(${c.id})"
+                                            style="margin-left:auto;background:none;border:none;cursor:pointer;color:var(--text-muted);font-size:13px;padding:2px 6px;">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </div>
+                                <div class="comment-content">${c.content}</div>
+                            </div>`;
+                        $('#comments-list').prepend(html);
+                    } else { alert('Ошибка: ' + response.error); }
+                },
+                error: function() { alert('Ошибка сервера'); }
+            });
+        }
+
+        function deleteComment(commentId) {
+            if (!confirm('Удалить комментарий?')) return;
+            $.ajax({
+                url: `/delete_comment/${commentId}`,
+                type: 'POST',
+                contentType: 'application/json',
+                success: function(response) {
+                    if (response.success) {
+                        $(`#comment-${commentId}`).remove();
+                        $('#comments-count').text(response.comments_count);
+                    } else { alert('Ошибка: ' + response.error); }
+                },
+                error: function() { alert('Ошибка сервера'); }
+            });
+        }
+
+        function deletePost(postId) {
+            if (!confirm('Удалить пост? Это действие нельзя отменить.')) return;
+            $.ajax({
+                url: `/delete_post_route/${postId}`,
+                type: 'POST',
+                contentType: 'application/json',
+                success: function(response) {
+                    if (response.success) { window.location.href = '/my_posts'; }
+                    else { alert('Ошибка: ' + response.error); }
+                },
+                error: function() { alert('Ошибка сервера'); }
+            });
+        }
+
+        $('#comment-text').keypress(function(e) {
+            if (e.which === 13 && !e.shiftKey) {
+                e.preventDefault();
+                addComment({{ post.id }});
+            }
+        });
+    </script>
+
+    <!-- Футер -->
+    <footer style="
+        margin-top:auto; padding:20px 24px;
+        border-top:1px solid var(--border-light);
+        background:var(--bg-card);
+        text-align:center;
+        font-size:13px;
+        color:var(--text-muted);">
+        <div style="max-width:1200px; margin:0 auto; display:flex; align-items:center; justify-content:center; gap:20px; flex-wrap:wrap;">
+            <span style="font-family:var(--font-display);font-size:13px;background:var(--accent-gradient);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;">LinkA</span>
+            <span style="color:var(--border-medium);">·</span>
+            <a href="/faq" style="color:var(--text-muted);font-weight:600;transition:color 0.2s;" onmouseover="this.style.color='var(--amber-600)'" onmouseout="this.style.color='var(--text-muted)'">
+                <i class="fas fa-question-circle"></i> FAQ
+            </a>
+            <span style="color:var(--border-medium);">·</span>
+            <a href="/terms" style="color:var(--text-muted);font-weight:600;transition:color 0.2s;" onmouseover="this.style.color='var(--amber-600)'" onmouseout="this.style.color='var(--text-muted)'">
+                <i class="fas fa-file-alt"></i> Соглашение
+            </a>
+            <span style="color:var(--border-medium);">·</span>
+            <span>© 2025 LinkA</span>
+        </div>
+    </footer>
+</body>
+
+    <script>
+        function toggleUserMenu() {
+            document.getElementById('userDropdown').classList.toggle('open');
+        }
+        document.addEventListener('click', function(e) {
+            const wrap = document.querySelector('.user-menu-wrap');
+            if (wrap && !wrap.contains(e.target)) {
+                const dd = document.getElementById('userDropdown');
+                if (dd) dd.classList.remove('open');
+            }
+        });
+    </script>
+</body>
+</html>

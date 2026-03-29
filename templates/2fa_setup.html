@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Подключение Telegram</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: linear-gradient(135deg, #1877f2 0%, #42b2f5 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .card {
+            background: #fff;
+            border-radius: 16px;
+            box-shadow: 0 8px 32px rgba(0,0,0,.18);
+            max-width: 480px;
+            width: 100%;
+            padding: 40px 36px;
+            text-align: center;
+        }
+
+        .tg-icon {
+            width: 72px;
+            height: 72px;
+            background: linear-gradient(135deg, #2AABEE, #229ED9);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 38px;
+            margin: 0 auto 20px;
+            box-shadow: 0 4px 14px rgba(42,171,238,.35);
+        }
+
+        h1 {
+            font-size: 22px;
+            font-weight: 700;
+            color: #1c1e21;
+            margin-bottom: 10px;
+        }
+
+        .subtitle {
+            font-size: 14px;
+            color: #65676b;
+            margin-bottom: 28px;
+            line-height: 1.5;
+        }
+
+        /* Шаги */
+        .steps {
+            text-align: left;
+            margin-bottom: 28px;
+        }
+
+        .step {
+            display: flex;
+            gap: 14px;
+            align-items: flex-start;
+            margin-bottom: 18px;
+        }
+
+        .step-num {
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            background: #1877f2;
+            color: #fff;
+            font-size: 14px;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            margin-top: 1px;
+        }
+
+        .step-text {
+            font-size: 14px;
+            color: #1c1e21;
+            line-height: 1.5;
+        }
+        .step-text strong { color: #1877f2; }
+
+        /* Кнопка Telegram */
+        .btn-telegram {
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            padding: 14px 28px;
+            background: linear-gradient(135deg, #2AABEE, #229ED9);
+            color: #fff;
+            text-decoration: none;
+            border-radius: 10px;
+            font-size: 16px;
+            font-weight: 600;
+            box-shadow: 0 4px 14px rgba(42,171,238,.35);
+            transition: transform .15s, box-shadow .15s;
+            margin-bottom: 14px;
+        }
+        .btn-telegram:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(42,171,238,.45);
+        }
+        .btn-telegram:active { transform: scale(.97); }
+
+        /* Альтернатива — ручной код */
+        .manual {
+            background: #f5f5f5;
+            border-radius: 10px;
+            padding: 14px 18px;
+            margin-bottom: 20px;
+        }
+        .manual p {
+            font-size: 13px;
+            color: #65676b;
+            margin-bottom: 8px;
+        }
+        .manual .code-line {
+            font-family: 'Courier New', monospace;
+            font-size: 15px;
+            font-weight: 700;
+            color: #1877f2;
+            background: #e7f0fd;
+            padding: 8px 14px;
+            border-radius: 6px;
+            user-select: all;
+            cursor: pointer;
+            transition: background .15s;
+        }
+        .manual .code-line:hover { background: #d0e4fb; }
+
+        .timer {
+            font-size: 12px;
+            color: #fa3e3e;
+            margin-top: 6px;
+        }
+
+        .divider {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin: 14px 0;
+            color: #bbb;
+            font-size: 13px;
+        }
+        .divider::before, .divider::after {
+            content: '';
+            flex: 1;
+            height: 1px;
+            background: #e4e6ea;
+        }
+
+        .btn-secondary {
+            display: inline-block;
+            padding: 10px 20px;
+            background: #e4e6ea;
+            color: #1c1e21;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 500;
+            text-decoration: none;
+            transition: background .15s;
+        }
+        .btn-secondary:hover { background: #d8dadf; }
+
+        #check-btn {
+            display: block;
+            width: 100%;
+            padding: 12px;
+            background: #42b72a;
+            color: #fff;
+            border: none;
+            border-radius: 8px;
+            font-size: 15px;
+            font-weight: 600;
+            cursor: pointer;
+            margin-bottom: 12px;
+            transition: background .15s;
+        }
+        #check-btn:hover { background: #36a420; }
+
+        #check-status { font-size: 14px; min-height: 20px; }
+        #check-status.ok   { color: #1a6e22; }
+        #check-status.fail { color: #c0392b; }
+    </style>
+</head>
+<body>
+<div class="card">
+    <div class="tg-icon">✈️</div>
+    <h1>Подключение Telegram</h1>
+    <p class="subtitle">Следуй инструкции, чтобы привязать Telegram<br>и включить двухфакторную аутентификацию</p>
+
+    <div class="steps">
+        <div class="step">
+            <div class="step-num">1</div>
+            <div class="step-text">
+                Нажми кнопку <strong>«Открыть в Telegram»</strong> ниже
+            </div>
+        </div>
+        <div class="step">
+            <div class="step-num">2</div>
+            <div class="step-text">
+                В боте нажми кнопку <strong>Старт / Start</strong> (или она сработает автоматически)
+            </div>
+        </div>
+        <div class="step">
+            <div class="step-num">3</div>
+            <div class="step-text">
+                Получи подтверждение от бота и вернись на эту страницу
+            </div>
+        </div>
+    </div>
+
+    <a href="{{ bot_link }}" target="_blank" class="btn-telegram">
+        ✈️ Открыть в Telegram
+    </a>
+
+    <div class="divider">или</div>
+
+    <div class="manual">
+        <p>Открой Telegram-бота вручную и отправь команду:</p>
+        <div class="code-line" title="Нажмите чтобы скопировать" id="manual-code"
+             onclick="copyCode()">/start {{ link_code }}</div>
+        <div class="timer">⏱ Код действует 15 минут</div>
+    </div>
+
+    <button id="check-btn" onclick="checkStatus()">✅ Я привязал Telegram — проверить</button>
+    <div id="check-status"></div>
+
+    <br>
+    <a href="/settings" class="btn-secondary">← Назад в настройки</a>
+</div>
+
+<script>
+async function checkStatus() {
+    const btn = document.getElementById('check-btn');
+    const status = document.getElementById('check-status');
+    btn.disabled = true;
+    btn.textContent = 'Проверяем...';
+    status.textContent = '';
+    status.className = '';
+
+    try {
+        const resp = await fetch('/settings/2fa/check_status');
+        const data = await resp.json();
+        if (data.enabled) {
+            status.textContent = '✅ Telegram успешно привязан! Перенаправляем...';
+            status.className = 'ok';
+            setTimeout(() => { window.location.href = '/settings'; }, 1500);
+        } else {
+            status.textContent = '❌ Привязка ещё не подтверждена. Убедитесь, что отправили /start боту.';
+            status.className = 'fail';
+            btn.disabled = false;
+            btn.textContent = '✅ Я привязал Telegram — проверить';
+        }
+    } catch(e) {
+        status.textContent = 'Ошибка соединения, попробуйте снова';
+        status.className = 'fail';
+        btn.disabled = false;
+        btn.textContent = '✅ Я привязал Telegram — проверить';
+    }
+}
+
+function copyCode() {
+    const text = '/start {{ link_code }}';
+    navigator.clipboard.writeText(text).then(() => {
+        const el = document.getElementById('manual-code');
+        const orig = el.textContent;
+        el.textContent = '✅ Скопировано!';
+        setTimeout(() => el.textContent = orig, 1500);
+    });
+}
+</script>
+</body>
+</html>

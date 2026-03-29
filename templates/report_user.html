@@ -4,108 +4,167 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Отправить жалобу</title>
-    <style>
-        .info-box {
-            background: #d1ecf1;
-            border: 2px solid #bee5eb;
-            border-radius: 8px;
-            padding: 20px;
-            margin-bottom: 20px;
-        }
-    </style>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='defaults/style.css') }}">
+    <link rel="icon" type="image/png" href="{{ url_for('static', filename='uploads/favicon.png') }}">
 </head>
 <body>
-    <div style="padding: 20px; max-width: 600px; margin: 0 auto;">
-        <h1>Отправить жалобу</h1>
-        
-        <div style="margin-bottom: 20px;">
-            <a href="javascript:history.back()" style="margin-right: 10px;">← Назад</a>
-            <a href="/profile">Профиль</a>
-        </div>
-        
-        <div class="info-box">
-            <h3 style="margin: 0 0 10px 0; color: #0c5460;">Отправка жалобы на пользователя</h3>
-            <p style="margin: 0; color: #0c5460;">
-                Вы отправляете жалобу на <strong>{{ full_name if full_name else username }}</strong> (@{{ username }}).
-            </p>
-            <p style="margin: 10px 0 0 0; color: #0c5460;">
-                <strong>Пожалуйста, опишите проблему подробно:</strong><br>
-                • Что именно произошло?<br>
-                • Когда это случилось?<br>
-                • Есть ли доказательства (скриншоты и т.д.)?
-            </p>
-        </div>
-        
-                <form method="POST" action="/report_user/{{ user_id }}" style="background: #f5f5f5; padding: 20px; border-radius: 5px;">
-            
-            <!-- Текстовое поле -->
-            <textarea name="reason" 
-                    placeholder="Опишите причину жалобы подробно (минимум 10 символов)..."
-                    required
-                    style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px; height: 150px;"></textarea>
-            
-            
-            <div style="margin-top: 15px;">
-                <label style="display: block; margin-bottom: 5px;"><strong>Тип нарушения:</strong></label>
-                <select name="violation_type" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
-                    <option value="spam">Спам</option>
-                    <option value="harassment">Оскорбления/травля</option>
-                    <option value="inappropriate_content">Неуместный контент</option>
-                    <option value="fake_account">Фейковый аккаунт</option>
-                    <option value="scam">Мошенничество</option>
-                    <option value="other">Другое</option>
-                </select>
+        <header>
+        <div class="container">
+            <div class="header-content">
+                <div class="logo">LinkA</div>
+                <div class="user-menu-wrap">
+                    <button class="user-menu-btn" onclick="toggleUserMenu()" aria-label="Меню пользователя">
+                        {% set _avatar = current_user_avatar() %}
+                        {% if _avatar %}
+                            <img src="{{ url_for('static', filename='uploads/avatars/' + _avatar) }}"
+                                 onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';"
+                                 alt="Аватар">
+                            <i class="fas fa-user" style="display:none;"></i>
+                        {% else %}
+                            <i class="fas fa-user"></i>
+                        {% endif %}
+                    </button>
+                    <div class="user-dropdown" id="userDropdown">
+                        {% set _uinfo = current_user_info() %}
+                        {% if _uinfo %}
+                        <a href="/profile" style="text-decoration:none;color:inherit;display:block;padding:0;">
+                            <div class="user-dropdown-header">
+                                <div class="uname">{{ _uinfo.full_name }}</div>
+                                <div class="ulogin">@{{ _uinfo.username }}</div>
+                            </div>
+                        </a>
+                        {% endif %}
+                        <a href="/settings">
+                            <i class="fas fa-cog"></i> Настройки
+                        </a>
+                        <div class="divider"></div>
+                        <a href="/logout" class="logout-item">
+                            <i class="fas fa-sign-out-alt"></i> Выйти
+                        </a>
+                    </div>
+                </div>
             </div>
-            
-            <!-- Кнопки -->
-            <div style="display: flex; gap: 10px; margin-top: 20px;">
-                <button type="submit" 
-                        style="padding: 10px 20px; background: #dc3545; color: white; border: none; border-radius: 5px; cursor: pointer;">
-                    Отправить жалобу
-                </button>
-                
-                <a href="javascript:history.back()" 
-                style="padding: 10px 20px; background: #6c757d; color: white; text-decoration: none; border-radius: 5px; display: inline-block;">
-                    Отмена
-                </a>
+        </div>
+    </header>
+
+    <div class="container">
+        <div class="main-content">
+                        <div class="sidebar-left">
+                <h3>Меню</h3>
+                <ul>
+                    <li><a href="/home"><i class="fas fa-home"></i> Лента</a></li>
+                    <li>
+                        <a href="/friends">
+                            <i class="fas fa-users"></i> Друзья
+                            {% if friend_requests_count and friend_requests_count > 0 %}
+                                <span style="background:var(--amber-400);color:#111;padding:2px 6px;border-radius:10px;font-size:12px;margin-left:4px;">{{ friend_requests_count }}</span>
+                            {% endif %}
+                        </a>
+                    </li>
+                    <li><a href="/groups"><i class="fas fa-layer-group"></i> Группы</a></li>
+                </ul>
             </div>
-        </form>
+
+            <div class="feed">
+                <div class="card" style="max-width:620px;">
+                    <a href="javascript:history.back()" class="back-link" style="display:inline-flex;margin-bottom:20px;">
+                        <i class="fas fa-arrow-left"></i>&nbsp; Назад
+                    </a>
+
+                    <h2 style="font-family:var(--font-display);font-size:18px;margin-bottom:20px;">
+                        <i class="fas fa-flag" style="color:var(--amber-500);"></i> Отправить жалобу
+                    </h2>
+
+                    <div class="alert alert-info" style="margin-bottom:20px;">
+                        Вы отправляете жалобу на
+                        <strong>{{ full_name if full_name else username }}</strong> (@{{ username }}).<br><br>
+                        Пожалуйста, опишите проблему подробно: что произошло, когда, есть ли доказательства.
+                    </div>
+
+                    <form method="POST" action="/report_user/{{ user_id }}" id="reportForm">
+                        <div class="form-group">
+                            <label class="form-label">Тип нарушения</label>
+                            <select name="violation_type" class="form-control">
+                                <option value="spam">Спам</option>
+                                <option value="harassment">Оскорбления / травля</option>
+                                <option value="inappropriate_content">Неуместный контент</option>
+                                <option value="fake_account">Фейковый аккаунт</option>
+                                <option value="scam">Мошенничество</option>
+                                <option value="other">Другое</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label class="form-label">Описание жалобы</label>
+                            <textarea name="reason"
+                                      class="form-control"
+                                      placeholder="Опишите причину жалобы подробно (минимум 10 символов)..."
+                                      required></textarea>
+                        </div>
+
+                        <div style="display:flex;gap:10px;">
+                            <button type="submit" class="btn btn-danger">
+                                <i class="fas fa-paper-plane"></i> Отправить жалобу
+                            </button>
+                            <a href="javascript:history.back()" class="btn btn-secondary">
+                                Отмена
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
     </div>
+
     <script>
-document.addEventListener('DOMContentLoaded', function() {
-    const form = document.querySelector('form');
-    
-    form.addEventListener('submit', function(e) {
-        e.preventDefault(); // Предотвращаем стандартную отправку
-        
-        console.log('Форма отправляется...');
-        
-        // Собираем данные формы
-        const formData = new FormData(form);
-        
-        // Отправляем AJAX запрос
-        fetch(form.action, {
+    document.getElementById('reportForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        fetch(this.action, {
             method: 'POST',
-            body: formData,
-            headers: {
-                'X-Requested-With': 'XMLHttpRequest'
-            }
+            body: new FormData(this),
+            headers: { 'X-Requested-With': 'XMLHttpRequest' }
         })
-        .then(response => {
-            console.log('Ответ получен:', response);
-            if (response.ok) {
-                // Перенаправляем после успешной отправки
-                window.location.href = '/friends';
-            } else {
-                alert('Ошибка при отправке жалобы');
-            }
-        })
-        .catch(error => {
-            console.error('Ошибка:', error);
-            alert('Ошибка сети при отправке жалобы');
-        });
+        .then(r => r.ok ? window.location.href = '/friends' : alert('Ошибка при отправке жалобы'))
+        .catch(() => alert('Ошибка сети'));
     });
-});
-</script>
+    </script>
+
+    <!-- Футер -->
+    <footer style="
+        margin-top:auto; padding:20px 24px;
+        border-top:1px solid var(--border-light);
+        background:var(--bg-card);
+        text-align:center;
+        font-size:13px;
+        color:var(--text-muted);">
+        <div style="max-width:1200px; margin:0 auto; display:flex; align-items:center; justify-content:center; gap:20px; flex-wrap:wrap;">
+            <span style="font-family:var(--font-display);font-size:13px;background:var(--accent-gradient);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;">LinkA</span>
+            <span style="color:var(--border-medium);">·</span>
+            <a href="/faq" style="color:var(--text-muted);font-weight:600;transition:color 0.2s;" onmouseover="this.style.color='var(--amber-600)'" onmouseout="this.style.color='var(--text-muted)'">
+                <i class="fas fa-question-circle"></i> FAQ
+            </a>
+            <span style="color:var(--border-medium);">·</span>
+            <a href="/terms" style="color:var(--text-muted);font-weight:600;transition:color 0.2s;" onmouseover="this.style.color='var(--amber-600)'" onmouseout="this.style.color='var(--text-muted)'">
+                <i class="fas fa-file-alt"></i> Соглашение
+            </a>
+            <span style="color:var(--border-medium);">·</span>
+            <span>© 2025 LinkA</span>
+        </div>
+    </footer>
+</body>
+
+    <script>
+        function toggleUserMenu() {
+            document.getElementById('userDropdown').classList.toggle('open');
+        }
+        document.addEventListener('click', function(e) {
+            const wrap = document.querySelector('.user-menu-wrap');
+            if (wrap && !wrap.contains(e.target)) {
+                const dd = document.getElementById('userDropdown');
+                if (dd) dd.classList.remove('open');
+            }
+        });
+    </script>
 </body>
 </html>

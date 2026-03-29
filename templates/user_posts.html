@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="{{ url_for('static', filename='defaults/style.css') }}">
+    <title>Публикации - {{ user.username }}</title>
+    <style>
+        /* ── Шапка страницы публикаций ── */
+        .posts-page-header {
+            background: var(--bg-card);
+            border-radius: var(--radius-lg);
+            padding: 20px 24px;
+            margin-bottom: 24px;
+            box-shadow: var(--shadow-sm);
+            border: 1px solid var(--border-light);
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            position: relative;
+            overflow: hidden;
+        }
+        .posts-page-header::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0;
+            height: 3px;
+            background: var(--accent-gradient);
+        }
+        .posts-page-header-icon {
+            width: 44px; height: 44px;
+            border-radius: var(--radius-md);
+            background: var(--amber-100);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 22px;
+            flex-shrink: 0;
+        }
+        .posts-page-header h1 {
+            font-family: var(--font-display);
+            font-size: 17px;
+            font-weight: 700;
+            color: var(--text-primary);
+            margin-bottom: 4px;
+        }
+        .posts-page-header .back-link {
+            font-size: 13px;
+            color: var(--amber-600);
+            font-weight: 600;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            transition: color var(--transition);
+        }
+        .posts-page-header .back-link:hover { color: var(--amber-700); }
+
+        /* ── Карточка поста ── */
+        .post-card {
+            background: var(--bg-card);
+            border-radius: var(--radius-lg);
+            margin-bottom: 20px;
+            box-shadow: var(--shadow-sm);
+            border: 1px solid var(--border-light);
+            overflow: hidden;
+            transition: box-shadow var(--transition), transform var(--transition);
+            animation: fadeUp 0.3s ease both;
+        }
+        .post-card:hover {
+            box-shadow: var(--shadow-md);
+            transform: translateY(-1px);
+        }
+
+        @keyframes fadeUp {
+            from { opacity: 0; transform: translateY(10px); }
+            to   { opacity: 1; transform: translateY(0); }
+        }
+
+        {% for i in range(1, 20) %}
+        .post-card:nth-child({{ i }}) { animation-delay: {{ (i - 1) * 0.06 }}s; }
+        {% endfor %}
+
+        .post-card-header {
+            padding: 14px 16px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        .post-avatar {
+            width: 42px; height: 42px;
+            border-radius: 50%;
+            object-fit: cover;
+            border: 2px solid var(--amber-200);
+            flex-shrink: 0;
+        }
+        .post-meta h3 {
+            font-size: 15px;
+            font-weight: 700;
+            color: var(--text-primary);
+            margin-bottom: 2px;
+        }
+        .post-meta time {
+            font-size: 12px;
+            color: var(--text-muted);
+        }
+
+        .post-body {
+            padding: 0 16px 14px;
+        }
+        .post-body p {
+            font-size: 15px;
+            line-height: 1.65;
+            color: var(--text-primary);
+            white-space: pre-wrap;
+        }
+
+        /* ── Медиа ── */
+        .post-media {
+            margin: 8px 16px 14px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        .post-media img {
+            width: 100%;
+            border-radius: var(--radius-md);
+            border: 1px solid var(--border-light);
+            object-fit: cover;
+        }
+        .post-media video {
+            width: 100%;
+            border-radius: var(--radius-md);
+            border: 1px solid var(--border-light);
+            background: var(--gray-900);
+        }
+        .post-media .file-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 14px;
+            background: var(--amber-50);
+            border: 1px solid var(--amber-200);
+            border-radius: var(--radius-md);
+            color: var(--amber-700);
+            font-size: 14px;
+            font-weight: 600;
+            transition: background var(--transition), border-color var(--transition);
+            text-decoration: none;
+        }
+        .post-media .file-link:hover {
+            background: var(--amber-100);
+            border-color: var(--amber-400);
+        }
+
+        /* ── Статистика поста ── */
+        .post-stats {
+            padding: 10px 16px;
+            border-top: 1px solid var(--border-light);
+            display: flex;
+            gap: 16px;
+        }
+        .post-stat {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--text-secondary);
+            padding: 5px 12px;
+            border-radius: var(--radius-full);
+            border: 1px solid var(--border-light);
+            background: none;
+            cursor: default;
+            transition: background var(--transition), border-color var(--transition), color var(--transition);
+        }
+        .post-stat:hover {
+            background: var(--amber-50);
+            border-color: var(--amber-300);
+            color: var(--amber-700);
+        }
+
+        /* ── Пустое состояние ── */
+        .empty-posts {
+            background: var(--bg-card);
+            border-radius: var(--radius-lg);
+            padding: 60px 20px;
+            text-align: center;
+            border: 1px solid var(--border-light);
+            box-shadow: var(--shadow-sm);
+        }
+        .empty-posts-icon {
+            font-size: 48px;
+            margin-bottom: 16px;
+            opacity: 0.5;
+        }
+        .empty-posts h2 {
+            font-family: var(--font-display);
+            font-size: 16px;
+            font-weight: 700;
+            color: var(--text-secondary);
+            margin-bottom: 8px;
+        }
+        .empty-posts p {
+            font-size: 14px;
+            color: var(--text-muted);
+            margin-bottom: 20px;
+        }
+        .empty-posts .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 9px 20px;
+            border-radius: var(--radius-full);
+            background: var(--accent-gradient);
+            color: var(--text-inverse);
+            font-weight: 700;
+            font-size: 14px;
+            text-decoration: none;
+            transition: opacity var(--transition), transform var(--transition);
+        }
+        .empty-posts .btn:hover { opacity: 0.88; transform: translateY(-1px); }
+
+        /* ── Обёртка ── */
+        .posts-wrapper { max-width: 800px; margin: 0 auto; padding: 24px 16px; }
+    </style>
+</head>
+<body>
+
+    <!-- ── Шапка сайта (из style.css) ── -->
+    <header>
+        <div class="container">
+            <div class="header-content">
+                <span></span>
+                <a class="logo" href="/">LinkA</a>
+                <div class="user-menu-wrap">
+                    <!-- сюда можно вставить кнопку аватара/дропдаун из base.html -->
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <div class="posts-wrapper">
+
+        <!-- Заголовок страницы -->
+        <div class="posts-page-header">
+            <div class="posts-page-header-icon">📄</div>
+            <div>
+                <h1>Публикации {{ profile.full_name if profile and profile.full_name else user.username }}</h1>
+                <a href="/profile/{{ user.id }}" class="back-link">← Назад к профилю</a>
+            </div>
+        </div>
+
+        <!-- Список постов -->
+        {% if posts %}
+            {% for post in posts %}
+            <div class="post-card">
+                <div class="post-card-header">
+                    <img src="/static/uploads/avatars/{{ profile.avatar if profile and profile.avatar else 'default_avatar.png' }}"
+                         alt="Avatar" class="post-avatar">
+                    <div class="post-meta">
+                        <h3>{{ profile.full_name if profile and profile.full_name else user.username }}</h3>
+                        <time>{{ post.created_at | format_date if post.created_at else '' }}</time>
+                    </div>
+                </div>
+
+                {% if post.content %}
+                <div class="post-body">
+                    <p>{{ post.content }}</p>
+                </div>
+                {% endif %}
+
+                {% if post.media_files %}
+                <div class="post-media">
+                    {% for media in post.media_files %}
+                        {% if media.file_type == 'image' %}
+                            <img src="/static/uploads/posts/{{ media.filename }}" alt="Изображение поста">
+                        {% elif media.file_type == 'video' %}
+                            <video controls>
+                                <source src="/static/uploads/posts/{{ media.filename }}" type="video/mp4">
+                                Ваш браузер не поддерживает видео
+                            </video>
+                        {% else %}
+                            <a href="/static/uploads/posts/{{ media.filename }}" download class="file-link">
+                                📎 {{ media.original_filename or media.filename }}
+                            </a>
+                        {% endif %}
+                    {% endfor %}
+                </div>
+                {% endif %}
+
+                <div class="post-stats">
+                    <span class="post-stat">{{ post.likes_count }} лайков</span>
+                    <span class="post-stat">{{ post.comments_count }} комментариев</span>
+                </div>
+            </div>
+            {% endfor %}
+
+        {% else %}
+            <div class="empty-posts">
+                <div class="empty-posts-icon">🗒️</div>
+                <h2>Нет публикаций</h2>
+                <p>Этот пользователь ещё ничего не опубликовал</p>
+                <a href="/profile/{{ user.id }}" class="btn">← Назад к профилю</a>
+            </div>
+        {% endif %}
+
+    </div>
+
+</body>
+</html>
