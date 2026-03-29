@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="{{ url_for('static', filename='defaults/style.css') }}">
+    <title>Профиль - {{ user.username }}</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background: #f0f2f5; }
+        .container { max-width: 800px; margin: 0 auto; padding: 20px; }
+        .profile-header { background: white; border-radius: 8px; padding: 20px; margin-bottom: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+        .profile-avatar { width: 120px; height: 120px; border-radius: 50%; object-fit: cover; }
+        .profile-name { font-size: 24px; margin: 15px 0 5px; }
+        .profile-username { color: #65676b; margin-bottom: 15px; }
+        .profile-location { color: #65676b; font-size: 14px; margin-bottom: 15px; }
+        .profile-actions { display: flex; gap: 10px; margin-bottom: 20px; }
+        .btn { padding: 8px 16px; border-radius: 6px; text-decoration: none; font-size: 14px; cursor: pointer; border: none; }
+        .btn-primary { background: #1877f2; color: white; }
+        .btn-secondary { background: #e4e6eb; color: #050505; }
+        .profile-stats { display: flex; gap: 30px; margin-top: 20px; padding-top: 20px; border-top: 1px solid #e4e6eb; }
+        .stat-item { text-align: center; }
+        .stat-value { font-size: 20px; font-weight: bold; color: #1877f2; }
+        .stat-label { font-size: 14px; color: #65676b; }
+        .stat-link { text-decoration: none; color: inherit; }
+        .stat-link:hover { text-decoration: underline; }
+        .profile-bio { background: white; border-radius: 8px; padding: 20px; margin-bottom: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+        .profile-bio h3 { margin-bottom: 10px; }
+        .profile-bio p { color: #050505; line-height: 1.5; }
+        .sidebar { background: white; border-radius: 8px; padding: 15px; margin-bottom: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+        .sidebar ul { list-style: none; }
+        .sidebar li { margin: 10px 0; }
+        .sidebar a { color: #1877f2; text-decoration: none; }
+        .sidebar a:hover { text-decoration: underline; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="sidebar">
+            <ul>
+                <li><a href="/home">Главная</a></li>
+                <li><a href="/friends">Друзья</a></li>
+                <li><a href="/groups">Группы</a></li>
+                <li><a href="javascript:history.back()">← Назад</a></li>
+            </ul>
+        </div>
+        
+        <div class="profile-header">
+            <img src="/static/uploads/avatars/{{ profile.avatar if profile and profile.avatar else 'default_avatar.png' }}" 
+                 alt="Avatar" class="profile-avatar">
+            
+            <h1 class="profile-name">{{ profile.full_name if profile and profile.full_name else user.username }}</h1>
+            <p class="profile-username">@{{ user.username }}</p>
+            
+            {% if profile and profile.location %}
+            <p class="profile-location">📍 {{ profile.location }}</p>
+            {% endif %}
+            
+            <div class="profile-actions">
+                {% if not is_own_profile %}
+                    {% if friend_status == 'accepted' %}
+                        <span class="btn btn-secondary">✓ В друзьях</span>
+                    {% elif friend_status == 'pending' %}
+                        <span class="btn btn-secondary">⏳ Заявка отправлена</span>
+                    {% else %}
+                        <form action="/add_friend/{{ user.id }}" method="POST" style="display: inline;">
+                            <button type="submit" class="btn btn-primary">Добавить в друзья</button>
+                        </form>
+                    {% endif %}
+                    
+                    <a href="/messenger/{{ user.id }}" class="btn btn-primary">Написать сообщение</a>
+                {% else %}
+                    <a href="/profile/edit" class="btn btn-primary">Редактировать профиль</a>
+                {% endif %}
+            </div>
+            
+            <div class="profile-stats">
+                <div class="stat-item">
+                    <a href="/profile/{{ user.id }}/posts" class="stat-link">
+                        <div class="stat-value">{{ posts_count }}</div>
+                        <div class="stat-label">Публикаций</div>
+                    </a>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value">0</div>
+                    <div class="stat-label">Друзей</div>
+                </div>
+            </div>
+        </div>
+        
+        {% if profile and profile.bio %}
+        <div class="profile-bio">
+            <h3>О себе</h3>
+            <p>{{ profile.bio }}</p>
+        </div>
+        {% endif %}
+    </div>
+</body>
+</html>
