@@ -3,89 +3,72 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Мои друзья</title>
+    <title>Друзья</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <link rel="stylesheet" href="{{ url_for('static', filename='defaults/style.css') }}">
     <link rel="icon" type="image/png" href="{{ url_for('static', filename='uploads/favicon.png') }}">
     <style>
-        /* ── Тултипы через data-tooltip (без браузерного title) ── */
-        .actions a[data-tooltip] { position: relative; }
-        .actions a[data-tooltip]:hover::after {
-            content: attr(data-tooltip);
-            position: absolute;
-            bottom: calc(100% + 6px);
-            left: 50%;
-            transform: translateX(-50%);
-            background: var(--gray-800);
-            color: #fff;
-            font-size: 12px;
-            font-weight: 600;
-            padding: 5px 10px;
-            border-radius: var(--radius-sm);
-            white-space: nowrap;
-            pointer-events: none;
-            z-index: 100;
-        }
-        .actions a[data-tooltip]:hover::before {
-            content: '';
-            position: absolute;
-            bottom: calc(100% + 1px);
-            left: 50%;
-            transform: translateX(-50%);
-            border: 5px solid transparent;
-            border-top-color: var(--gray-800);
-            pointer-events: none;
-            z-index: 100;
-        }
-
-        /* ── Одинаковый размер кнопок действий ── */
-        .actions .btn-sm {
-            width: 34px;
-            height: 34px;
-            padding: 0;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            flex-shrink: 0;
-        }
-
-
+        .friends-tab-bar { display: flex; border-bottom: 2px solid var(--border-light); background: var(--bg-card); border-radius: var(--radius-lg) var(--radius-lg) 0 0; padding: 0 16px; margin-bottom: 0; }
+        .friends-tab-bar a { padding: 14px 20px; font-weight: 700; font-size: 14px; text-decoration: none; margin-bottom: -2px; border-bottom: 2px solid transparent; color: var(--text-muted); transition: color 0.15s; display: flex; align-items: center; gap: 6px; }
+        .friends-tab-bar a.active { border-bottom-color: var(--amber-500); color: var(--amber-600); }
+        .friends-tab-bar a:hover:not(.active) { color: var(--text-primary); }
+        .friend-menu-wrap { position: relative; flex-shrink: 0; }
+        .friend-menu-btn { width: 36px; height: 36px; border-radius: var(--radius-md); border: 1px solid var(--border-light); background: var(--bg-card); color: var(--text-muted); cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 16px; transition: background 0.15s, color 0.15s; }
+        .friend-menu-btn:hover { background: var(--bg-hover); color: var(--text-primary); }
+        .friend-dropdown { display: none; position: absolute; right: 0; top: calc(100% + 6px); background: var(--bg-card); border: 1px solid var(--border-light); border-radius: var(--radius-md); box-shadow: 0 4px 16px rgba(0,0,0,0.12); min-width: 210px; z-index: 200; overflow: visible; }
+        .friend-dropdown.open { display: block; }
+        .friend-dropdown a { display: flex; align-items: center; gap: 10px; padding: 11px 16px; font-size: 14px; font-weight: 600; color: var(--text-primary); text-decoration: none; transition: background 0.12s; }
+        .friend-dropdown a:hover { background: var(--bg-hover); }
+        .friend-dropdown a.danger { color: #e53935; }
+        .friend-dropdown a.danger:hover { background: #fff0f0; }
+        .friend-dropdown .dd-divider { height: 1px; background: var(--border-light); margin: 4px 0; }
     </style>
+
+        <style>
+        .sidebar-left > h3 { display: none; }
+        .sidebar-left::before { display: none !important; }
+        .sidebar-left { border-top: none !important; }
+        </style>
 </head>
+
+<script>
+function refreshUnread() {
+    fetch('/messenger/unread_count').then(r=>r.json()).then(d=>{const b=document.getElementById('messengerBadge');if(b){b.textContent=d.count||'';b.style.display=d.count>0?'inline-block':'none';}}).catch(()=>{});
+}
+function refreshFriendsBadge() {
+    fetch('/friends/pending_count').then(r=>r.json()).then(d=>{const b=document.getElementById('friendsBadge');if(b){b.textContent=d.count||'';b.style.display=d.count>0?'inline-block':'none';}}).catch(()=>{});
+}
+refreshUnread(); refreshFriendsBadge();
+setInterval(refreshUnread, 5000); setInterval(refreshFriendsBadge, 10000);
+</script>
+
 <body>
-        <header>
+    <header>
         <div class="container">
             <div class="header-content">
-                <div class="logo">LinkA</div>
+                <a href="/home" class="logo" style="text-decoration:none;">LinkA</a>
                 <div class="user-menu-wrap">
-                    <button class="user-menu-btn" onclick="toggleUserMenu()" aria-label="Меню пользователя">
+                    <button class="user-menu-trigger" onclick="toggleUserMenu()" aria-label="Меню пользователя">
+                        <span class="user-menu-btn">
                         {% set _avatar = current_user_avatar() %}
                         {% if _avatar %}
-                            <img src="{{ url_for('static', filename='uploads/avatars/' + _avatar) }}"
-                                 onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';"
-                                 alt="Аватар">
-                            <i class="fas fa-user" style="display:none;"></i>
+                            <img src="{{ url_for('static', filename='uploads/avatars/' + _avatar) }}" onerror="this.src='/static/defaults/for_users.png';" alt="Аватар">
                         {% else %}
-                            <i class="fas fa-user"></i>
+                            <img src="/static/defaults/for_users.png" alt="Аватар">
                         {% endif %}
+                        </span>
+                        <span class="user-menu-arrow"><i class="fas fa-chevron-up"></i></span>
                     </button>
                     <div class="user-dropdown" id="userDropdown">
                         {% set _uinfo = current_user_info() %}
                         {% if _uinfo %}
-                        <a href="/profile" style="text-decoration:none;color:inherit;display:block;padding:0;">
-                            <div class="user-dropdown-header">
-                                <div class="uname">{{ _uinfo.full_name }}</div>
-                                <div class="ulogin">@{{ _uinfo.username }}</div>
-                            </div>
-                        </a>
+                        <div class="user-dropdown-header">
+                            <div class="uname">{{ _uinfo.full_name }}</div>
+                        </div>
                         {% endif %}
-                        <a href="/settings">
-                            <i class="fas fa-cog"></i> Настройки
-                        </a>
+                        <a href="/settings"><i class="fas fa-cog"></i> Настройки</a>
                         <div class="divider"></div>
-                        <a href="/logout" class="logout-item">
-                            <i class="fas fa-sign-out-alt"></i> Выйти
-                        </a>
+                        <a href="/logout" class="logout-item"><i class="fas fa-sign-out-alt"></i> Выйти</a>
                     </div>
                 </div>
             </div>
@@ -95,12 +78,14 @@
     <div class="container">
         <div class="main-content">
             <div class="sidebar-left">
-                <h3>Меню</h3>
                 <ul>
                     <li><a href="/profile"><i class="fas fa-user-circle"></i> Мой профиль</a></li>
-                    <li><a href="/friends"><i class="fas fa-users"></i> Друзья</a></li>
-                    <li><a href="/find_friends"><i class="fas fa-search"></i> Найти друзей</a></li>
-                    <li><a href="/my_posts"><i class="fas fa-newspaper"></i> Мои посты</a></li>
+                    <li>
+                        <a href="/friends">
+                            <i class="fas fa-users"></i> Друзья
+                            <span id="friendsBadge" style="display:none; background:#e53935; color:white; border-radius:10px; padding:1px 7px; font-size:11px; font-weight:700; margin-left:6px;"></span>
+                        </a>
+                    </li>
                     <li><a href="/groups"><i class="fas fa-layer-group"></i> Группы</a></li>
                     <li>
                         <a href="/messenger">
@@ -108,179 +93,293 @@
                             <span id="messengerBadge" style="display:none; background:#e53935; color:white; border-radius:10px; padding:1px 7px; font-size:11px; font-weight:700; margin-left:6px;"></span>
                         </a>
                     </li>
-                    <li><a href="/home"><i class="fas fa-home"></i> Главная</a></li>
                 </ul>
             </div>
 
             <div class="feed">
 
-                <!-- Входящие заявки -->
+                <!-- Вкладки -->
+                <div style="display:flex;border-bottom:2px solid var(--border-light);background:var(--bg-card);border-radius:var(--radius-lg) var(--radius-lg) 0 0;padding:0 16px;">
+                    <a href="/friends?tab=my" style="padding:14px 20px;font-weight:700;font-size:14px;text-decoration:none;border-bottom:2px solid {{ 'var(--amber-500)' if current_tab == 'my' else 'transparent' }};color:{{ 'var(--amber-600)' if current_tab == 'my' else 'var(--text-muted)' }};margin-bottom:-2px;">
+                        <i class="fas fa-users"></i> Мои друзья
+                        {% if friends %}<span style="background:var(--border-light);color:var(--text-muted);border-radius:10px;padding:1px 7px;font-size:11px;margin-left:4px;">{{ friends|length }}</span>{% endif %}
+                    </a>
+                    <a href="/friends?tab=find" style="padding:14px 20px;font-weight:700;font-size:14px;text-decoration:none;border-bottom:2px solid {{ 'var(--amber-500)' if current_tab == 'find' else 'transparent' }};color:{{ 'var(--amber-600)' if current_tab == 'find' else 'var(--text-muted)' }};margin-bottom:-2px;">
+                        <i class="fas fa-search"></i> Найти друзей
+                    </a>
+                    <a href="/friends?tab=requests" style="padding:14px 20px;font-weight:700;font-size:14px;text-decoration:none;border-bottom:2px solid {{ 'var(--amber-500)' if current_tab == 'requests' else 'transparent' }};color:{{ 'var(--amber-600)' if current_tab == 'requests' else 'var(--text-muted)' }};margin-bottom:-2px;">
+                        <i class="fas fa-user-clock"></i> Заявки
+                        {% if incoming_requests %}<span style="background:#e53935;color:white;border-radius:10px;padding:1px 7px;font-size:11px;margin-left:4px;">{{ incoming_requests|length }}</span>{% endif %}
+                    </a>
+                    <a href="/friends?tab=blacklist" style="padding:14px 20px;font-weight:700;font-size:14px;text-decoration:none;border-bottom:2px solid {{ 'var(--amber-500)' if current_tab == 'blacklist' else 'transparent' }};color:{{ 'var(--amber-600)' if current_tab == 'blacklist' else 'var(--text-muted)' }};margin-bottom:-2px;">
+                        <i class="fas fa-ban"></i> Чёрный список
+                    </a>
+                </div>
+
+                <!-- Поиск -->
+                {% if current_tab in ['my', 'find', 'blacklist', 'requests'] %}
+                <div class="card" style="padding:20px;">
+                    <form method="POST" action="/friends?tab={{ current_tab }}" style="display:flex;gap:8px;">
+                        <input type="text" name="search_query"
+                               placeholder="{% if current_tab == 'my' %}Поиск среди друзей...{% elif current_tab == 'blacklist' %}Поиск в чёрном списке...{% elif current_tab == 'requests' %}Поиск среди заявок...{% else %}Имя пользователя или ФИО...{% endif %}"
+                               value="{{ request.form.search_query if request.form else '' }}"
+                               class="form-control">
+                        <button type="submit" class="btn btn-primary"><i class="fas fa-search"></i> Искать</button>
+                    </form>
+                </div>
+                {% endif %}
+
+                <!-- МОИ ДРУЗЬЯ -->
+                {% if current_tab == 'my' %}
+
+                {% if current_tab == 'my' %}
+                {% set is_my_search = request.method == 'POST' and request.form.get('search_query') %}
+                {% if friends %}
+                    {% for friend in friends %}
+                    <div class="group-card" style="display:flex;gap:16px;align-items:center;min-height:100px;padding:16px;overflow:visible;position:relative;">
+                        <a href="/profile/{{ friend.id }}" style="flex-shrink:0;">
+                            <img src="{{ url_for('static', filename='uploads/avatars/' + (friend.avatar or 'default_avatar.png')) }}" style="width:80px;height:80px;border-radius:var(--radius-md);object-fit:cover;border:2px solid var(--amber-200);" onerror="this.src='/static/defaults/for_users.png'">
+                        </a>
+                        <div style="flex:1;min-width:0;overflow:visible;">
+                            <h2 style="margin:0 0 6px;font-size:16px;">
+                                <a href="/profile/{{ friend.id }}" style="color:var(--amber-600);font-weight:700;text-decoration:none;">{{ friend.full_name if friend.full_name else friend.username }}</a>
+                            </h2>
+                            <div style="font-size:13px;color:var(--text-muted);">@{{ friend.username }}</div>
+                        </div>
+                        <div class="friend-menu-wrap">
+                            <button class="friend-menu-btn" onclick="toggleFriendMenu(this)" type="button"><i class="fas fa-ellipsis-v"></i></button>
+                            <div class="friend-dropdown">
+                                <a href="/messenger/{{ friend.id }}"><i class="fas fa-comment"></i> Написать сообщение</a>
+                                <div class="dd-divider"></div>
+                                <a href="/remove_friend/{{ friend.id }}" onclick="return confirm('Удалить {{ friend.username }} из друзей?')"><i class="fas fa-user-minus"></i> Удалить из друзей</a>
+                                <div class="dd-divider"></div>
+                                <a href="/add_friend_to_blacklist/{{ friend.id }}" onclick="return confirm('Добавить {{ friend.username }} в чёрный список?')" class="danger"><i class="fas fa-ban"></i> Добавить в ЧС</a>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                {% elif is_my_search %}
+                <div class="card"><div class="empty-feed"><i class="fas fa-search fa-3x"></i><h3>Никого не найдено</h3><p>Среди ваших друзей нет пользователя с таким именем</p></div></div>
+                {% else %}
+                <div class="card"><div class="empty-feed"><i class="fas fa-user-friends fa-3x"></i><h3>У вас пока нет друзей</h3><p>Найдите новых друзей с помощью поиска!</p><a href="/friends?tab=find" class="btn btn-primary" style="margin-top:16px;"><i class="fas fa-search"></i> Найти друзей</a></div></div>
+                {% endif %}
+                {% endif %}
+
+                <!-- ЗАЯВКИ -->
+                {% elif current_tab == 'requests' %}
+
                 {% if incoming_requests %}
                 <div class="card">
                     <h3 style="font-family:var(--font-display);font-size:13px;text-transform:uppercase;letter-spacing:1px;color:var(--amber-600);margin-bottom:16px;">
                         <i class="fas fa-user-clock"></i> Входящие заявки ({{ incoming_requests|length }})
                     </h3>
-                    <div class="friends-list">
-                        {% for req in incoming_requests %}
-                        <div class="request-card">
-                            <img src="{{ url_for('static', filename='uploads/avatars/' + (req.avatar or 'default_avatar.png')) }}"
-                                 alt="Аватар"
-                                 style="width:48px;height:48px;border-radius:50%;object-fit:cover;border:2px solid var(--amber-300);flex-shrink:0;"
-                                 onerror="this.src='/static/defaults/for_users.png'">
-                            <div style="flex:1;">
-                                <div style="font-weight:700;font-size:14px;">
-                                    {{ req.full_name if req.full_name else req.username }}
-                                    <span class="request-pending">Новая заявка</span>
-                                </div>
-                                <div style="font-size:12px;color:var(--text-muted);">@{{ req.username }}</div>
-                                <div style="font-size:11px;color:var(--text-muted);margin-top:2px;">
-                                    Отправлено: {{ req.created_at[:10] if req.created_at else '' }}
-                                </div>
+                    {% for req in incoming_requests %}
+                    <div class="group-card" style="display:flex;gap:16px;align-items:center;min-height:100px;padding:16px;">
+                        <a href="/profile/{{ req.id }}" style="flex-shrink:0;">
+                            <img src="{{ url_for('static', filename='uploads/avatars/' + (req.avatar or 'default_avatar.png')) }}" style="width:80px;height:80px;border-radius:var(--radius-md);object-fit:cover;border:2px solid var(--amber-200);" onerror="this.src='/static/defaults/for_users.png'">
+                        </a>
+                        <div style="flex:1;min-width:0;">
+                            <div style="font-weight:700;font-size:16px;">
+                                <a href="/profile/{{ req.id }}" style="color:var(--amber-600);text-decoration:none;">{{ req.full_name if req.full_name else req.username }}</a>
                             </div>
-                            <div class="actions">
-                                <a href="/friend_action/{{ req.request_id }}/accept" class="btn btn-success btn-sm">
-                                    <i class="fas fa-check"></i> Принять
-                                </a>
-                                <a href="/friend_action/{{ req.request_id }}/reject" class="btn btn-danger btn-sm">
-                                    <i class="fas fa-times"></i> Отклонить
-                                </a>
-                            </div>
+                            <div style="font-size:13px;color:var(--text-muted);">@{{ req.username }}</div>
                         </div>
-                        {% endfor %}
+                        <div style="display:flex;flex-direction:column;gap:8px;flex-shrink:0;">
+                            <a href="/friend_action/{{ req.request_id }}/accept" class="btn btn-success btn-sm" style="width:120px;justify-content:center;"><i class="fas fa-check"></i> Принять</a>
+                            <a href="/friend_action/{{ req.request_id }}/reject" class="btn btn-danger btn-sm" style="width:120px;justify-content:center;"><i class="fas fa-times"></i> Отклонить</a>
+                        </div>
                     </div>
+                    {% endfor %}
                 </div>
                 {% endif %}
 
-                <!-- Исходящие заявки -->
                 {% if outgoing_requests %}
                 <div class="card">
-                    <h3 style="font-family:var(--font-display);font-size:13px;text-transform:uppercase;letter-spacing:1px;color:var(--text-muted);margin-bottom:16px;">
+                    <h3 style="font-family:var(--font-display);font-size:13px;text-transform:uppercase;letter-spacing:1px;color:var(--amber-600);margin-bottom:16px;">
                         <i class="fas fa-paper-plane"></i> Исходящие заявки ({{ outgoing_requests|length }})
                     </h3>
-                    <div class="friends-list">
-                        {% for req in outgoing_requests %}
-                        <div class="request-card">
-                            <img src="{{ url_for('static', filename='uploads/avatars/' + (req.avatar or 'default_avatar.png')) }}"
-                                 alt="Аватар"
-                                 style="width:48px;height:48px;border-radius:50%;object-fit:cover;border:2px solid var(--border-medium);flex-shrink:0;"
-                                 onerror="this.src='/static/defaults/for_users.png'">
-                            <div style="flex:1;">
-                                <div style="font-weight:700;font-size:14px;">
-                                    {{ req.full_name if req.full_name else req.username }}
-                                    <span class="request-pending">Ожидает ответа</span>
-                                </div>
-                                <div style="font-size:12px;color:var(--text-muted);">@{{ req.username }}</div>
+                    {% for req in outgoing_requests %}
+                    <div class="group-card" style="display:flex;gap:16px;align-items:center;min-height:100px;padding:16px;">
+                        <a href="/profile/{{ req.id }}" style="flex-shrink:0;">
+                            <img src="{{ url_for('static', filename='uploads/avatars/' + (req.avatar or 'default_avatar.png')) }}" style="width:80px;height:80px;border-radius:var(--radius-md);object-fit:cover;border:2px solid var(--amber-200);" onerror="this.src='/static/defaults/for_users.png'">
+                        </a>
+                        <div style="flex:1;min-width:0;">
+                            <div style="font-weight:700;font-size:16px;">
+                                <a href="/profile/{{ req.id }}" style="color:var(--amber-600);text-decoration:none;">{{ req.full_name if req.full_name else req.username }}</a>
                             </div>
-                            <div class="actions">
-                                <a href="/friend_action/{{ req.request_id }}/cancel" class="btn btn-secondary btn-sm">
-                                    <i class="fas fa-ban"></i> Отменить
-                                </a>
-                            </div>
+                            <div style="font-size:13px;color:var(--text-muted);">@{{ req.username }}</div>
                         </div>
-                        {% endfor %}
+                        <div style="flex-shrink:0;">
+                            <a href="/friend_action/{{ req.request_id }}/cancel" class="btn btn-secondary btn-sm" style="width:120px;justify-content:center;"><i class="fas fa-ban"></i> Отменить</a>
+                        </div>
                     </div>
+                    {% endfor %}
                 </div>
                 {% endif %}
 
-                <!-- Список друзей -->
-                <div class="card">
-                    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
-                        <h3 style="font-family:var(--font-display);font-size:13px;text-transform:uppercase;letter-spacing:1px;color:var(--amber-600);margin:0;">
-                            <i class="fas fa-users"></i> Мои друзья ({{ friends|length }})
-                        </h3>
-                        <a href="/find_friends" class="btn btn-primary btn-sm">
-                            <i class="fas fa-search"></i> Найти друзей
-                        </a>
-                    </div>
+                {% if not incoming_requests and not outgoing_requests %}
+                <div class="card"><div class="empty-feed"><i class="fas fa-user-clock fa-3x"></i><h3>Заявок нет</h3><p>Входящих и исходящих заявок в друзья нет</p></div></div>
+                {% endif %}
 
-                    {% if friends %}
-                    <div class="friends-list">
-                        {% for friend in friends %}
-                        <div class="request-card" style="border-color:var(--border-light);background:var(--bg-card);">
-                            <img src="{{ url_for('static', filename='uploads/avatars/' + (friend.avatar or 'default_avatar.png')) }}"
-                                 alt="Аватар"
-                                 style="width:48px;height:48px;border-radius:50%;object-fit:cover;border:2px solid var(--amber-200);flex-shrink:0;"
-                                 onerror="this.src='/static/defaults/for_users.png'">
-                            <div style="flex:1;">
-                                <div style="font-weight:700;font-size:14px;">
-                                    {{ friend.full_name if friend.full_name else friend.username }}
-                                    <span class="badge badge-success" style="font-size:10px;">Друг</span>
-                                </div>
-                                <div style="font-size:12px;color:var(--text-muted);">@{{ friend.username }}</div>
-                            </div>
-                            <div class="actions" style="flex-wrap:wrap;justify-content:flex-end;">
-                                <a href="/add_friend_to_blacklist/{{ friend.id }}"
-                                   onclick="return confirm('Добавить {{ friend.username }} в чёрный список?')"
-                                   class="btn btn-warning btn-sm"
-                                   data-tooltip="В чёрный список">
-                                    <i class="fas fa-ban"></i>
-                                </a>
-                                <a href="/report_friend/{{ friend.id }}"
-                                   class="btn btn-danger btn-sm"
-                                   data-tooltip="Пожаловаться">
-                                    <i class="fas fa-flag"></i>
-                                </a>
-                                <a href="/remove_friend/{{ friend.id }}"
-                                   onclick="return confirm('Удалить {{ friend.username }} из друзей?')"
-                                   class="btn btn-secondary btn-sm"
-                                   data-tooltip="Удалить из друзей">
-                                    <i class="fas fa-user-minus"></i>
-                                </a>
-                            </div>
-                        </div>
-                        {% endfor %}
-                    </div>
-                    {% else %}
-                    <div class="empty-state">
-                        <i class="fas fa-user-friends fa-3x"></i>
-                        <h3 style="margin:16px 0 8px;color:var(--text-primary);">У вас пока нет друзей</h3>
-                        <p>Найдите новых друзей с помощью поиска!</p>
-                        <a href="/find_friends" class="btn btn-primary" style="margin-top:16px;">
-                            <i class="fas fa-search"></i> Найти друзей
+                <!-- НАЙТИ ДРУЗЕЙ -->
+                {% elif current_tab == 'find' %}
+
+                {% if search_results %}
+                <div class="card">
+                    <h3 style="font-family:var(--font-display);font-size:13px;text-transform:uppercase;letter-spacing:1px;color:var(--amber-600);margin-bottom:16px;">Найдено: {{ search_results|length }}</h3>
+                    {% for user in search_results %}
+                    <div class="group-card" style="display:flex;gap:16px;align-items:center;min-height:100px;padding:16px;">
+                        <a href="/profile/{{ user.id }}" style="flex-shrink:0;">
+                            <img src="{{ url_for('static', filename='uploads/avatars/' + (user.avatar or 'default_avatar.png')) }}" style="width:80px;height:80px;border-radius:var(--radius-md);object-fit:cover;border:2px solid var(--amber-200);" onerror="this.src='/static/defaults/for_users.png'">
                         </a>
+                        <div style="flex:1;min-width:0;">
+                            <div style="font-weight:700;font-size:16px;">
+                                <a href="/profile/{{ user.id }}" style="color:var(--amber-600);text-decoration:none;">{{ user.full_name if user.full_name else user.username }}</a>
+                                {% if user.friend_status == 'pending' %}<span class="request-pending" style="font-size:11px;margin-left:6px;">Заявка отправлена</span>
+                                {% elif user.friend_status == 'accepted' %}<span class="badge badge-success" style="font-size:10px;margin-left:6px;">В друзьях</span>{% endif %}
+                            </div>
+                            <div style="font-size:13px;color:var(--text-muted);">@{{ user.username }}</div>
+                        </div>
+                        <div style="flex-shrink:0;width:130px;">
+                            {% if not user.friend_status %}
+                                <form method="POST" action="{{ url_for('add_friend', friend_id=user.id) }}">
+                                    <button type="submit" class="btn btn-primary btn-sm" style="width:100%;justify-content:center;"><i class="fas fa-user-plus"></i> Добавить</button>
+                                </form>
+                            {% elif user.friend_status == 'pending' %}
+                                <button class="btn btn-secondary btn-sm" style="width:100%;justify-content:center;" disabled><i class="fas fa-clock"></i> Ожидает</button>
+                            {% elif user.friend_status == 'accepted' %}
+                                <button class="btn btn-secondary btn-sm" style="width:100%;justify-content:center;" disabled><i class="fas fa-check"></i> В друзьях</button>
+                            {% endif %}
+                        </div>
                     </div>
-                    {% endif %}
+                    {% endfor %}
                 </div>
+                {% elif request.method == 'POST' %}
+                <div class="card"><div class="empty-feed"><i class="fas fa-search fa-3x"></i><h3>Пользователи не найдены</h3><p>Попробуйте изменить поисковый запрос</p></div></div>
+                {% else %}
+                {% if suggested_users %}
+                <div class="card">
+                    <h3 style="font-family:var(--font-display);font-size:13px;text-transform:uppercase;letter-spacing:1px;color:var(--amber-600);margin-bottom:16px;">
+                        <i class="fas fa-star"></i> Возможно вы знакомы
+                    </h3>
+                    {% for user in suggested_users %}
+                    <div class="group-card" style="display:flex;gap:16px;align-items:center;min-height:100px;padding:16px;">
+                        <a href="/profile/{{ user.id }}" style="flex-shrink:0;">
+                            <img src="{{ url_for('static', filename='uploads/avatars/' + (user.avatar or 'default_avatar.png')) }}" style="width:80px;height:80px;border-radius:var(--radius-md);object-fit:cover;border:2px solid var(--amber-200);" onerror="this.src='/static/defaults/for_users.png'">
+                        </a>
+                        <div style="flex:1;min-width:0;">
+                            <div style="font-weight:700;font-size:16px;">
+                                <a href="/profile/{{ user.id }}" style="color:var(--amber-600);text-decoration:none;">{{ user.full_name if user.full_name else user.username }}</a>
+                                {% if user.friend_status == 'pending' %}<span class="request-pending" style="font-size:11px;margin-left:6px;">Заявка отправлена</span>
+                                {% elif user.friend_status == 'accepted' %}<span class="badge badge-success" style="font-size:10px;margin-left:6px;">В друзьях</span>{% endif %}
+                            </div>
+                            <div style="font-size:13px;color:var(--text-muted);">@{{ user.username }}</div>
+                        </div>
+                        <div style="flex-shrink:0;width:130px;">
+                            {% if not user.friend_status %}
+                                <form method="POST" action="{{ url_for('add_friend', friend_id=user.id) }}">
+                                    <button type="submit" class="btn btn-primary btn-sm" style="width:100%;justify-content:center;"><i class="fas fa-user-plus"></i> Добавить</button>
+                                </form>
+                            {% elif user.friend_status == 'pending' %}
+                                <button class="btn btn-secondary btn-sm" style="width:100%;justify-content:center;" disabled><i class="fas fa-clock"></i> Ожидает</button>
+                            {% elif user.friend_status == 'accepted' %}
+                                <button class="btn btn-secondary btn-sm" style="width:100%;justify-content:center;" disabled><i class="fas fa-check"></i> В друзьях</button>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <div class="card"><div class="empty-feed"><i class="fas fa-user-friends fa-3x"></i><h3>Найдите новых друзей!</h3><p>Введите имя пользователя или ФИО в поле поиска выше</p></div></div>
+                {% endif %}
+                {% endif %}
+
+                <!-- ЧЁРНЫЙ СПИСОК -->
+                {% elif current_tab == 'blacklist' %}
+
+                {% set is_bl_search = request.method == 'POST' and request.form.get('search_query') %}
+                {% if blacklisted_users %}
+                    {% for user in blacklisted_users %}
+                    <div class="group-card" style="display:flex;gap:16px;align-items:center;min-height:100px;padding:16px;overflow:visible;position:relative;">
+                        <a href="/profile/{{ user.id }}" style="flex-shrink:0;">
+                            <img src="{{ url_for('static', filename='uploads/avatars/' + (user.avatar or 'default_avatar.png')) }}" style="width:80px;height:80px;border-radius:var(--radius-md);object-fit:cover;border:2px solid var(--amber-200);" onerror="this.src='/static/defaults/for_users.png'">
+                        </a>
+                        <div style="flex:1;min-width:0;overflow:visible;">
+                            <h2 style="margin:0 0 6px;font-size:16px;">
+                                <a href="/profile/{{ user.id }}" style="color:var(--amber-600);font-weight:700;text-decoration:none;">{{ user.full_name if user.full_name else user.username }}</a>
+                                <span class="badge badge-danger" style="font-size:10px;margin-left:6px;">В ЧС</span>
+                            </h2>
+                            <div style="font-size:13px;color:var(--text-muted);">@{{ user.username }}</div>
+                        </div>
+                        <div style="flex-shrink:0;">
+                            <a href="/remove_from_blacklist/{{ user.id }}"
+                               onclick="return confirm('Удалить {{ user.username }} из чёрного списка?')"
+                               class="btn btn-success btn-sm" style="width:140px;justify-content:center;">
+                                <i class="fas fa-unlock"></i> Разблокировать
+                            </a>
+                        </div>
+                    </div>
+                    {% endfor %}
+                    <div class="card" style="margin-top:12px;">
+                        <div style="display:flex;align-items:flex-start;gap:10px;color:var(--text-muted);font-size:13px;">
+                            <i class="fas fa-info-circle" style="margin-top:2px;flex-shrink:0;color:var(--amber-500);"></i>
+                            <span>Пользователи из чёрного списка не могут отправлять вам заявки в друзья и видеть вас в поиске. Разблокировать можно в любой момент.</span>
+                        </div>
+                    </div>
+                {% elif is_bl_search %}
+                <div class="card"><div class="empty-feed"><i class="fas fa-search fa-3x"></i><h3>Никого не найдено</h3><p>В вашем чёрном списке нет пользователя с таким именем</p></div></div>
+                {% else %}
+                <div class="card"><div class="empty-feed"><i class="fas fa-shield-alt fa-3x"></i><h3>Чёрный список пуст</h3><p>Вы ещё не заблокировали ни одного пользователя.</p></div></div>
+                {% endif %}
+
+                {% endif %}
 
             </div>
         </div>
     </div>
 
-    <!-- Футер -->
-    <footer style="
-        margin-top:auto; padding:20px 24px;
-        border-top:1px solid var(--border-light);
-        background:var(--bg-card);
-        text-align:center;
-        font-size:13px;
-        color:var(--text-muted);">
+    <footer style="margin-top:auto; padding:20px 24px; border-top:1px solid var(--border-light); background:var(--bg-card); text-align:center; font-size:13px; color:var(--text-muted);">
         <div style="max-width:1200px; margin:0 auto; display:flex; align-items:center; justify-content:center; gap:20px; flex-wrap:wrap;">
-            <span style="font-family:var(--font-display);font-size:13px;background:var(--accent-gradient);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;">LinkA</span>
+            <a href="/faq" style="color:var(--text-muted);font-weight:600;" onmouseover="this.style.color='var(--amber-600)'" onmouseout="this.style.color='var(--text-muted)'"><i class="fas fa-question-circle"></i> FAQ</a>
             <span style="color:var(--border-medium);">·</span>
-            <a href="/faq" style="color:var(--text-muted);font-weight:600;transition:color 0.2s;" onmouseover="this.style.color='var(--amber-600)'" onmouseout="this.style.color='var(--text-muted)'">
-                <i class="fas fa-question-circle"></i> FAQ
-            </a>
+            <a href="/terms" style="color:var(--text-muted);font-weight:600;" onmouseover="this.style.color='var(--amber-600)'" onmouseout="this.style.color='var(--text-muted)'"><i class="fas fa-file-alt"></i> Соглашение</a>
             <span style="color:var(--border-medium);">·</span>
-            <a href="/terms" style="color:var(--text-muted);font-weight:600;transition:color 0.2s;" onmouseover="this.style.color='var(--amber-600)'" onmouseout="this.style.color='var(--text-muted)'">
-                <i class="fas fa-file-alt"></i> Соглашение
-            </a>
-            <span style="color:var(--border-medium);">·</span>
-            <span>© 2025 LinkA</span>
+            <span>© 2026 LinkA</span>
         </div>
     </footer>
-</body>
 
     <script>
         function toggleUserMenu() {
-            document.getElementById('userDropdown').classList.toggle('open');
+            const dd = document.getElementById('userDropdown');
+            const wrap = document.querySelector('.user-menu-wrap');
+            dd.classList.toggle('open');
+            wrap.classList.toggle('open');
         }
         document.addEventListener('click', function(e) {
             const wrap = document.querySelector('.user-menu-wrap');
-            if (wrap && !wrap.contains(e.target)) {
-                const dd = document.getElementById('userDropdown');
-                if (dd) dd.classList.remove('open');
-            }
+            if (wrap && !wrap.contains(e.target)) { const dd = document.getElementById('userDropdown'); if (dd) dd.classList.remove('open');
+                wrap.classList.remove('open'); }
+            if (!e.target.closest('.friend-menu-wrap')) { document.querySelectorAll('.friend-dropdown.open').forEach(d => d.classList.remove('open')); }
         });
+        function toggleFriendMenu(btn) {
+            const dropdown = btn.nextElementSibling;
+            const isOpen = dropdown.classList.contains('open');
+            document.querySelectorAll('.friend-dropdown.open').forEach(d => d.classList.remove('open'));
+            if (!isOpen) dropdown.classList.add('open');
+        }
     </script>
+
+    <!-- Уведомления о принятых заявках -->
+    <div id="notif-container" style="position:fixed;bottom:24px;right:24px;z-index:9999;display:flex;flex-direction:column;gap:10px;"></div>
+    <style>
+        .friend-notif { background:var(--bg-card); border:1px solid var(--border-light); border-radius:var(--radius-lg); box-shadow:0 4px 20px rgba(0,0,0,0.15); padding:14px 16px; display:flex; align-items:center; gap:12px; min-width:280px; max-width:340px; animation:notifIn 0.3s ease; }
+        @keyframes notifIn { from { opacity:0; transform:translateY(20px); } to { opacity:1; transform:translateY(0); } }
+        .friend-notif img { width:42px; height:42px; border-radius:var(--radius-md); object-fit:cover; border:2px solid var(--amber-200); flex-shrink:0; }
+        .friend-notif-text { flex:1; font-size:13px; color:var(--text-primary); line-height:1.4; }
+        .friend-notif-text strong { color:var(--amber-600); }
+        .friend-notif-link { font-size:12px; font-weight:700; color:var(--amber-600); text-decoration:none; white-space:nowrap; }
+        .friend-notif-link:hover { text-decoration:underline; }
+    </style>
+    <script src="{{ url_for('static', filename='defaults/notifications.js') }}"></script>
 </body>
 </html>

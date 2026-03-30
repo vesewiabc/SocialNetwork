@@ -15,8 +15,9 @@
             border-radius: var(--radius-lg);
             border: 1px solid var(--border-light);
             overflow: hidden;
-            height: calc(100vh - 140px);
-            min-height: 500px;
+            height: calc(100vh - 60px - 24px - 16px - 68px);
+            min-height: 400px;
+            width: 100%;
         }
         .msg-sidebar {
             width: 280px;
@@ -28,7 +29,7 @@
             flex-shrink: 0;
         }
         .msg-sidebar-header {
-            padding: 16px;
+            padding: 16px 14px;
             border-bottom: 1px solid var(--border-light);
             font-family: var(--font-display);
             font-size: 13px;
@@ -37,7 +38,7 @@
             color: var(--amber-600);
         }
         .msg-search {
-            padding: 10px 12px;
+            padding: 14.5px 14px;
             border-bottom: 1px solid var(--border-light);
         }
         .msg-search input {
@@ -57,6 +58,7 @@
             align-items: center;
             gap: 10px;
             padding: 12px 14px;
+            padding-right: 44px;
             cursor: pointer;
             border-bottom: 1px solid var(--border-light);
             text-decoration: none;
@@ -65,26 +67,96 @@
             position: relative;
         }
         .conv-item:hover { background: #fffbeb; }
-        .conv-item.active { background: #fffbeb; border-left: 3px solid var(--amber-500); }
-        .conv-delete-btn {
+        .conv-item.active { background: #fffbeb; border-left: 3px solid var(--amber-500); padding-left: 11px; }
+
+        /* 3-точечное меню у диалога — стиль как у друзей */
+        .conv-item-menu {
             display: none;
             position: absolute;
             right: 8px;
             top: 50%;
             transform: translateY(-50%);
-            background: none;
-            border: none;
-            color: #dc2626;
-            cursor: pointer;
-            font-size: 13px;
-            padding: 4px 6px;
-            border-radius: 50%;
-            line-height: 1;
-            z-index: 10;
-            transition: background 0.15s;
+            z-index: 20;
         }
-        .conv-delete-btn:hover { background: #fee2e2; }
-        .conv-item:hover .conv-delete-btn { display: flex; align-items: center; justify-content: center; }
+        .conv-item-wrap:hover .conv-item-menu { display: block; }
+        .conv-menu-btn {
+            width: 30px; height: 30px;
+            border-radius: var(--radius-md);
+            border: 1px solid var(--border-light);
+            background: var(--bg-card);
+            color: var(--text-muted);
+            cursor: pointer;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 14px;
+            transition: background 0.15s, color 0.15s;
+        }
+        .conv-menu-btn:hover { background: var(--amber-50); color: var(--text-primary); }
+        .conv-dropdown {
+            display: none;
+            position: absolute;
+            right: 0; top: calc(100% + 4px);
+            background: var(--bg-card);
+            border: 1px solid var(--border-light);
+            border-radius: var(--radius-md);
+            box-shadow: 0 4px 16px rgba(0,0,0,0.12);
+            min-width: 160px;
+            z-index: 300;
+        }
+        .conv-dropdown.open { display: block; }
+        .conv-dropdown button {
+            display: flex; align-items: center; gap: 10px;
+            padding: 10px 14px; width: 100%;
+            background: none; border: none;
+            font-size: 13px; font-weight: 600;
+            color: var(--text-secondary); cursor: pointer;
+            font-family: var(--font-body);
+            transition: background 0.12s;
+            text-align: left;
+        }
+        .conv-dropdown button:hover { background: var(--amber-50); }
+        .conv-dropdown button.danger { color: #e53935; }
+        .conv-dropdown button.danger:hover { background: #fff0f0; }
+
+        /* Кнопка 3 точки в шапке чата — стиль как у друзей */
+        .chat-menu-btn {
+            width: 36px; height: 36px;
+            border-radius: var(--radius-md);
+            border: 1px solid var(--border-light);
+            background: var(--bg-card);
+            color: var(--text-muted);
+            cursor: pointer;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 16px;
+            transition: background 0.15s, color 0.15s;
+            flex-shrink: 0;
+        }
+        .chat-menu-btn:hover { background: var(--amber-50); color: var(--text-primary); }
+
+        /* Шапка чата — блочная, чтобы линия шла на всю ширину */
+        .chat-header {
+            display: block;
+            width: 100%;
+            border-bottom: 1px solid var(--border-light);
+            padding: 16px 14px;
+            background: var(--bg-card);
+            flex-shrink: 0;
+        }
+        .chat-header-inner {
+            display: flex;
+            align-items: center;
+            width: 100%;
+            padding: 0;
+        }
+        .chat-header-inner > a {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex: 1;
+            min-width: 0;
+            text-decoration: none;
+        }
+        #chatMenuWrap {
+        }
         .conv-avatar {
             width: 42px; height: 42px;
             border-radius: 50%;
@@ -129,29 +201,7 @@
             color: var(--text-muted);
             font-size: 13px;
         }
-        .new-chat-block {
-            padding: 12px;
-            border-top: 1px solid var(--border-light);
-            background: var(--bg-card);
-        }
-        .new-chat-block p {
-            font-size: 11px;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            color: var(--text-muted);
-            margin-bottom: 6px;
-        }
-        .new-chat-block input {
-            width: 100%;
-            padding: 7px 12px;
-            border: 1px solid var(--border-medium);
-            border-radius: var(--radius-full);
-            font-size: 13px;
-            outline: none;
-            background: var(--bg-main);
-        }
-        .new-chat-block input:focus { border-color: var(--amber-400); }
-        .user-search-results { margin-top: 6px; max-height: 130px; overflow-y: auto; }
+        .user-search-results { margin-top: 6px; max-height: 180px; overflow-y: auto; }
         .user-search-item {
             display: flex; align-items: center; gap: 8px;
             padding: 6px 8px; border-radius: var(--radius-md);
@@ -175,22 +225,11 @@
             flex-direction: column;
             overflow: hidden;
             background: var(--bg-card);
-        }
-        .chat-header {
-            padding: 10px 16px;
-            border-bottom: 1px solid var(--border-light);
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            background: var(--bg-card);
-            flex-shrink: 0;
-            flex-wrap: wrap;
-            min-width: 0;
+            width: 100%;
         }
         .chat-header-info {
             flex: 1;
             min-width: 0;
-            overflow: hidden;
         }
         .chat-header-avatar {
             width: 40px; height: 40px;
@@ -208,11 +247,19 @@
         .chat-header-name { font-size: 15px; font-weight: 700; color: var(--text-primary); }
         .chat-header-sub { font-size: 12px; color: var(--text-muted); }
         .chat-header-link {
-            margin-left: auto;
-            color: var(--amber-600);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex: 1 1 auto;
+            min-width: 0;
             text-decoration: none;
-            font-size: 13px;
-            font-weight: 600;
+        }
+        .chat-header-info {
+            flex: 1;
+            min-width: 0;
+        }
+        chat-panel {
+            width: 100%;
         }
         .chat-header-link:hover { text-decoration: underline; }
         .chat-messages {
@@ -325,6 +372,12 @@
         .send-btn:active { transform: scale(0.95); }
         .send-btn i { color: white; font-size: 16px; }
     </style>
+
+        <style>
+        .sidebar-left > h3 { display: none; }
+        .sidebar-left::before { display: none !important; }
+        .sidebar-left { border-top: none !important; }
+        </style>
 </head>
 
 <script>
@@ -347,19 +400,27 @@ setInterval(refreshUnread, 5000);
     <header>
         <div class="container">
             <div class="header-content">
-                <div class="logo">LinkA</div>
+                <a href="/home" class="logo" style="text-decoration:none;">LinkA</a>
                 <div class="user-menu-wrap">
-                    <button class="user-menu-btn" onclick="toggleUserMenu()" aria-label="Меню пользователя">
+                    <button class="user-menu-trigger" onclick="toggleUserMenu()" aria-label="Меню пользователя">
+                        <span class="user-menu-btn">
                         {% set _avatar = current_user_avatar() %}
                         {% if _avatar %}
                             <img src="{{ url_for('static', filename='uploads/avatars/' + _avatar) }}"
-                                 onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';" alt="Аватар">
-                            <i class="fas fa-user" style="display:none;"></i>
+                                 onerror="this.src='/static/defaults/for_users.png';" alt="Аватар">
                         {% else %}
-                            <i class="fas fa-user"></i>
+                            <img src="/static/defaults/for_users.png" alt="Аватар">
                         {% endif %}
+                        </span>
+                        <span class="user-menu-arrow"><i class="fas fa-chevron-up"></i></span>
                     </button>
                     <div class="user-dropdown" id="userDropdown">
+{% set _uinfo = current_user_info() %}
+                        {% if _uinfo %}
+                        <div class="user-dropdown-header">
+                            <div class="uname">{{ _uinfo.full_name }}</div>
+                        </div>
+                        {% endif %}
                         <a href="/settings"><i class="fas fa-cog"></i> Настройки</a>
                         <div class="divider"></div>
                         <a href="/logout" class="logout-item"><i class="fas fa-sign-out-alt"></i> Выйти</a>
@@ -370,15 +431,17 @@ setInterval(refreshUnread, 5000);
     </header>
 
     <div class="container">
-        <div class="main-content">
+        <div class="main-content" style="padding-bottom:0;margin-bottom:0;grid-template-columns:280px 1fr;">
 
             <div class="sidebar-left">
-                <h3>Меню</h3>
                 <ul>
                     <li><a href="/profile"><i class="fas fa-user-circle"></i> Мой профиль</a></li>
-                    <li><a href="/friends"><i class="fas fa-users"></i> Друзья</a></li>
-                    <li><a href="/find_friends"><i class="fas fa-search"></i> Найти друзей</a></li>
-                    <li><a href="/my_posts"><i class="fas fa-newspaper"></i> Мои посты</a></li>
+                    <li>
+                        <a href="/friends">
+                            <i class="fas fa-users"></i> Друзья
+                            <span id="friendsBadge" style="display:none; background:#e53935; color:white; border-radius:10px; padding:1px 7px; font-size:11px; font-weight:700; margin-left:6px;"></span>
+                        </a>
+                    </li>
                     <li><a href="/groups"><i class="fas fa-layer-group"></i> Группы</a></li>
                     <li>
                         <a href="/messenger">
@@ -386,12 +449,11 @@ setInterval(refreshUnread, 5000);
                             <span id="messengerBadge" style="display:none; background:#e53935; color:white; border-radius:10px; padding:1px 7px; font-size:11px; font-weight:700; margin-left:6px;"></span>
                         </a>
                     </li>
-                    <li><a href="/home"><i class="fas fa-home"></i> Главная</a></li>
                 </ul>
             </div>
 
-            <div class="feed" style="padding:0; overflow:hidden;">
-                <div class="messenger-container">
+            <div class="feed" style="padding:0; overflow:hidden; min-width:0;">
+                <div class="messenger-container" style="margin-bottom:0;">
 
                     <div class="msg-sidebar">
                         <div class="msg-sidebar-header">
@@ -402,13 +464,14 @@ setInterval(refreshUnread, 5000);
                         </div>
 
                         <div class="msg-search">
-                            <input type="text" id="convSearch" placeholder="Поиск диалогов...">
+                            <input type="text" id="convSearch" placeholder="Поиск диалогов и пользователей...">
                         </div>
+                        <div class="user-search-results" id="userSearchResults" style="padding:0 4px;"></div>
 
                         <div class="conv-list" id="convList">
                             {% if conversations %}
                                 {% for conv in conversations %}
-                                <div class="conv-item-wrap">
+                                <div class="conv-item-wrap" style="position:relative;">
                                 <a href="/messenger/{{ conv.partner_id }}"
                                    class="conv-item {% if active_conv == conv.conv_id %}active{% endif %}"
                                    data-name="{{ conv.partner_name|lower }}"
@@ -416,24 +479,31 @@ setInterval(refreshUnread, 5000);
                                     {% if conv.partner_avatar and conv.partner_avatar != 'default_avatar.png' %}
                                         <img src="/static/uploads/avatars/{{ conv.partner_avatar }}" class="conv-avatar" alt="">
                                     {% else %}
-                                        <div class="conv-avatar-placeholder">{{ conv.partner_name[0]|upper }}</div>
+                                        <img src="/static/defaults/for_users.png" class="conv-avatar" alt="">
                                     {% endif %}
                                     <div class="conv-info">
                                         <div class="conv-name">{{ conv.partner_name }}</div>
                                         <div class="conv-last">{{ conv.last_message or 'Нет сообщений' }}</div>
                                     </div>
                                     {% if conv.unread_count > 0 %}
-                                        <span class="conv-badge" style="margin-right:24px;">{{ conv.unread_count }}</span>
+                                        <span class="conv-badge">{{ conv.unread_count }}</span>
                                     {% endif %}
-                                    <button class="conv-delete-btn" title="Удалить чат"
-                                        onclick="deleteConv(event, {{ conv.partner_id }})">
-                                        <i class="fas fa-times"></i>
-                                    </button>
                                 </a>
-                                <button class="conv-delete-btn" title="Удалить чат"
-                                    onclick="deleteChat(event, {{ conv.partner_id }})">
-                                    <i class="fas fa-trash"></i>
-                                </button>
+                                <div class="conv-item-menu">
+                                    <button class="conv-menu-btn" type="button"
+                                        onclick="toggleConvMenu(event, {{ conv.partner_id }})" title="Действия">
+                                        <i class="fas fa-ellipsis-v"></i>
+                                    </button>
+                                    <div class="conv-dropdown" id="convMenu_{{ conv.partner_id }}">
+                                        <button onclick="clearConvHistory(event, {{ conv.partner_id }})">
+                                            <i class="fas fa-trash-alt"></i> Очистить
+                                        </button>
+                                        <div style="height:1px;background:var(--border-light);margin:4px 0;"></div>
+                                        <button onclick="blockConvUser(event, {{ conv.partner_id }})" class="danger">
+                                            <i class="fas fa-ban"></i> Заблокировать
+                                        </button>
+                                    </div>
+                                </div>
                                 </div>
                                 {% endfor %}
                             {% else %}
@@ -465,58 +535,69 @@ setInterval(refreshUnread, 5000);
                         </div>
                         {% endif %}
 
-                        <div class="new-chat-block">
-                            <p>Новый диалог:</p>
-                            <input type="text" id="userSearchInput" placeholder="Найти пользователя...">
-                            <div class="user-search-results" id="userSearchResults"></div>
-                        </div>
+
                     </div>
 
                     <div class="chat-panel">
                         {% if partner %}
                         <div class="chat-header">
-                            {% if partner.avatar and partner.avatar != 'default_avatar.png' %}
-                                <img src="/static/uploads/avatars/{{ partner.avatar }}" class="chat-header-avatar" alt="">
-                            {% else %}
-                                <div class="chat-header-placeholder">{{ (partner.full_name or partner.username)[0]|upper }}</div>
-                            {% endif %}
-                            <div class="chat-header-info">
-                                <div class="chat-header-name">
-                                    {{ partner.full_name or partner.username }}
+                          <div class="chat-header-inner">
+                            <a href="/profile/{{ partner.id }}" class="chat-header-link">
+                                {% if partner.avatar and partner.avatar != 'default_avatar.png' %}
+                                    <img src="/static/uploads/avatars/{{ partner.avatar }}" class="chat-header-avatar" alt="">
+                                {% else %}
+                                    <img src="/static/defaults/for_users.png" class="chat-header-avatar" alt="">
+                                {% endif %}
+                                <div class="chat-header-info">
+                                    <div class="chat-header-name">
+                                        {{ partner.full_name or partner.username }}
+                                        {% if is_blocked_by_me %}
+                                            <span style="font-size:11px;font-weight:600;color:#dc2626;background:#fee2e2;padding:2px 7px;border-radius:10px;margin-left:6px;vertical-align:middle;">
+                                                <i class="fas fa-ban"></i> Заблокирован
+                                            </span>
+                                        {% elif is_blocked_by_them %}
+                                            <span style="font-size:11px;font-weight:600;color:#dc2626;background:#fee2e2;padding:2px 7px;border-radius:10px;margin-left:6px;vertical-align:middle;">
+                                                <i class="fas fa-ban"></i> Заблокирован
+                                            </span>
+                                        {% endif %}
+                                    </div>
+                                    <div class="chat-header-sub">@{{ partner.username }}</div>
+                                </div>
+                            </a>
+                            <div style="position:relative;" id="chatMenuWrap">
+                                <button onclick="toggleChatMenu()" title="Действия" class="chat-menu-btn">
+                                    <i class="fas fa-ellipsis-v"></i>
+                                </button>
+                                <div id="chatMenuDropdown" style="display:none;position:absolute;top:calc(100% + 8px);right:0;background:var(--bg-card);border:1px solid var(--border-light);border-radius:var(--radius-lg);box-shadow:var(--shadow-lg);min-width:180px;z-index:300;animation:dropIn 0.18s ease;">
+                                    <button onclick="clearHistory();closeChatMenu();"
+                                        style="display:flex;align-items:center;gap:10px;width:100%;padding:10px 16px;background:none;border:none;font-size:14px;font-weight:600;color:var(--text-primary);cursor:pointer;font-family:var(--font-body);transition:background 0.15s;text-align:left;"
+                                        onmouseover="this.style.background='var(--amber-50)'"
+                                        onmouseout="this.style.background='none'">
+                                        <i class="fas fa-trash-alt" style="width:18px;text-align:center;color:var(--amber-500);"></i> Очистить
+                                    </button>
+                                    <div style="height:1px;background:var(--border-light);margin:4px 0;"></div>
                                     {% if is_blocked_by_me %}
-                                        <span style="font-size:11px;font-weight:600;color:#dc2626;background:#fee2e2;padding:2px 7px;border-radius:10px;margin-left:6px;vertical-align:middle;">
-                                            <i class="fas fa-ban"></i> Заблокирован
-                                        </span>
-                                    {% elif is_blocked_by_them %}
-                                        <span style="font-size:11px;font-weight:600;color:#dc2626;background:#fee2e2;padding:2px 7px;border-radius:10px;margin-left:6px;vertical-align:middle;">
-                                            <i class="fas fa-ban"></i> Заблокирован
-                                        </span>
+                                    <button onclick="unblockUser();closeChatMenu();"
+                                        style="display:flex;align-items:center;gap:10px;width:100%;padding:10px 16px;background:none;border:none;font-size:14px;font-weight:600;color:#dc2626;cursor:pointer;font-family:var(--font-body);transition:background 0.15s;text-align:left;"
+                                        onmouseover="this.style.background='#fef2f2'"
+                                        onmouseout="this.style.background='none'">
+                                        <i class="fas fa-unlock" style="width:18px;text-align:center;color:#ef4444;"></i> Разблокировать
+                                    </button>
+                                    {% else %}
+                                    <button onclick="blockUser();closeChatMenu();"
+                                        style="display:flex;align-items:center;gap:10px;width:100%;padding:10px 16px;background:none;border:none;font-size:14px;font-weight:600;color:#dc2626;cursor:pointer;font-family:var(--font-body);transition:background 0.15s;text-align:left;"
+                                        onmouseover="this.style.background='#fef2f2'"
+                                        onmouseout="this.style.background='none'">
+                                        <i class="fas fa-ban" style="width:18px;text-align:center;color:#ef4444;"></i> Заблокировать
+                                    </button>
                                     {% endif %}
                                 </div>
-                                <div class="chat-header-sub">@{{ partner.username }}</div>
                             </div>
-                            <a href="/profile/{{ partner.id }}" class="chat-header-link" style="white-space:nowrap;">
-                                <i class="fas fa-user"></i> Профиль
-                            </a>
-                            <button onclick="clearHistory()" title="Очистить историю"
-                                style="padding:6px 10px;background:none;border:1px solid var(--border-light);border-radius:var(--radius-full);font-size:12px;font-weight:600;color:var(--text-secondary);cursor:pointer;display:flex;align-items:center;gap:4px;white-space:nowrap;flex-shrink:0;">
-                                <i class="fas fa-trash-alt"></i> Очистить
-                            </button>
-                            {% if is_blocked_by_me %}
-                            <button onclick="unblockUser()" title="Разблокировать"
-                                style="padding:6px 10px;background:#dc2626;border:none;border-radius:var(--radius-full);font-size:12px;font-weight:600;color:white;cursor:pointer;display:flex;align-items:center;gap:4px;white-space:nowrap;flex-shrink:0;">
-                                <i class="fas fa-ban"></i> Разблокировать
-                            </button>
-                            {% else %}
-                            <button onclick="blockUser()" title="Заблокировать"
-                                style="padding:6px 10px;background:none;border:1px solid #fca5a5;border-radius:var(--radius-full);font-size:12px;font-weight:600;color:#dc2626;cursor:pointer;display:flex;align-items:center;gap:4px;white-space:nowrap;flex-shrink:0;">
-                                <i class="fas fa-ban"></i> Блок
-                            </button>
-                            {% endif %}
+                          </div>
                         </div>
 
                         <div class="chat-messages" id="chatMessages">
-                            
+
                             {% if messages %}
                                 {% for msg in messages %}
                                 <div class="msg-row {% if msg.sender_id == current_user_id %}mine{% else %}theirs{% endif %}" data-id="{{ msg.id }}">
@@ -541,7 +622,7 @@ setInterval(refreshUnread, 5000);
                             <textarea id="msgInput" placeholder="🚫 Вы заблокированы этим пользователем" rows="1" disabled
                                 style="color:var(--text-muted); cursor:not-allowed; opacity:0.7;"></textarea>
                             {% else %}
-                            <textarea id="msgInput" placeholder="Написать сообщение... (Enter — отправить)" rows="1"></textarea>
+                            <textarea id="msgInput" placeholder="Написать сообщение..." rows="1"></textarea>
                             <button class="send-btn" id="sendBtn" title="Отправить">
                                 <i class="fas fa-paper-plane"></i>
                             </button>
@@ -663,50 +744,99 @@ setInterval(refreshUnread, 5000);
         }
         if (CONV_ID) setInterval(pollMessages, 2000);
 
+        let searchTimeout = null;
         document.getElementById('convSearch')?.addEventListener('input', function() {
-            const q = this.value.toLowerCase();
+            const q = this.value.trim();
+            const qLower = q.toLowerCase();
+            const res = document.getElementById('userSearchResults');
+
+            // Filter existing conversations
+            let visibleCount = 0;
             document.querySelectorAll('.conv-item').forEach(item => {
-                item.style.display = (item.dataset.name || '').includes(q) ? '' : 'none';
+                const match = (item.dataset.name || '').includes(qLower);
+                item.closest('.conv-item-wrap').style.display = match ? '' : 'none';
+                if (match) visibleCount++;
             });
+
+            // If no dialogs matched and query is long enough — search users
+            if (q.length >= 2 && visibleCount === 0) {
+                clearTimeout(searchTimeout);
+                searchTimeout = setTimeout(async () => {
+                    try {
+                        const resp = await fetch('/messenger/search_users?q=' + encodeURIComponent(q));
+                        const data = await resp.json();
+                        res.innerHTML = '';
+                        if (data.users?.length) {
+                            const label = document.createElement('div');
+                            label.style.cssText = 'font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--text-muted);padding:6px 8px 4px;';
+                            label.textContent = 'Пользователи';
+                            res.appendChild(label);
+                            data.users.forEach(u => {
+                                const item = document.createElement('div');
+                                item.className = 'user-search-item';
+                                const name = u.full_name || u.username;
+                                const avatarHtml = (u.avatar && u.avatar !== 'default_avatar.png')
+                                    ? `<img src="/static/uploads/avatars/${u.avatar}" alt="">`
+                                    : `<img src="/static/defaults/for_users.png" alt="">`;
+                                item.innerHTML = avatarHtml + `<span>${name} <small style="color:var(--text-muted)">@${u.username}</small></span>`;
+                                item.onclick = () => window.location.href = `/messenger/${u.id}`;
+                                res.appendChild(item);
+                            });
+                        } else {
+                            res.innerHTML = '<div style="padding:6px 8px;color:var(--text-muted);font-size:12px;">Ничего не найдено</div>';
+                        }
+                    } catch(e) {}
+                }, 300);
+            } else {
+                res.innerHTML = '';
+            }
+
+            // If query cleared — show all dialogs
+            if (!q) {
+                document.querySelectorAll('.conv-item-wrap').forEach(w => w.style.display = '');
+                res.innerHTML = '';
+            }
         });
 
-        let searchTimeout = null;
-        document.getElementById('userSearchInput')?.addEventListener('input', function() {
-            clearTimeout(searchTimeout);
-            const q = this.value.trim();
-            const res = document.getElementById('userSearchResults');
-            if (q.length < 2) { res.innerHTML = ''; return; }
-            searchTimeout = setTimeout(async () => {
-                try {
-                    const resp = await fetch('/messenger/search_users?q=' + encodeURIComponent(q));
-                    const data = await resp.json();
-                    res.innerHTML = '';
-                    (data.users || []).forEach(u => {
-                        const item = document.createElement('div');
-                        item.className = 'user-search-item';
-                        const name = u.full_name || u.username;
-                        const avatarHtml = (u.avatar && u.avatar !== 'default_avatar.png')
-                            ? `<img src="/static/uploads/avatars/${u.avatar}" alt="">`
-                            : `<div class="user-search-avatar-placeholder">${name[0].toUpperCase()}</div>`;
-                        item.innerHTML = avatarHtml + `<span>${name} <small style="color:var(--text-muted)">@${u.username}</small></span>`;
-                        item.onclick = () => window.location.href = `/messenger/${u.id}`;
-                        res.appendChild(item);
-                    });
-                    if (!data.users?.length) {
-                        res.innerHTML = '<div style="padding:6px 8px;color:var(--text-muted);font-size:12px;">Не найдено</div>';
-                    }
-                } catch(e) {}
-            }, 300);
+        function toggleConvMenu(e, partnerId) {
+            e.preventDefault();
+            e.stopPropagation();
+            const dd = document.getElementById('convMenu_' + partnerId);
+            const isOpen = dd.classList.contains('open');
+            document.querySelectorAll('.conv-dropdown.open').forEach(d => d.classList.remove('open'));
+            if (!isOpen) dd.classList.add('open');
+        }
+        document.addEventListener('click', function(e) {
+            if (!e.target.closest('.conv-item-menu')) {
+                document.querySelectorAll('.conv-dropdown.open').forEach(d => d.classList.remove('open'));
+            }
+        });
+
+        function toggleChatMenu() {
+            const dd = document.getElementById('chatMenuDropdown');
+            if (dd) dd.style.display = dd.style.display === 'none' ? 'block' : 'none';
+        }
+        function closeChatMenu() {
+            const dd = document.getElementById('chatMenuDropdown');
+            if (dd) dd.style.display = 'none';
+        }
+        document.addEventListener('click', function(e) {
+            const wrap = document.getElementById('chatMenuWrap');
+            if (wrap && !wrap.contains(e.target)) closeChatMenu();
         });
 
         function toggleUserMenu() {
-            document.getElementById('userDropdown').classList.toggle('open');
+            const dd = document.getElementById('userDropdown');
+            const wrap = document.querySelector('.user-menu-wrap');
+            dd.classList.toggle('open');
+            wrap.classList.toggle('open');
         }
         document.addEventListener('click', function(e) {
             const wrap = document.querySelector('.user-menu-wrap');
             if (wrap && !wrap.contains(e.target)) {
                 const dd = document.getElementById('userDropdown');
                 if (dd) dd.classList.remove('open');
+                wrap.classList.remove('open');
             }
         });
     </script>
@@ -719,6 +849,27 @@ setInterval(refreshUnread, 5000);
             if(d.success){
                 document.getElementById('chatMessages').innerHTML='<div style="text-align:center;color:var(--text-muted);margin:auto;font-size:14px;">История очищена 🗑️</div>';
             } else { alert('Ошибка: '+(d.error||'неизвестная')); }
+        }
+        async function clearConvHistory(e, partnerId){
+            e.preventDefault(); e.stopPropagation();
+            document.querySelectorAll('.conv-dropdown.open').forEach(d=>d.classList.remove('open'));
+            if(!confirm('Очистить всю историю переписки? Это действие нельзя отменить.'))return;
+            const r=await fetch('/messenger/clear_history/'+partnerId,{method:'POST'});
+            const d=await r.json();
+            if(d.success){
+                if(PARTNER_ID===partnerId && document.getElementById('chatMessages'))
+                    document.getElementById('chatMessages').innerHTML='<div style="text-align:center;color:var(--text-muted);margin:auto;font-size:14px;">История очищена 🗑️</div>';
+                else alert('История очищена.');
+            } else { alert('Ошибка: '+(d.error||'неизвестная')); }
+        }
+        async function blockConvUser(e, partnerId){
+            e.preventDefault(); e.stopPropagation();
+            document.querySelectorAll('.conv-dropdown.open').forEach(d=>d.classList.remove('open'));
+            if(!confirm('Заблокировать пользователя?'))return;
+            const r=await fetch('/messenger/block/'+partnerId,{method:'POST'});
+            const d=await r.json();
+            if(d.success){alert('Пользователь заблокирован.');window.location.reload();}
+            else{alert('Ошибка: '+(d.error||'неизвестная'));}
         }
         async function blockUser(){
             if(!PARTNER_ID)return;
@@ -748,6 +899,68 @@ setInterval(refreshUnread, 5000);
                 if(PARTNER_ID === partnerId) window.location.href='/messenger';
             } else { alert('Ошибка: '+(d.error||'неизвестная')); }
         }
+
+        function refreshFriendsBadge() {
+            fetch('/friends/pending_count')
+                .then(r => r.json())
+                .then(d => {
+                    const badge = document.getElementById('friendsBadge');
+                    if (badge) {
+                        badge.textContent = d.count || '';
+                        badge.style.display = d.count > 0 ? 'inline-block' : 'none';
+                    }
+                }).catch(() => {});
+        }
+        refreshFriendsBadge();
+        setInterval(refreshFriendsBadge, 10000);
+
+        function showFriendNotif(name, avatar, userId) {
+            const container = document.getElementById('notif-container');
+            const el = document.createElement('div');
+            el.className = 'friend-notif';
+            el.innerHTML = `
+                <img src="/static/uploads/avatars/${avatar}" onerror="this.src='/static/defaults/for_users.png'">
+                <div class="friend-notif-text">
+                    <strong>${name}</strong> принял(а) вашу заявку в друзья 🎉
+                </div>
+                <a href="/friends?tab=my" class="friend-notif-link">Перейти</a>
+            `;
+            container.appendChild(el);
+            setTimeout(() => el.remove(), 6000);
+        }
+
+        function checkFriendNotifications() {
+            fetch('/friends/accepted_notifications')
+                .then(r => r.json())
+                .then(d => {
+                    (d.notifications || []).forEach(n => {
+                        showFriendNotif(n.full_name || n.username, n.avatar, n.id);
+                    });
+                }).catch(() => {});
+        }
+
+        checkFriendNotifications();
+        setInterval(checkFriendNotifications, 15000);
     </script>
+    <footer style="
+        margin-top:auto; padding:10px 24px;
+        border-top:1px solid var(--border-light);
+        background:var(--bg-card);
+        text-align:center;
+        font-size:13px;
+        color:var(--text-muted);">
+        <div style="max-width:1200px; margin:0 auto; display:flex; align-items:center; justify-content:center; gap:20px; flex-wrap:wrap;">
+            <a href="/faq" style="color:var(--text-muted);font-weight:600;transition:color 0.2s;" onmouseover="this.style.color='var(--amber-600)'" onmouseout="this.style.color='var(--text-muted)'">
+                <i class="fas fa-question-circle"></i> FAQ
+            </a>
+            <span style="color:var(--border-medium);">·</span>
+            <a href="/terms" style="color:var(--text-muted);font-weight:600;transition:color 0.2s;" onmouseover="this.style.color='var(--amber-600)'" onmouseout="this.style.color='var(--text-muted)'">
+                <i class="fas fa-file-alt"></i> Соглашение
+            </a>
+            <span style="color:var(--border-medium);">·</span>
+            <span>© 2026 LinkA</span>
+        </div>
+    </footer>
+    <script src="{{ url_for('static', filename='defaults/notifications.js') }}"></script>
 </body>
 </html>

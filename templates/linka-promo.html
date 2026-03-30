@@ -848,7 +848,7 @@
       <div class="footer-logo">LinkA</div>
       <div class="footer-tagline">Создаём связи, а не просто ленты 🔗</div>
       <div class="footer-divider"></div>
-      <div class="footer-copy">© 2025 LinkA · Все права защищены · Проект в разработке</div>
+      <div class="footer-copy">© 2026 LinkA · Все права защищены · Проект в разработке</div>
     </div>
   </footer>
 
@@ -876,6 +876,34 @@
         if (target) { e.preventDefault(); target.scrollIntoView({ behavior: 'smooth' }); }
       });
     });
+
+    function showFriendNotif(name, avatar, userId) {
+        const container = document.getElementById('notif-container');
+        const el = document.createElement('div');
+        el.className = 'friend-notif';
+        el.innerHTML = `
+            <img src="/static/uploads/avatars/${avatar}" onerror="this.src='/static/defaults/for_users.png'">
+            <div class="friend-notif-text">
+                <strong>${name}</strong> принял(а) вашу заявку в друзья 🎉
+            </div>
+            <a href="/friends?tab=my" class="friend-notif-link">Перейти</a>
+        `;
+        container.appendChild(el);
+        setTimeout(() => el.remove(), 6000);
+    }
+
+    function checkFriendNotifications() {
+        fetch('/friends/accepted_notifications')
+            .then(r => r.json())
+            .then(d => {
+                (d.notifications || []).forEach(n => {
+                    showFriendNotif(n.full_name || n.username, n.avatar, n.id);
+                });
+            }).catch(() => {});
+    }
+
+    checkFriendNotifications();
+    setInterval(checkFriendNotifications, 15000);
   </script>
 </body>
 </html>

@@ -9,28 +9,69 @@
   <link rel="icon" type="image/png" href="{{ url_for('static', filename='uploads/favicon.png') }}">
   <style>
     .settings-wrap {
-      max-width: 680px;
-      margin: 32px auto;
+      max-width: 800px;
+      width: 100%;
+      margin: 40px auto;
       padding: 0 16px 60px;
-    }
-    .settings-page-title {
-      font-family: var(--font-display);
-      font-size: 22px;
-      font-weight: 700;
-      margin-bottom: 24px;
-      display: flex;
-      align-items: center;
-      gap: 10px;
-    }
-    .settings-page-title i {
-      width: 40px; height: 40px;
-      background: var(--accent-gradient);
-      border-radius: var(--radius-md);
-      display: flex; align-items: center; justify-content: center;
-      font-size: 18px; color: #111; flex-shrink: 0;
+      box-sizing: border-box;
     }
 
-    /* Card */
+    .back-to-home {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 20px;
+      color: var(--text-secondary);
+      text-decoration: none;
+      font-weight: 600;
+      transition: color var(--transition);
+    }
+    .back-to-home:hover { color: var(--amber-600); }
+
+    /* Фиксированная ширина панелей — не сжимаются */
+    .settings-panel .s-card { width: 100%; box-sizing: border-box; }
+
+    /* ── Вкладки ── */
+    .settings-tabs {
+      display: flex;
+      width: 100%;
+      border-bottom: 2px solid var(--border-light);
+      background: var(--bg-card);
+      border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+      padding: 0 16px;
+      margin-bottom: 0;
+      box-sizing: border-box;
+    }
+    .settings-tab {
+      padding: 14px 20px;
+      font-weight: 700;
+      font-size: 14px;
+      text-decoration: none;
+      color: var(--text-muted);
+      border-bottom: 2px solid transparent;
+      margin-bottom: -2px;
+      cursor: pointer;
+      background: none;
+      border-top: none;
+      border-left: none;
+      border-right: none;
+      font-family: var(--font-body);
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      transition: color 0.15s;
+    }
+    .settings-tab:hover { color: var(--amber-600); }
+    .settings-tab.active {
+      color: var(--amber-600);
+      border-bottom: 2px solid var(--amber-500);
+    }
+
+    /* ── Панели ── */
+    .settings-panel { display: none; padding-top: 16px; }
+    .settings-panel.active { display: block; }
+
+    /* ── Card ── */
     .s-card {
       background: var(--bg-card);
       border: 1px solid var(--border-light);
@@ -48,7 +89,6 @@
       background: var(--accent-gradient);
     }
     .s-card.danger::before { background: linear-gradient(135deg,#f87171,#dc2626); }
-
     .s-card-header {
       padding: 20px 24px 14px;
       border-bottom: 1px solid var(--border-light);
@@ -67,22 +107,15 @@
     .s-card-icon.green { background: #dcfce7; color: #16a34a; }
     .s-card-icon.red   { background: #fee2e2; color: #dc2626; }
     .s-card-icon.blue  { background: #dbeafe; color: #2563eb; }
-
     .s-card-title {
       font-family: var(--font-display);
-      font-size: 15px;
-      font-weight: 700;
-      color: var(--text-primary);
-      margin-bottom: 2px;
+      font-size: 15px; font-weight: 700;
+      color: var(--text-primary); margin-bottom: 2px;
     }
-    .s-card-sub {
-      font-size: 12px;
-      color: var(--text-muted);
-    }
-
+    .s-card-sub { font-size: 12px; color: var(--text-muted); }
     .s-card-body { padding: 20px 24px; }
 
-    /* 2FA status */
+    /* ── 2FA ── */
     .tfa-badge {
       display: flex; align-items: center; gap: 14px;
       padding: 14px 16px;
@@ -97,12 +130,11 @@
     .tfa-badge.off .tfa-badge-text strong { color: var(--text-primary); }
     .tfa-badge-text span { font-size: 12px; color: var(--text-muted); }
 
-    /* Form fields */
+    /* ── Form fields ── */
     .s-field { margin-bottom: 16px; }
     .s-label {
       display: block;
-      font-size: 13px;
-      font-weight: 700;
+      font-size: 13px; font-weight: 700;
       color: var(--text-secondary);
       margin-bottom: 6px;
       text-transform: uppercase;
@@ -113,81 +145,56 @@
       padding: 10px 14px;
       border: 1.5px solid var(--border-medium);
       border-radius: var(--radius-md);
-      font-size: 14px;
-      font-family: var(--font-body);
+      font-size: 14px; font-family: var(--font-body);
       color: var(--text-primary);
       background: var(--bg-page);
       transition: border-color var(--transition), box-shadow var(--transition);
       outline: none;
+      box-sizing: border-box;
     }
     .s-input:focus {
       border-color: var(--amber-500);
       box-shadow: 0 0 0 3px rgba(245,158,11,0.15);
     }
+    textarea.s-input { min-height: 100px; resize: vertical; }
 
-    /* Privacy options */
-    .privacy-options { display: flex; flex-direction: column; gap: 10px; margin-bottom: 18px; }
-    .privacy-option {
-      display: flex; align-items: center; gap: 14px;
-      padding: 14px 16px;
-      border: 2px solid var(--border-light);
-      border-radius: var(--radius-lg);
-      cursor: pointer;
-      transition: all var(--transition);
-      position: relative;
+    /* ── Двухколоночная сетка для полей ── */
+    .s-grid-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
     }
-    .privacy-option:hover { border-color: var(--amber-300); background: var(--amber-50); }
-    .privacy-option.selected { border-color: var(--amber-500); background: var(--amber-50); }
-    .privacy-option input[type="radio"] { position: absolute; opacity: 0; }
-    .privacy-option-icon {
-      width: 40px; height: 40px;
-      border-radius: var(--radius-md);
-      display: flex; align-items: center; justify-content: center;
-      font-size: 18px;
-      flex-shrink: 0;
+    @media (max-width: 600px) { .s-grid-2 { grid-template-columns: 1fr; } }
+
+    /* ── Разделитель секций формы ── */
+    .s-section-divider {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin: 20px 0 16px;
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: var(--text-muted);
     }
-    .privacy-option-icon.all     { background: #dbeafe; color: #2563eb; }
-    .privacy-option-icon.friends { background: var(--amber-100); color: var(--amber-600); }
-    .privacy-option-icon.nobody  { background: #fee2e2; color: #dc2626; }
-    .privacy-option-text strong {
-      display: block; font-size: 14px; font-weight: 700; color: var(--text-primary);
-    }
-    .privacy-option-text span { font-size: 12px; color: var(--text-muted); }
-    .privacy-check {
-      margin-left: auto;
-      width: 22px; height: 22px;
-      border-radius: 50%;
-      border: 2px solid var(--border-medium);
-      display: flex; align-items: center; justify-content: center;
-      flex-shrink: 0;
-      transition: all var(--transition);
-    }
-    .privacy-option.selected .privacy-check {
-      background: var(--amber-500);
-      border-color: var(--amber-500);
-    }
-    .privacy-option.selected .privacy-check::after {
+    .s-section-divider::before, .s-section-divider::after {
       content: '';
-      width: 8px; height: 5px;
-      border-left: 2px solid #fff;
-      border-bottom: 2px solid #fff;
-      transform: rotate(-45deg) translateY(-1px);
+      flex: 1;
+      height: 1px;
+      background: var(--border-light);
+    }
+
+    /* ── Avatar preview ── */
+    .avatar-preview {
+      width: 80px; height: 80px;
+      border-radius: 50%; object-fit: cover;
+      border: 3px solid var(--amber-300);
+      margin-bottom: 12px;
       display: block;
     }
 
-    /* Current privacy info badge */
-    .privacy-current {
-      display: inline-flex; align-items: center; gap: 6px;
-      padding: 5px 12px;
-      border-radius: var(--radius-full);
-      font-size: 12px; font-weight: 700;
-      margin-top: 4px;
-    }
-    .privacy-current.all     { background: #dbeafe; color: #2563eb; }
-    .privacy-current.friends { background: var(--amber-100); color: var(--amber-700); }
-    .privacy-current.nobody  { background: #fee2e2; color: #dc2626; }
-
-    /* Buttons */
+    /* ── Buttons ── */
     .s-btn {
       display: inline-flex; align-items: center; gap: 8px;
       padding: 10px 22px;
@@ -217,7 +224,7 @@
     }
     .s-btn-secondary:hover { background: var(--gray-200); }
 
-    /* Alert */
+    /* ── Alert ── */
     .s-alert {
       padding: 12px 16px; border-radius: var(--radius-md);
       font-size: 14px; margin-bottom: 16px;
@@ -227,12 +234,12 @@
     .s-alert.error   { background: #fef2f2; border: 1px solid #fca5a5; color: #dc2626; }
     .s-alert.info    { background: var(--amber-50); border: 1px solid var(--amber-300); color: var(--amber-700); }
 
-    /* Danger zone */
     .s-card.danger .s-card-header { background: #fff5f5; }
 
     @media (max-width: 600px) {
       .settings-wrap { padding: 16px 12px 40px; }
       .s-card-body, .s-card-header { padding: 16px; }
+      .settings-tab { padding: 12px 12px; font-size: 13px; }
     }
   </style>
 </head>
@@ -241,27 +248,26 @@
   <header>
     <div class="container">
       <div class="header-content">
-        <div class="logo">LinkA</div>
+        <a href="/home" class="logo" style="text-decoration:none;">LinkA</a>
         <div class="user-menu-wrap">
-          <button class="user-menu-btn" onclick="toggleUserMenu()" aria-label="Меню пользователя">
-            {% set _avatar = current_user_avatar() %}
-            {% if _avatar %}
-              <img src="{{ url_for('static', filename='uploads/avatars/' + _avatar) }}"
-                   onerror="this.style.display='none';this.nextElementSibling.style.display='flex';" alt="Аватар">
-              <i class="fas fa-user" style="display:none;"></i>
-            {% else %}
-              <i class="fas fa-user"></i>
-            {% endif %}
+          <button class="user-menu-trigger" onclick="toggleUserMenu()" aria-label="Меню пользователя">
+            <span class="user-menu-btn">
+              {% set _avatar = current_user_avatar() %}
+              {% if _avatar %}
+                <img src="{{ url_for('static', filename='uploads/avatars/' + _avatar) }}"
+                     onerror="this.src='{{ url_for("static", filename="defaults/for_users.png") }}';" alt="Аватар">
+              {% else %}
+                <img src="{{ url_for('static', filename='defaults/for_users.png') }}" alt="Аватар">
+              {% endif %}
+            </span>
+            <span class="user-menu-arrow"><i class="fas fa-chevron-up"></i></span>
           </button>
           <div class="user-dropdown" id="userDropdown">
             {% set _uinfo = current_user_info() %}
             {% if _uinfo %}
-            <a href="/profile" style="text-decoration:none;color:inherit;display:block;padding:0;">
-              <div class="user-dropdown-header">
-                <div class="uname">{{ _uinfo.full_name }}</div>
-                <div class="ulogin">@{{ _uinfo.username }}</div>
-              </div>
-            </a>
+            <div class="user-dropdown-header">
+              <div class="uname">{{ _uinfo.full_name }}</div>
+            </div>
             {% endif %}
             <a href="/settings"><i class="fas fa-cog"></i> Настройки</a>
             <div class="divider"></div>
@@ -274,16 +280,9 @@
 
   <div class="settings-wrap">
 
-    <!-- Назад -->
-    <a href="/profile" style="display:inline-flex;align-items:center;gap:6px;color:var(--text-muted);font-size:13px;font-weight:600;text-decoration:none;margin-bottom:20px;transition:color .2s;"
-       onmouseover="this.style.color='var(--amber-600)'" onmouseout="this.style.color='var(--text-muted)'">
-      <i class="fas fa-arrow-left"></i> Назад к профилю
+    <a href="/profile" class="back-to-home">
+      <i class="fas fa-arrow-left"></i> Назад
     </a>
-
-    <div class="settings-page-title">
-      <i class="fas fa-cog"></i>
-      Настройки аккаунта
-    </div>
 
     <!-- Flash messages -->
     {% with messages = get_flashed_messages(with_categories=true) %}
@@ -297,128 +296,327 @@
       {% endif %}
     {% endwith %}
 
-    
+    <!-- Вкладки -->
+    <div class="settings-tabs">
+      <button class="settings-tab active" onclick="switchTab('profile')" id="tab-profile">
+        <i class="fas fa-user-edit"></i> Профиль
+      </button>
+      <button class="settings-tab" onclick="switchTab('privacy')" id="tab-privacy">
+        <i class="fas fa-eye"></i> Приватность
+      </button>
+      <button class="settings-tab" onclick="switchTab('security')" id="tab-security">
+        <i class="fas fa-shield-alt"></i> Безопасность
+      </button>
+    </div>
 
-    <!-- ══════════ 2FA ══════════ -->
-    <div class="s-card">
-      <div class="s-card-header">
-        <div class="s-card-icon {{ 'green' if tfa and tfa.is_enabled and tfa.telegram_chat_id else 'amber' }}">
-          <i class="fas fa-lock"></i>
-        </div>
-        <div>
-          <div class="s-card-title">Двухфакторная аутентификация</div>
-          <div class="s-card-sub">Дополнительная защита аккаунта через Telegram</div>
-        </div>
-      </div>
-      <div class="s-card-body">
-        {% if tfa and tfa.is_enabled and tfa.telegram_chat_id %}
-          <div class="tfa-badge on">
-            <div class="tfa-badge-icon">✅</div>
-            <div class="tfa-badge-text">
-              <strong>Двухэтапная аутентификация включена</strong>
-              <span>При входе вам будет отправлен код в Telegram</span>
-            </div>
+    <!-- ══════════ ВКЛАДКА: ПРОФИЛЬ ══════════ -->
+    <div class="settings-panel active" id="panel-profile">
+      <div class="s-card">
+        <div class="s-card-header">
+          <div class="s-card-icon amber"><i class="fas fa-user-edit"></i></div>
+          <div>
+            <div class="s-card-title">Редактирование профиля</div>
+            <div class="s-card-sub">Имя, аватарка, о себе, местоположение</div>
           </div>
-          <p style="font-size:13px;color:var(--text-muted);margin-bottom:16px;">
-            Для отключения нажмите кнопку ниже. Привязка к Telegram будет удалена.
-          </p>
-          <form action="/settings/2fa/disable" method="POST"
-                onsubmit="return confirm('Отключить двухфакторную аутентификацию?')">
-            <button type="submit" class="s-btn s-btn-danger">
-              <i class="fas fa-lock-open"></i> Отключить 2FA
+        </div>
+        <div class="s-card-body">
+          {% if profile and profile.avatar %}
+          <img src="{{ url_for('static', filename='uploads/avatars/' + profile.avatar) }}"
+               alt="Аватарка" class="avatar-preview"
+               onerror="this.src='/static/defaults/for_users.png'">
+          {% endif %}
+
+          <form method="POST" action="/profile/edit" enctype="multipart/form-data">
+
+            <!-- Аватарка -->
+            <div class="s-field">
+              <label class="s-label"><i class="fas fa-camera" style="color:var(--amber-500);"></i> Новая аватарка</label>
+              <input type="file" name="avatar" accept=".jpg,.jpeg,.png,.gif" class="s-input" style="padding:8px;">
+              <small style="color:var(--text-muted);font-size:12px;display:block;margin-top:4px;">JPG, PNG, GIF — не более 2 МБ</small>
+            </div>
+
+            <!-- ФИО -->
+            <div class="s-field">
+              <label class="s-label"><i class="fas fa-id-card" style="color:var(--amber-500);"></i> ФИО</label>
+              <input type="text" name="full_name"
+                     value="{{ profile.full_name if profile else '' }}"
+                     class="s-input" placeholder="Введите ваше полное имя">
+            </div>
+
+            <!-- О себе -->
+            <div class="s-field">
+              <label class="s-label"><i class="fas fa-align-left" style="color:var(--amber-500);"></i> О себе</label>
+              <textarea name="bio" class="s-input" placeholder="Расскажите о себе...">{{ profile.bio if profile else '' }}</textarea>
+            </div>
+
+            <div class="s-section-divider">Дополнительно</div>
+
+            <!-- Местоположение + Сайт -->
+            <div class="s-grid-2">
+              <div class="s-field">
+                <label class="s-label"><i class="fas fa-map-marker-alt" style="color:var(--amber-500);"></i> Местоположение</label>
+                <input type="text" name="location"
+                       value="{{ profile.location if profile else '' }}"
+                       class="s-input" placeholder="Город, страна">
+              </div>
+              <div class="s-field">
+                <label class="s-label"><i class="fas fa-globe" style="color:var(--amber-500);"></i> Сайт</label>
+                <input type="url" name="website"
+                       value="{{ profile.website if profile else '' }}"
+                       class="s-input" placeholder="https://example.com">
+              </div>
+            </div>
+
+            <!-- Пол + Язык -->
+            <div class="s-grid-2">
+              <div class="s-field">
+                <label class="s-label"><i class="fas fa-venus-mars" style="color:var(--amber-500);"></i> Пол</label>
+                <select name="gender" class="s-input">
+                  <option value="">Не указан</option>
+                  <option value="male" {% if profile and profile.gender == 'male' %}selected{% endif %}>Мужской</option>
+                  <option value="female" {% if profile and profile.gender == 'female' %}selected{% endif %}>Женский</option>
+                  <option value="other" {% if profile and profile.gender == 'other' %}selected{% endif %}>Другое</option>
+                </select>
+              </div>
+              <div class="s-field">
+                <label class="s-label"><i class="fas fa-language" style="color:var(--amber-500);"></i> Язык общения</label>
+                <select name="language" class="s-input">
+                  <option value="">Не указан</option>
+                  <option value="ru" {% if profile and profile.language == 'ru' %}selected{% endif %}>Русский</option>
+                  <option value="en" {% if profile and profile.language == 'en' %}selected{% endif %}>English</option>
+                  <option value="uk" {% if profile and profile.language == 'uk' %}selected{% endif %}>Українська</option>
+                  <option value="de" {% if profile and profile.language == 'de' %}selected{% endif %}>Deutsch</option>
+                  <option value="fr" {% if profile and profile.language == 'fr' %}selected{% endif %}>Français</option>
+                  <option value="es" {% if profile and profile.language == 'es' %}selected{% endif %}>Español</option>
+                  <option value="zh" {% if profile and profile.language == 'zh' %}selected{% endif %}>中文</option>
+                </select>
+              </div>
+            </div>
+
+            <!-- Дата рождения + Telegram -->
+            <div class="s-grid-2">
+              <div class="s-field">
+                <label class="s-label"><i class="fas fa-calendar-alt" style="color:var(--amber-500);"></i> Дата рождения</label>
+                <input type="date" name="birthdate"
+                       value="{{ profile.birthdate if profile else '' }}"
+                       class="s-input">
+              </div>
+              <div class="s-field">
+                <label class="s-label"><i class="fab fa-telegram" style="color:var(--amber-500);"></i> Telegram</label>
+                <input type="text" name="telegram"
+                       value="{{ profile.telegram if profile else '' }}"
+                       class="s-input" placeholder="@username">
+              </div>
+            </div>
+
+            <button type="submit" class="s-btn s-btn-primary" style="margin-top:8px;">
+              <i class="fas fa-save"></i> Сохранить изменения
             </button>
           </form>
-        {% else %}
-          <div class="tfa-badge off">
-            <div class="tfa-badge-icon">🔓</div>
-            <div class="tfa-badge-text">
-              <strong>Двухэтапная аутентификация отключена</strong>
-              <span>Для входа используется только пароль</span>
-            </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════════ ВКЛАДКА: ПРИВАТНОСТЬ ══════════ -->
+    <div class="settings-panel" id="panel-privacy">
+      <div class="s-card">
+        <div class="s-card-header">
+          <div class="s-card-icon blue"><i class="fas fa-eye"></i></div>
+          <div>
+            <div class="s-card-title">Настройки приватности</div>
+            <div class="s-card-sub">Кто может видеть ваш профиль и посты</div>
           </div>
-          <p style="font-size:13px;color:var(--text-muted);margin-bottom:16px;">
-            Привяжите Telegram-аккаунт — при каждом входе бот отправит одноразовый код подтверждения.
-          </p>
-          <form action="/settings/2fa/start" method="POST">
+        </div>
+        <div class="s-card-body">
+          <form method="POST" action="/profile/edit" enctype="multipart/form-data">
+            <!-- Скрытые поля чтобы не затереть профиль -->
+            <input type="hidden" name="full_name" value="{{ profile.full_name if profile else '' }}">
+            <input type="hidden" name="bio" value="{{ profile.bio if profile else '' }}">
+            <input type="hidden" name="location" value="{{ profile.location if profile else '' }}">
+            <input type="hidden" name="website" value="{{ profile.website if profile else '' }}">
+            <input type="hidden" name="gender" value="{{ profile.gender if profile else '' }}">
+            <input type="hidden" name="birthdate" value="{{ profile.birthdate if profile else '' }}">
+            <input type="hidden" name="language" value="{{ profile.language if profile else '' }}">
+            <input type="hidden" name="telegram" value="{{ profile.telegram if profile else '' }}">
+
+            <div class="s-field">
+              <label class="s-label"><i class="fas fa-user" style="color:var(--amber-500);"></i> Кто может видеть профиль</label>
+              <select name="privacy_profile" class="s-input">
+                <option value="public" {% if not profile or profile.privacy_profile == 'public' %}selected{% endif %}>🌎 Все пользователи</option>
+                <option value="friends" {% if profile and profile.privacy_profile == 'friends' %}selected{% endif %}>👥 Только друзья</option>
+                <option value="private" {% if profile and profile.privacy_profile == 'private' %}selected{% endif %}>🔒 Только я</option>
+              </select>
+            </div>
+
+            <div class="s-field">
+              <label class="s-label"><i class="fas fa-file-alt" style="color:var(--amber-500);"></i> Кто может видеть мои посты</label>
+              <select name="privacy_posts" class="s-input">
+                <option value="public" {% if not profile or profile.privacy_posts == 'public' %}selected{% endif %}>🌎 Все пользователи</option>
+                <option value="friends" {% if profile and profile.privacy_posts == 'friends' %}selected{% endif %}>👥 Только друзья</option>
+                <option value="private" {% if profile and profile.privacy_posts == 'private' %}selected{% endif %}>🔒 Только я</option>
+              </select>
+            </div>
+
+            <div class="s-field">
+              <label class="s-label"><i class="fas fa-users" style="color:var(--amber-500);"></i> Кто может видеть список друзей</label>
+              <select name="privacy_friends" class="s-input">
+                <option value="public" {% if not profile or profile.privacy_friends == 'public' %}selected{% endif %}>🌎 Все пользователи</option>
+                <option value="friends" {% if profile and profile.privacy_friends == 'friends' %}selected{% endif %}>👥 Только друзья</option>
+                <option value="private" {% if profile and profile.privacy_friends == 'private' %}selected{% endif %}>🔒 Только я</option>
+              </select>
+            </div>
+
+            <div style="background:var(--amber-50);border:1px solid var(--amber-200);border-radius:var(--radius-md);padding:12px 16px;font-size:13px;color:var(--amber-700);margin-bottom:16px;">
+              <i class="fas fa-info-circle"></i>
+              Настройки "Только друзья" применяются ко всем пользователям, кроме вас и ваших друзей.
+            </div>
+
             <button type="submit" class="s-btn s-btn-primary">
-              <i class="fab fa-telegram"></i> Подключить Telegram
+              <i class="fas fa-save"></i> Сохранить настройки приватности
             </button>
           </form>
-        {% endif %}
-      </div>
-    </div>
-
-    <!-- ══════════ СМЕНА ПАРОЛЯ ══════════ -->
-    <div class="s-card">
-      <div class="s-card-header">
-        <div class="s-card-icon blue"><i class="fas fa-key"></i></div>
-        <div>
-          <div class="s-card-title">Смена пароля</div>
-          <div class="s-card-sub">Рекомендуем использовать надёжный пароль</div>
         </div>
       </div>
-      <div class="s-card-body">
-        <form action="/settings/change_password" method="POST">
-          <div class="s-field">
-            <label class="s-label">Текущий пароль</label>
-            <input type="password" name="current_password" class="s-input" placeholder="Введите текущий пароль" required>
-          </div>
-          <div class="s-field">
-            <label class="s-label">Новый пароль</label>
-            <input type="password" name="new_password" class="s-input" placeholder="Минимум 6 символов" required>
-          </div>
-          <div class="s-field">
-            <label class="s-label">Повторите новый пароль</label>
-            <input type="password" name="confirm_password" class="s-input" placeholder="Повторите новый пароль" required>
-          </div>
-          <button type="submit" class="s-btn s-btn-primary">
-            <i class="fas fa-save"></i> Сохранить пароль
-          </button>
-        </form>
-      </div>
-    </div>
+    </div><!-- /panel-privacy -->
 
-    <!-- ══════════ ОПАСНАЯ ЗОНА ══════════ -->
-    <div class="s-card danger">
-      <div class="s-card-header">
-        <div class="s-card-icon red"><i class="fas fa-exclamation-triangle"></i></div>
-        <div>
-          <div class="s-card-title" style="color:#dc2626;">Опасная зона</div>
-          <div class="s-card-sub">Необратимые действия с аккаунтом</div>
+    <!-- ══════════ ВКЛАДКА: БЕЗОПАСНОСТЬ ══════════ -->
+    <div class="settings-panel" id="panel-security">
+
+      <!-- 2FA -->
+      <div class="s-card">
+        <div class="s-card-header">
+          <div class="s-card-icon {{ 'green' if tfa and tfa.is_enabled and tfa.telegram_chat_id else 'amber' }}">
+            <i class="fas fa-lock"></i>
+          </div>
+          <div>
+            <div class="s-card-title">Двухфакторная аутентификация</div>
+            <div class="s-card-sub">Дополнительная защита аккаунта через Telegram</div>
+          </div>
+        </div>
+        <div class="s-card-body">
+          {% if tfa and tfa.is_enabled and tfa.telegram_chat_id %}
+            <div class="tfa-badge on">
+              <div class="tfa-badge-icon">✅</div>
+              <div class="tfa-badge-text">
+                <strong>Двухэтапная аутентификация включена</strong>
+                <span>При входе вам будет отправлен код в Telegram</span>
+              </div>
+            </div>
+            <p style="font-size:13px;color:var(--text-muted);margin-bottom:16px;">
+              Для отключения нажмите кнопку ниже. Привязка к Telegram будет удалена.
+            </p>
+            <form action="/settings/2fa/disable" method="POST"
+                  onsubmit="return confirm('Отключить двухфакторную аутентификацию?')">
+              <button type="submit" class="s-btn s-btn-danger">
+                <i class="fas fa-lock-open"></i> Отключить 2FA
+              </button>
+            </form>
+          {% else %}
+            <div class="tfa-badge off">
+              <div class="tfa-badge-icon">🔓</div>
+              <div class="tfa-badge-text">
+                <strong>Двухэтапная аутентификация отключена</strong>
+                <span>Для входа используется только пароль</span>
+              </div>
+            </div>
+            <p style="font-size:13px;color:var(--text-muted);margin-bottom:16px;">
+              Привяжите Telegram-аккаунт — при каждом входе бот отправит одноразовый код подтверждения.
+            </p>
+            <form action="/settings/2fa/start" method="POST">
+              <button type="submit" class="s-btn s-btn-primary">
+                <i class="fab fa-telegram"></i> Подключить Telegram
+              </button>
+            </form>
+          {% endif %}
         </div>
       </div>
-      <div class="s-card-body">
-        <p style="font-size:13px;color:var(--text-muted);margin-bottom:16px;">
-          Удаление аккаунта приведёт к безвозвратному удалению всех ваших данных:
-          постов, комментариев, друзей и переписки.
-        </p>
-        <a href="/settings/delete_account" class="s-btn s-btn-danger"
-           onclick="return confirm('Вы уверены? Это действие нельзя отменить.')">
-          <i class="fas fa-trash-alt"></i> Удалить аккаунт
-        </a>
-      </div>
-    </div>
 
-  </div>
+      <!-- Смена пароля -->
+      <div class="s-card">
+        <div class="s-card-header">
+          <div class="s-card-icon blue"><i class="fas fa-key"></i></div>
+          <div>
+            <div class="s-card-title">Смена пароля</div>
+            <div class="s-card-sub">Рекомендуем использовать надёжный пароль</div>
+          </div>
+        </div>
+        <div class="s-card-body">
+          <form action="/settings/change_password" method="POST">
+            <div class="s-field">
+              <label class="s-label">Текущий пароль</label>
+              <input type="password" name="current_password" class="s-input" placeholder="Введите текущий пароль" required>
+            </div>
+            <div class="s-field">
+              <label class="s-label">Новый пароль</label>
+              <input type="password" name="new_password" class="s-input" placeholder="Минимум 6 символов" required>
+            </div>
+            <div class="s-field">
+              <label class="s-label">Повторите новый пароль</label>
+              <input type="password" name="confirm_password" class="s-input" placeholder="Повторите новый пароль" required>
+            </div>
+            <button type="submit" class="s-btn s-btn-primary">
+              <i class="fas fa-save"></i> Сохранить пароль
+            </button>
+          </form>
+        </div>
+      </div>
+
+      <!-- Опасная зона -->
+      <div class="s-card danger">
+        <div class="s-card-header">
+          <div class="s-card-icon red"><i class="fas fa-exclamation-triangle"></i></div>
+          <div>
+            <div class="s-card-title" style="color:#dc2626;">Опасная зона</div>
+            <div class="s-card-sub">Необратимые действия с аккаунтом</div>
+          </div>
+        </div>
+        <div class="s-card-body">
+          <p style="font-size:13px;color:var(--text-muted);margin-bottom:16px;">
+            Удаление аккаунта приведёт к безвозвратному удалению всех ваших данных:
+            постов, комментариев, друзей и переписки.
+          </p>
+          <a href="/settings/delete_account" class="s-btn s-btn-danger"
+             onclick="return confirm('Вы уверены? Это действие нельзя отменить.')">
+            <i class="fas fa-trash-alt"></i> Удалить аккаунт
+          </a>
+        </div>
+      </div>
+
+    </div><!-- /panel-security -->
+
+  </div><!-- /settings-wrap -->
 
   <script>
-    function selectPrivacy(val) {
-      ['all','friends','nobody'].forEach(v => {
-        const opt = document.getElementById('opt-'+v);
-        if (opt) opt.classList.toggle('selected', v === val);
-      });
+    function switchTab(tab) {
+      document.querySelectorAll('.settings-tab').forEach(t => t.classList.remove('active'));
+      document.querySelectorAll('.settings-panel').forEach(p => p.classList.remove('active'));
+      document.getElementById('tab-' + tab).classList.add('active');
+      document.getElementById('panel-' + tab).classList.add('active');
+      // сохраняем вкладку в URL без перезагрузки
+      history.replaceState(null, '', '/settings?tab=' + tab);
+    }
+
+    // Открываем нужную вкладку по URL-параметру
+    const urlTab = new URLSearchParams(window.location.search).get('tab');
+    if (urlTab && document.getElementById('tab-' + urlTab)) {
+      switchTab(urlTab);
     }
 
     function toggleUserMenu() {
-      document.getElementById('userDropdown').classList.toggle('open');
+      const dd = document.getElementById('userDropdown');
+      const wrap = document.querySelector('.user-menu-wrap');
+      dd.classList.toggle('open');
+      wrap.classList.toggle('open');
     }
     document.addEventListener('click', function(e) {
       const wrap = document.querySelector('.user-menu-wrap');
       if (wrap && !wrap.contains(e.target)) {
         const dd = document.getElementById('userDropdown');
         if (dd) dd.classList.remove('open');
+        wrap.classList.remove('open');
       }
     });
   </script>
+  <script src="{{ url_for('static', filename='defaults/notifications.js') }}"></script>
 </body>
 </html>

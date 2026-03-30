@@ -11,6 +11,7 @@ import string
 import threading
 import asyncio
 import logging
+import time
 
 # ======================== НАСТРОЙКИ TELEGRAM БОТА ========================
 BOT_TOKEN = "8542566873:AAGCjyU1Q5IM4tip_MC77Jt43lHh8eK7Bbk"  # <-- вставь токен от @BotFather
@@ -180,18 +181,19 @@ def migrate_database():
     except sqlite3.OperationalError:
         print("Таблица post_media не существует, создаем...")
         cursor.execute('''
-                CREATE TABLE post_media (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    post_id INTEGER,
-                    group_post_id INTEGER,
-                    filename TEXT NOT NULL,
-                    file_type TEXT NOT NULL,
-                    thumbnail TEXT,
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    FOREIGN KEY (post_id) REFERENCES posts(id) ON DELETE CASCADE,
-                    FOREIGN KEY (group_post_id) REFERENCES group_posts(id) ON DELETE CASCADE
-                )
-            ''')
+                       CREATE TABLE post_media
+                       (
+                           id            INTEGER PRIMARY KEY AUTOINCREMENT,
+                           post_id       INTEGER,
+                           group_post_id INTEGER,
+                           filename      TEXT NOT NULL,
+                           file_type     TEXT NOT NULL,
+                           thumbnail     TEXT,
+                           created_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                           FOREIGN KEY (post_id) REFERENCES posts (id) ON DELETE CASCADE,
+                           FOREIGN KEY (group_post_id) REFERENCES group_posts (id) ON DELETE CASCADE
+                       )
+                       ''')
     else:
         # Проверяем структуру
         cursor.execute("PRAGMA table_info(post_media)")
@@ -201,25 +203,26 @@ def migrate_database():
                 print("Исправляем структуру таблицы post_media...")
                 # Создаем временную таблицу
                 cursor.execute('''
-                        CREATE TABLE post_media_new (
-                            id INTEGER PRIMARY KEY AUTOINCREMENT,
-                            post_id INTEGER,
-                            group_post_id INTEGER,
-                            filename TEXT NOT NULL,
-                            file_type TEXT NOT NULL,
-                            thumbnail TEXT,
-                            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                            FOREIGN KEY (post_id) REFERENCES posts(id) ON DELETE CASCADE,
-                            FOREIGN KEY (group_post_id) REFERENCES group_posts(id) ON DELETE CASCADE
-                        )
-                    ''')
+                               CREATE TABLE post_media_new
+                               (
+                                   id            INTEGER PRIMARY KEY AUTOINCREMENT,
+                                   post_id       INTEGER,
+                                   group_post_id INTEGER,
+                                   filename      TEXT NOT NULL,
+                                   file_type     TEXT NOT NULL,
+                                   thumbnail     TEXT,
+                                   created_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                                   FOREIGN KEY (post_id) REFERENCES posts (id) ON DELETE CASCADE,
+                                   FOREIGN KEY (group_post_id) REFERENCES group_posts (id) ON DELETE CASCADE
+                               )
+                               ''')
 
                 # Копируем данные
                 cursor.execute('''
-                        INSERT INTO post_media_new 
-                        SELECT id, post_id, group_post_id, filename, file_type, thumbnail, created_at 
-                        FROM post_media
-                    ''')
+                               INSERT INTO post_media_new
+                               SELECT id, post_id, group_post_id, filename, file_type, thumbnail, created_at
+                               FROM post_media
+                               ''')
 
                 # Удаляем старую и переименовываем новую
                 cursor.execute('DROP TABLE post_media')
@@ -235,59 +238,138 @@ def migrate_database():
 
     # Создаем таблицу черного списка, если ее нет
     cursor.execute('''
-    CREATE TABLE IF NOT EXISTS blacklist (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        blocker_id INTEGER NOT NULL,
-        blocked_id INTEGER NOT NULL,
-        reason TEXT,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (blocker_id) REFERENCES users(id),
-        FOREIGN KEY (blocked_id) REFERENCES users(id),
-        UNIQUE(blocker_id, blocked_id)
-    )
-    ''')
+                   CREATE TABLE IF NOT EXISTS blacklist
+                   (
+                       id
+                       INTEGER
+                       PRIMARY
+                       KEY
+                       AUTOINCREMENT,
+                       blocker_id
+                       INTEGER
+                       NOT
+                       NULL,
+                       blocked_id
+                       INTEGER
+                       NOT
+                       NULL,
+                       reason
+                       TEXT,
+                       created_at
+                       TIMESTAMP
+                       DEFAULT
+                       CURRENT_TIMESTAMP,
+                       FOREIGN
+                       KEY
+                   (
+                       blocker_id
+                   ) REFERENCES users
+                   (
+                       id
+                   ),
+                       FOREIGN KEY
+                   (
+                       blocked_id
+                   ) REFERENCES users
+                   (
+                       id
+                   ),
+                       UNIQUE
+                   (
+                       blocker_id,
+                       blocked_id
+                   )
+                       )
+                   ''')
 
     # Создаем таблицу двухфакторной аутентификации
     cursor.execute('''
-    CREATE TABLE IF NOT EXISTS two_factor_auth (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        user_id INTEGER NOT NULL UNIQUE,
-        telegram_chat_id TEXT,
-        is_enabled INTEGER DEFAULT 0,
-        link_code TEXT,
-        link_code_expires TIMESTAMP,
-        auth_code TEXT,
-        auth_code_expires TIMESTAMP,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-    )
+                   CREATE TABLE IF NOT EXISTS two_factor_auth
+                   (
+                       id
+                       INTEGER
+                       PRIMARY
+                       KEY
+                       AUTOINCREMENT,
+                       user_id
+                       INTEGER
+                       NOT
+                       NULL
+                       UNIQUE,
+                       telegram_chat_id
+                       TEXT,
+                       is_enabled
+                       INTEGER
+                       DEFAULT
+                       0,
+                       link_code
+                       TEXT,
+                       link_code_expires
+                       TIMESTAMP,
+                       auth_code
+                       TEXT,
+                       auth_code_expires
+                       TIMESTAMP,
+                       created_at
+                       TIMESTAMP
+                       DEFAULT
+                       CURRENT_TIMESTAMP,
+                       FOREIGN
+                       KEY
+                   (
+                       user_id
+                   ) REFERENCES users
+                   (
+                       id
+                   ) ON DELETE CASCADE
+                       )
+                   ''')
+
+    # Добавляем столбец accepted_notified в friendships если нет
+    try:
+        cursor.execute("SELECT accepted_notified FROM friendships LIMIT 1")
+    except sqlite3.OperationalError:
+        print("Добавляем столбец accepted_notified в таблицу friendships...")
+        cursor.execute('ALTER TABLE friendships ADD COLUMN accepted_notified INTEGER DEFAULT 1')
+
+    # Таблица комментариев к постам групп
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS group_post_comments (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            post_id INTEGER NOT NULL,
+            user_id INTEGER NOT NULL,
+            content TEXT NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (post_id) REFERENCES group_posts (id) ON DELETE CASCADE,
+            FOREIGN KEY (user_id) REFERENCES users (id)
+        )
     ''')
 
-    # Мигрируем: создаём group_post_comments если нет
-    cursor.execute('''
-    CREATE TABLE IF NOT EXISTS group_post_comments (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        post_id INTEGER NOT NULL,
-        user_id INTEGER NOT NULL,
-        content TEXT NOT NULL DEFAULT '',
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (post_id) REFERENCES group_posts(id) ON DELETE CASCADE,
-        FOREIGN KEY (user_id) REFERENCES users(id)
-    )
-    ''')
+    # Дополнительные поля профиля
+    cursor.execute("PRAGMA table_info(user_profiles)")
+    up_cols = [col[1] for col in cursor.fetchall()]
+    for col, ctype in [('gender', 'TEXT'), ('birthdate', 'TEXT'), ('language', 'TEXT'), ('telegram', 'TEXT')]:
+        if col not in up_cols:
+            cursor.execute(f'ALTER TABLE user_profiles ADD COLUMN {col} {ctype}')
+            print(f"Добавлена колонка {col} в user_profiles")
 
-    # Мигрируем: создаём comment_media если нет
-    cursor.execute('''
-    CREATE TABLE IF NOT EXISTS comment_media (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        comment_id INTEGER,
-        group_comment_id INTEGER,
-        filename TEXT NOT NULL,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (comment_id) REFERENCES comments(id) ON DELETE CASCADE,
-        FOREIGN KEY (group_comment_id) REFERENCES group_post_comments(id) ON DELETE CASCADE
-    )
-    ''')
+    # Настройки приватности профиля
+    for col, ctype, default in [
+        ('privacy_profile', 'TEXT', "'public'"),
+        ('privacy_posts', 'TEXT', "'public'"),
+        ('privacy_friends', 'TEXT', "'public'"),
+    ]:
+        if col not in up_cols:
+            cursor.execute(f"ALTER TABLE user_profiles ADD COLUMN {col} {ctype} DEFAULT {default}")
+            print(f"Добавлена колонка {col} в user_profiles")
+
+    # Поле group_id и group_name в постах (для репостов из групп)
+    cursor.execute("PRAGMA table_info(posts)")
+    p_cols = [col[1] for col in cursor.fetchall()]
+    for col, ctype in [('source_group_id', 'INTEGER'), ('source_group_name', 'TEXT'), ('source_post_id', 'INTEGER')]:
+        if col not in p_cols:
+            cursor.execute(f'ALTER TABLE posts ADD COLUMN {col} {ctype}')
+            print(f"Добавлена колонка {col} в posts")
 
     conn.commit()
     conn.close()
@@ -297,16 +379,29 @@ def migrate_database():
 def ensure_site_news_table():
     conn = get_db_connection()
     conn.execute('''
-        CREATE TABLE IF NOT EXISTS site_news (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            title TEXT NOT NULL,
-            body TEXT NOT NULL,
-            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-        )
-    ''')
+                 CREATE TABLE IF NOT EXISTS site_news
+                 (
+                     id
+                     INTEGER
+                     PRIMARY
+                     KEY
+                     AUTOINCREMENT,
+                     title
+                     TEXT
+                     NOT
+                     NULL,
+                     body
+                     TEXT
+                     NOT
+                     NULL,
+                     created_at
+                     DATETIME
+                     DEFAULT
+                     CURRENT_TIMESTAMP
+                 )
+                 ''')
     conn.commit()
     conn.close()
-
 
 
 def create_tables():
@@ -315,222 +410,615 @@ def create_tables():
 
     # Таблица пользователей
     cursor.execute('''
-    CREATE TABLE IF NOT EXISTS users (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        username TEXT NOT NULL UNIQUE,
-        password TEXT NOT NULL,
-        role TEXT DEFAULT 'user',
-        is_banned INTEGER DEFAULT 0,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-    )
-    ''')
+                   CREATE TABLE IF NOT EXISTS users
+                   (
+                       id
+                       INTEGER
+                       PRIMARY
+                       KEY
+                       AUTOINCREMENT,
+                       username
+                       TEXT
+                       NOT
+                       NULL
+                       UNIQUE,
+                       password
+                       TEXT
+                       NOT
+                       NULL,
+                       role
+                       TEXT
+                       DEFAULT
+                       'user',
+                       is_banned
+                       INTEGER
+                       DEFAULT
+                       0,
+                       created_at
+                       TIMESTAMP
+                       DEFAULT
+                       CURRENT_TIMESTAMP
+                   )
+                   ''')
 
     # Таблица профилей пользователей
     cursor.execute('''
-    CREATE TABLE IF NOT EXISTS user_profiles (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        user_id INTEGER NOT NULL UNIQUE,
-        full_name TEXT,
-        bio TEXT,
-        location TEXT,
-        website TEXT,
-        avatar TEXT DEFAULT 'default_avatar.png',
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (user_id) REFERENCES users(id)
-    )
-    ''')
+                   CREATE TABLE IF NOT EXISTS user_profiles
+                   (
+                       id
+                       INTEGER
+                       PRIMARY
+                       KEY
+                       AUTOINCREMENT,
+                       user_id
+                       INTEGER
+                       NOT
+                       NULL
+                       UNIQUE,
+                       full_name
+                       TEXT,
+                       bio
+                       TEXT,
+                       location
+                       TEXT,
+                       website
+                       TEXT,
+                       avatar
+                       TEXT
+                       DEFAULT
+                       'default_avatar.png',
+                       created_at
+                       TIMESTAMP
+                       DEFAULT
+                       CURRENT_TIMESTAMP,
+                       FOREIGN
+                       KEY
+                   (
+                       user_id
+                   ) REFERENCES users
+                   (
+                       id
+                   )
+                       )
+                   ''')
 
     # Таблица личных постов
     cursor.execute('''
-    CREATE TABLE IF NOT EXISTS posts (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        user_id INTEGER NOT NULL,
-        content TEXT NOT NULL,
-        visibility TEXT DEFAULT 'public',
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (user_id) REFERENCES users(id)
-    )
-    ''')
+                   CREATE TABLE IF NOT EXISTS posts
+                   (
+                       id
+                       INTEGER
+                       PRIMARY
+                       KEY
+                       AUTOINCREMENT,
+                       user_id
+                       INTEGER
+                       NOT
+                       NULL,
+                       content
+                       TEXT
+                       NOT
+                       NULL,
+                       visibility
+                       TEXT
+                       DEFAULT
+                       'public',
+                       created_at
+                       TIMESTAMP
+                       DEFAULT
+                       CURRENT_TIMESTAMP,
+                       FOREIGN
+                       KEY
+                   (
+                       user_id
+                   ) REFERENCES users
+                   (
+                       id
+                   )
+                       )
+                   ''')
 
     # Таблица друзей
     cursor.execute('''
-    CREATE TABLE IF NOT EXISTS friendships (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        sender_id INTEGER NOT NULL,
-        receiver_id INTEGER NOT NULL,
-        status TEXT DEFAULT 'pending',
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (sender_id) REFERENCES users(id),
-        FOREIGN KEY (receiver_id) REFERENCES users(id),
-        UNIQUE(sender_id, receiver_id)
-    )
-    ''')
+                   CREATE TABLE IF NOT EXISTS friendships
+                   (
+                       id
+                       INTEGER
+                       PRIMARY
+                       KEY
+                       AUTOINCREMENT,
+                       sender_id
+                       INTEGER
+                       NOT
+                       NULL,
+                       receiver_id
+                       INTEGER
+                       NOT
+                       NULL,
+                       status
+                       TEXT
+                       DEFAULT
+                       'pending',
+                       created_at
+                       TIMESTAMP
+                       DEFAULT
+                       CURRENT_TIMESTAMP,
+                       FOREIGN
+                       KEY
+                   (
+                       sender_id
+                   ) REFERENCES users
+                   (
+                       id
+                   ),
+                       FOREIGN KEY
+                   (
+                       receiver_id
+                   ) REFERENCES users
+                   (
+                       id
+                   ),
+                       UNIQUE
+                   (
+                       sender_id,
+                       receiver_id
+                   )
+                       )
+                   ''')
 
     # Таблица лайков постов
     cursor.execute('''
-    CREATE TABLE IF NOT EXISTS post_likes (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        post_id INTEGER NOT NULL,
-        user_id INTEGER NOT NULL,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (post_id) REFERENCES posts(id),
-        FOREIGN KEY (user_id) REFERENCES users(id),
-        UNIQUE(post_id, user_id)
-    )
-    ''')
+                   CREATE TABLE IF NOT EXISTS post_likes
+                   (
+                       id
+                       INTEGER
+                       PRIMARY
+                       KEY
+                       AUTOINCREMENT,
+                       post_id
+                       INTEGER
+                       NOT
+                       NULL,
+                       user_id
+                       INTEGER
+                       NOT
+                       NULL,
+                       created_at
+                       TIMESTAMP
+                       DEFAULT
+                       CURRENT_TIMESTAMP,
+                       FOREIGN
+                       KEY
+                   (
+                       post_id
+                   ) REFERENCES posts
+                   (
+                       id
+                   ),
+                       FOREIGN KEY
+                   (
+                       user_id
+                   ) REFERENCES users
+                   (
+                       id
+                   ),
+                       UNIQUE
+                   (
+                       post_id,
+                       user_id
+                   )
+                       )
+                   ''')
 
     # Таблица комментариев
     cursor.execute('''
-    CREATE TABLE IF NOT EXISTS comments (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        post_id INTEGER NOT NULL,
-        user_id INTEGER NOT NULL,
-        content TEXT NOT NULL,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (post_id) REFERENCES posts(id),
-        FOREIGN KEY (user_id) REFERENCES users(id)
-    )
-    ''')
+                   CREATE TABLE IF NOT EXISTS comments
+                   (
+                       id
+                       INTEGER
+                       PRIMARY
+                       KEY
+                       AUTOINCREMENT,
+                       post_id
+                       INTEGER
+                       NOT
+                       NULL,
+                       user_id
+                       INTEGER
+                       NOT
+                       NULL,
+                       content
+                       TEXT
+                       NOT
+                       NULL,
+                       created_at
+                       TIMESTAMP
+                       DEFAULT
+                       CURRENT_TIMESTAMP,
+                       FOREIGN
+                       KEY
+                   (
+                       post_id
+                   ) REFERENCES posts
+                   (
+                       id
+                   ),
+                       FOREIGN KEY
+                   (
+                       user_id
+                   ) REFERENCES users
+                   (
+                       id
+                   )
+                       )
+                   ''')
 
     # Таблица групп/пабликов
     cursor.execute('''
-    CREATE TABLE IF NOT EXISTS groups (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        name TEXT NOT NULL,
-        description TEXT,
-        avatar TEXT DEFAULT 'default_group.png',
-        creator_id INTEGER NOT NULL,
-        is_public BOOLEAN DEFAULT 1,
-        post_permissions TEXT DEFAULT 'all', -- 'admins', 'moderators', 'all'
-        request_permissions TEXT DEFAULT 'moderators', -- 'admins', 'moderators'
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (creator_id) REFERENCES users(id)
-    )
-    ''')
+                   CREATE TABLE IF NOT EXISTS groups
+                   (
+                       id
+                       INTEGER
+                       PRIMARY
+                       KEY
+                       AUTOINCREMENT,
+                       name
+                       TEXT
+                       NOT
+                       NULL,
+                       description
+                       TEXT,
+                       avatar
+                       TEXT
+                       DEFAULT
+                       'default_group.png',
+                       creator_id
+                       INTEGER
+                       NOT
+                       NULL,
+                       is_public
+                       BOOLEAN
+                       DEFAULT
+                       1,
+                       post_permissions
+                       TEXT
+                       DEFAULT
+                       'all',        -- 'admins', 'moderators', 'all'
+                       request_permissions
+                       TEXT
+                       DEFAULT
+                       'moderators', -- 'admins', 'moderators'
+                       created_at
+                       TIMESTAMP
+                       DEFAULT
+                       CURRENT_TIMESTAMP,
+                       FOREIGN
+                       KEY
+                   (
+                       creator_id
+                   ) REFERENCES users
+                   (
+                       id
+                   )
+                       )
+                   ''')
 
     # Таблица подписчиков групп
     cursor.execute('''
-    CREATE TABLE IF NOT EXISTS group_members (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        group_id INTEGER NOT NULL,
-        user_id INTEGER NOT NULL,
-        role TEXT DEFAULT 'member', -- 'admin', 'moderator', 'member'
-        joined_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (group_id) REFERENCES groups(id),
-        FOREIGN KEY (user_id) REFERENCES users(id),
-        UNIQUE(group_id, user_id)
-    )
-    ''')
+                   CREATE TABLE IF NOT EXISTS group_members
+                   (
+                       id
+                       INTEGER
+                       PRIMARY
+                       KEY
+                       AUTOINCREMENT,
+                       group_id
+                       INTEGER
+                       NOT
+                       NULL,
+                       user_id
+                       INTEGER
+                       NOT
+                       NULL,
+                       role
+                       TEXT
+                       DEFAULT
+                       'member', -- 'admin', 'moderator', 'member'
+                       joined_at
+                       TIMESTAMP
+                       DEFAULT
+                       CURRENT_TIMESTAMP,
+                       FOREIGN
+                       KEY
+                   (
+                       group_id
+                   ) REFERENCES groups
+                   (
+                       id
+                   ),
+                       FOREIGN KEY
+                   (
+                       user_id
+                   ) REFERENCES users
+                   (
+                       id
+                   ),
+                       UNIQUE
+                   (
+                       group_id,
+                       user_id
+                   )
+                       )
+                   ''')
 
     # Таблица постов в группах
     cursor.execute('''
-    CREATE TABLE IF NOT EXISTS group_posts (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        group_id INTEGER NOT NULL,
-        author_id INTEGER NOT NULL,
-        content TEXT NOT NULL,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (group_id) REFERENCES groups(id),
-        FOREIGN KEY (author_id) REFERENCES users(id)
-    )
-    ''')
+                   CREATE TABLE IF NOT EXISTS group_posts
+                   (
+                       id
+                       INTEGER
+                       PRIMARY
+                       KEY
+                       AUTOINCREMENT,
+                       group_id
+                       INTEGER
+                       NOT
+                       NULL,
+                       author_id
+                       INTEGER
+                       NOT
+                       NULL,
+                       content
+                       TEXT
+                       NOT
+                       NULL,
+                       created_at
+                       TIMESTAMP
+                       DEFAULT
+                       CURRENT_TIMESTAMP,
+                       FOREIGN
+                       KEY
+                   (
+                       group_id
+                   ) REFERENCES groups
+                   (
+                       id
+                   ),
+                       FOREIGN KEY
+                   (
+                       author_id
+                   ) REFERENCES users
+                   (
+                       id
+                   )
+                       )
+                   ''')
 
     # Таблица лайков постов в группах
     cursor.execute('''
-    CREATE TABLE IF NOT EXISTS group_post_likes (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        post_id INTEGER NOT NULL,
-        user_id INTEGER NOT NULL,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (post_id) REFERENCES group_posts(id),
-        FOREIGN KEY (user_id) REFERENCES users(id),
-        UNIQUE(post_id, user_id)
-    )
-    ''')
+                   CREATE TABLE IF NOT EXISTS group_post_likes
+                   (
+                       id
+                       INTEGER
+                       PRIMARY
+                       KEY
+                       AUTOINCREMENT,
+                       post_id
+                       INTEGER
+                       NOT
+                       NULL,
+                       user_id
+                       INTEGER
+                       NOT
+                       NULL,
+                       created_at
+                       TIMESTAMP
+                       DEFAULT
+                       CURRENT_TIMESTAMP,
+                       FOREIGN
+                       KEY
+                   (
+                       post_id
+                   ) REFERENCES group_posts
+                   (
+                       id
+                   ),
+                       FOREIGN KEY
+                   (
+                       user_id
+                   ) REFERENCES users
+                   (
+                       id
+                   ),
+                       UNIQUE
+                   (
+                       post_id,
+                       user_id
+                   )
+                       )
+                   ''')
 
     # Таблица заявок на вступление в приватные группы
     cursor.execute('''
-    CREATE TABLE IF NOT EXISTS group_requests (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        group_id INTEGER NOT NULL,
-        user_id INTEGER NOT NULL,
-        status TEXT DEFAULT 'pending', -- 'pending', 'approved', 'rejected'
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (group_id) REFERENCES groups(id),
-        FOREIGN KEY (user_id) REFERENCES users(id),
-        UNIQUE(group_id, user_id)
-    )
-    ''')
+                   CREATE TABLE IF NOT EXISTS group_requests
+                   (
+                       id
+                       INTEGER
+                       PRIMARY
+                       KEY
+                       AUTOINCREMENT,
+                       group_id
+                       INTEGER
+                       NOT
+                       NULL,
+                       user_id
+                       INTEGER
+                       NOT
+                       NULL,
+                       status
+                       TEXT
+                       DEFAULT
+                       'pending', -- 'pending', 'approved', 'rejected'
+                       created_at
+                       TIMESTAMP
+                       DEFAULT
+                       CURRENT_TIMESTAMP,
+                       FOREIGN
+                       KEY
+                   (
+                       group_id
+                   ) REFERENCES groups
+                   (
+                       id
+                   ),
+                       FOREIGN KEY
+                   (
+                       user_id
+                   ) REFERENCES users
+                   (
+                       id
+                   ),
+                       UNIQUE
+                   (
+                       group_id,
+                       user_id
+                   )
+                       )
+                   ''')
 
     # Таблица медиафайлов для постов
     cursor.execute('''
-    CREATE TABLE IF NOT EXISTS post_media (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        post_id INTEGER,
-        group_post_id INTEGER,
-        filename TEXT NOT NULL,
-        file_type TEXT NOT NULL, -- 'image' или 'video'
-        thumbnail TEXT,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (post_id) REFERENCES posts(id) ON DELETE CASCADE,
-        FOREIGN KEY (group_post_id) REFERENCES group_posts(id) ON DELETE CASCADE
-    )
-    ''')
+                   CREATE TABLE IF NOT EXISTS post_media
+                   (
+                       id
+                       INTEGER
+                       PRIMARY
+                       KEY
+                       AUTOINCREMENT,
+                       post_id
+                       INTEGER,
+                       group_post_id
+                       INTEGER,
+                       filename
+                       TEXT
+                       NOT
+                       NULL,
+                       file_type
+                       TEXT
+                       NOT
+                       NULL, -- 'image' или 'video'
+                       thumbnail
+                       TEXT,
+                       created_at
+                       TIMESTAMP
+                       DEFAULT
+                       CURRENT_TIMESTAMP,
+                       FOREIGN
+                       KEY
+                   (
+                       post_id
+                   ) REFERENCES posts
+                   (
+                       id
+                   ) ON DELETE CASCADE,
+                       FOREIGN KEY
+                   (
+                       group_post_id
+                   ) REFERENCES group_posts
+                   (
+                       id
+                   )
+                     ON DELETE CASCADE
+                       )
+                   ''')
 
     # Таблица импортированных новостей
     cursor.execute('''
-    CREATE TABLE IF NOT EXISTS imported_news (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        title TEXT NOT NULL,
-        description TEXT,
-        link TEXT NOT NULL UNIQUE,
-        source TEXT DEFAULT 'RBC',
-        published TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        imported_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-    )
-    ''')
-
-    # Таблица комментариев к постам групп
-    cursor.execute('''
-    CREATE TABLE IF NOT EXISTS group_post_comments (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        post_id INTEGER NOT NULL,
-        user_id INTEGER NOT NULL,
-        content TEXT NOT NULL DEFAULT '',
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (post_id) REFERENCES group_posts(id) ON DELETE CASCADE,
-        FOREIGN KEY (user_id) REFERENCES users(id)
-    )
-    ''')
-
-    # Таблица медиа для комментариев (фото)
-    cursor.execute('''
-    CREATE TABLE IF NOT EXISTS comment_media (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        comment_id INTEGER,
-        group_comment_id INTEGER,
-        filename TEXT NOT NULL,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (comment_id) REFERENCES comments(id) ON DELETE CASCADE,
-        FOREIGN KEY (group_comment_id) REFERENCES group_post_comments(id) ON DELETE CASCADE
-    )
-    ''')
+                   CREATE TABLE IF NOT EXISTS imported_news
+                   (
+                       id
+                       INTEGER
+                       PRIMARY
+                       KEY
+                       AUTOINCREMENT,
+                       title
+                       TEXT
+                       NOT
+                       NULL,
+                       description
+                       TEXT,
+                       link
+                       TEXT
+                       NOT
+                       NULL
+                       UNIQUE,
+                       source
+                       TEXT
+                       DEFAULT
+                       'RBC',
+                       published
+                       TIMESTAMP
+                       DEFAULT
+                       CURRENT_TIMESTAMP,
+                       imported_at
+                       TIMESTAMP
+                       DEFAULT
+                       CURRENT_TIMESTAMP
+                   )
+                   ''')
 
     # Таблица жалоб
     cursor.execute('''
-    CREATE TABLE IF NOT EXISTS reports (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        reporter_id INTEGER NOT NULL,
-        reported_id INTEGER NOT NULL,
-        reason TEXT NOT NULL,
-        status TEXT DEFAULT 'pending',
-        admin_notes TEXT,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (reporter_id) REFERENCES users(id),
-        FOREIGN KEY (reported_id) REFERENCES users(id)
-    )
-    ''')
+                   CREATE TABLE IF NOT EXISTS reports
+                   (
+                       id
+                       INTEGER
+                       PRIMARY
+                       KEY
+                       AUTOINCREMENT,
+                       reporter_id
+                       INTEGER
+                       NOT
+                       NULL,
+                       reported_id
+                       INTEGER
+                       NOT
+                       NULL,
+                       reason
+                       TEXT
+                       NOT
+                       NULL,
+                       status
+                       TEXT
+                       DEFAULT
+                       'pending',
+                       admin_notes
+                       TEXT,
+                       created_at
+                       TIMESTAMP
+                       DEFAULT
+                       CURRENT_TIMESTAMP,
+                       updated_at
+                       TIMESTAMP
+                       DEFAULT
+                       CURRENT_TIMESTAMP,
+                       FOREIGN
+                       KEY
+                   (
+                       reporter_id
+                   ) REFERENCES users
+                   (
+                       id
+                   ),
+                       FOREIGN KEY
+                   (
+                       reported_id
+                   ) REFERENCES users
+                   (
+                       id
+                   )
+                       )
+                   ''')
 
     connection.commit()
     connection.close()
@@ -631,11 +1119,11 @@ def utility_processor():
             conn = sqlite3.connect('users.db')
             cursor = conn.cursor()
             cursor.execute("""
-                SELECT u.username, p.full_name
-                FROM users u
-                LEFT JOIN user_profiles p ON p.user_id = u.id
-                WHERE u.id = ?
-            """, (user_id,))
+                           SELECT u.username, p.full_name
+                           FROM users u
+                                    LEFT JOIN user_profiles p ON p.user_id = u.id
+                           WHERE u.id = ?
+                           """, (user_id,))
             row = cursor.fetchone()
             conn.close()
             if row:
@@ -659,18 +1147,18 @@ def get_post_media(post_id, is_group_post=True):
 
     if is_group_post:
         media = conn.execute('''
-            SELECT id, filename, file_type, thumbnail, original_filename
-            FROM post_media 
-            WHERE group_post_id = ?
-            ORDER BY id
-        ''', (post_id,)).fetchall()
+                             SELECT id, filename, file_type, thumbnail, original_filename
+                             FROM post_media
+                             WHERE group_post_id = ?
+                             ORDER BY id
+                             ''', (post_id,)).fetchall()
     else:
         media = conn.execute('''
-            SELECT id, filename, file_type, thumbnail, original_filename
-            FROM post_media 
-            WHERE post_id = ?
-            ORDER BY id
-        ''', (post_id,)).fetchall()
+                             SELECT id, filename, file_type, thumbnail, original_filename
+                             FROM post_media
+                             WHERE post_id = ?
+                             ORDER BY id
+                             ''', (post_id,)).fetchall()
 
     conn.close()
     return rows_to_dicts(media)
@@ -682,19 +1170,16 @@ def get_post_comments(post_id):
     """Получение комментариев для поста"""
     conn = get_db_connection()
     comments = rows_to_dicts(conn.execute('''
-        SELECT c.*, u.username, up.full_name, 
-               COALESCE(up.avatar, 'default_avatar.png') as avatar
-        FROM comments c
-        JOIN users u ON c.user_id = u.id
-        LEFT JOIN user_profiles up ON u.id = up.user_id
-        WHERE c.post_id = ?
-        ORDER BY c.created_at DESC
-    ''', (post_id,)).fetchall())
-    for c in comments:
-        media = conn.execute(
-            'SELECT filename FROM comment_media WHERE comment_id = ?', (c['id'],)
-        ).fetchone()
-        c['photo'] = media['filename'] if media else None
+                                          SELECT c.*,
+                                                 u.username,
+                                                 up.full_name,
+                                                 COALESCE(up.avatar, 'default_avatar.png') as avatar
+                                          FROM comments c
+                                                   JOIN users u ON c.user_id = u.id
+                                                   LEFT JOIN user_profiles up ON u.id = up.user_id
+                                          WHERE c.post_id = ?
+                                          ORDER BY c.created_at DESC
+                                          ''', (post_id,)).fetchall())
     conn.close()
     return comments
 
@@ -703,11 +1188,11 @@ def get_post_likes(post_id):
     """Получение лайков для поста"""
     conn = get_db_connection()
     likes = rows_to_dicts(conn.execute('''
-        SELECT pl.*, u.username
-        FROM post_likes pl
-        JOIN users u ON pl.user_id = u.id
-        WHERE pl.post_id = ?
-    ''', (post_id,)).fetchall())
+                                       SELECT pl.*, u.username
+                                       FROM post_likes pl
+                                                JOIN users u ON pl.user_id = u.id
+                                       WHERE pl.post_id = ?
+                                       ''', (post_id,)).fetchall())
     conn.close()
     return likes
 
@@ -716,9 +1201,11 @@ def has_user_liked_post(post_id, user_id):
     """Проверка, поставил ли пользователь лайк посту"""
     conn = get_db_connection()
     result = conn.execute('''
-        SELECT id FROM post_likes 
-        WHERE post_id = ? AND user_id = ?
-    ''', (post_id, user_id)).fetchone()
+                          SELECT id
+                          FROM post_likes
+                          WHERE post_id = ?
+                            AND user_id = ?
+                          ''', (post_id, user_id)).fetchone()
     conn.close()
     return result is not None
 
@@ -729,6 +1216,9 @@ def has_user_liked_post(post_id, user_id):
 def edit_post(post_id):
     """Редактирование поста"""
     if 'user_id' not in session:
+        # Проверяем, AJAX ли это запрос
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest' or request.is_json:
+            return jsonify({'success': False, 'error': 'Требуется авторизация'})
         return redirect('/login')
 
     user_id = session['user_id']
@@ -739,19 +1229,30 @@ def edit_post(post_id):
 
     if not post:
         conn.close()
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest' or request.is_json:
+            return jsonify({'success': False, 'error': 'Пост не найден'})
         flash('Пост не найден', 'error')
         return redirect('/my_posts')
 
     # Проверяем права доступа
     if post['user_id'] != user_id:
         conn.close()
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest' or request.is_json:
+            return jsonify({'success': False, 'error': 'Вы не можете редактировать этот пост'})
         flash('Вы не можете редактировать этот пост', 'error')
         return redirect('/my_posts')
 
     if request.method == 'POST':
-        content = request.form.get('content', '').strip()
+        # Получаем содержимое (поддержка как JSON, так и form-data)
+        if request.is_json:
+            data = request.get_json()
+            content = data.get('content', '').strip()
+        else:
+            content = request.form.get('content', '').strip()
 
         if not content:
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest' or request.is_json:
+                return jsonify({'success': False, 'error': 'Пост не может быть пустым'})
             flash('Пост не может быть пустым', 'error')
             return redirect(f'/edit_post/{post_id}')
 
@@ -760,6 +1261,10 @@ def edit_post(post_id):
         conn.commit()
         conn.close()
 
+        # Всегда возвращаем JSON для AJAX-запросов
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest' or request.is_json:
+            return jsonify({'success': True, 'message': 'Пост успешно обновлен!'})
+
         flash('Пост успешно обновлен!', 'success')
         return redirect('/my_posts')
 
@@ -767,6 +1272,64 @@ def edit_post(post_id):
     conn.close()
     return render_template('edit_post.html', post=dict(post))
 
+
+@app.route('/post_comments/<int:post_id>')
+def post_comments(post_id):
+    """Получить комментарии к личному посту (для профиля)"""
+    if 'user_id' not in session:
+        return jsonify({'success': False, 'error': 'Требуется авторизация'}), 401
+    conn = get_db_connection()
+    comments = rows_to_dicts(conn.execute('''
+        SELECT c.*, u.username, up.full_name,
+               COALESCE(up.avatar, 'default_avatar.png') as avatar
+        FROM comments c
+        JOIN users u ON c.user_id = u.id
+        LEFT JOIN user_profiles up ON u.id = up.user_id
+        WHERE c.post_id = ?
+        ORDER BY c.created_at ASC
+    ''', (post_id,)).fetchall())
+    conn.close()
+    return jsonify({'success': True, 'comments': comments})
+
+
+@app.route('/api/edit_post/<int:post_id>', methods=['POST'])
+def api_edit_post(post_id):
+    """API для редактирования поста (возвращает JSON)"""
+    if 'user_id' not in session:
+        return jsonify({'success': False, 'error': 'Требуется авторизация'})
+
+    user_id = session['user_id']
+
+    # Получаем данные
+    if request.is_json:
+        data = request.get_json()
+        content = data.get('content', '').strip()
+    else:
+        content = request.form.get('content', '').strip()
+
+    if not content:
+        return jsonify({'success': False, 'error': 'Пост не может быть пустым'})
+
+    conn = get_db_connection()
+
+    # Получаем пост
+    post = conn.execute('SELECT * FROM posts WHERE id = ?', (post_id,)).fetchone()
+
+    if not post:
+        conn.close()
+        return jsonify({'success': False, 'error': 'Пост не найден'})
+
+    # Проверяем права
+    if post['user_id'] != user_id:
+        conn.close()
+        return jsonify({'success': False, 'error': 'Вы не можете редактировать этот пост'})
+
+    # Обновляем
+    conn.execute('UPDATE posts SET content = ? WHERE id = ?', (content, post_id))
+    conn.commit()
+    conn.close()
+
+    return jsonify({'success': True, 'message': 'Пост обновлен'})
 
 @app.route('/faq')
 def faq():
@@ -846,8 +1409,11 @@ def like_post_action(post_id):
 
         # Проверяем, лайкал ли уже пользователь
         existing_like = conn.execute('''
-            SELECT id FROM post_likes WHERE post_id = ? AND user_id = ?
-        ''', (post_id, user_id)).fetchone()
+                                     SELECT id
+                                     FROM post_likes
+                                     WHERE post_id = ?
+                                       AND user_id = ?
+                                     ''', (post_id, user_id)).fetchone()
 
         if existing_like:
             # Убираем лайк
@@ -880,74 +1446,58 @@ def like_post_action(post_id):
 
 @app.route('/add_comment/<int:post_id>', methods=['POST'])
 def add_comment(post_id):
-    """Добавить комментарий к посту (с поддержкой фото)"""
+    """Добавить комментарий к посту"""
     if 'user_id' not in session:
         return jsonify({'success': False, 'error': 'Требуется авторизация'}), 401
 
-    ensure_comment_tables()
     user_id = session['user_id']
+    data = request.get_json()
+    content = data.get('content', '').strip()
 
-    # Поддерживаем как JSON, так и multipart/form-data
-    if request.content_type and 'application/json' in request.content_type:
-        data = request.get_json()
-        content = (data.get('content') or '').strip()
-        photo_file = None
-    else:
-        content = (request.form.get('content') or '').strip()
-        photo_file = request.files.get('photo')
-
-    if not content and not photo_file:
+    if not content:
         return jsonify({'success': False, 'error': 'Комментарий не может быть пустым'})
 
     conn = get_db_connection()
 
     try:
+        # Проверяем, существует ли пост
         post = conn.execute('SELECT id FROM posts WHERE id = ?', (post_id,)).fetchone()
         if not post:
             conn.close()
             return jsonify({'success': False, 'error': 'Пост не найден'})
 
+        # Добавляем комментарий - ИСПОЛЬЗУЕМ CURSOR
         cursor = conn.cursor()
         cursor.execute('''
-            INSERT INTO comments (post_id, user_id, content)
-            VALUES (?, ?, ?)
-        ''', (post_id, user_id, content))
+                       INSERT INTO comments (post_id, user_id, content)
+                       VALUES (?, ?, ?)
+                       ''', (post_id, user_id, content))
+
+        # Получаем ID нового комментария через cursor.lastrowid
         comment_id = cursor.lastrowid
 
-        # Сохраняем фото если есть
-        photo_filename = None
-        if photo_file and photo_file.filename and allowed_image_file(photo_file.filename):
-            import time
-            ext = photo_file.filename.rsplit('.', 1)[1].lower()
-            photo_filename = f"comment_{comment_id}_{int(time.time())}.{ext}"
-            photo_file.save(os.path.join(app.config['POST_MEDIA_FOLDER'], photo_filename))
-            cursor.execute(
-                'INSERT INTO comment_media (comment_id, filename) VALUES (?, ?)',
-                (comment_id, photo_filename)
-            )
+        # Получаем информацию о комментаторе для ответа
+        comment_data = conn.execute('''
+                                    SELECT c.*,
+                                           u.username,
+                                           up.full_name,
+                                           COALESCE(up.avatar, 'default_avatar.png') as avatar
+                                    FROM comments c
+                                             JOIN users u ON c.user_id = u.id
+                                             LEFT JOIN user_profiles up ON u.id = up.user_id
+                                    WHERE c.id = ?
+                                    ''', (comment_id,)).fetchone()
 
-        comment_data = dict(conn.execute('''
-            SELECT c.*, u.username, up.full_name,
-                   COALESCE(up.avatar, 'default_avatar.png') as avatar
-            FROM comments c
-            JOIN users u ON c.user_id = u.id
-            LEFT JOIN user_profiles up ON u.id = up.user_id
-            WHERE c.id = ?
-        ''', (comment_id,)).fetchone())
-
-        if photo_filename:
-            comment_data['photo'] = photo_filename
-
-        comments_count = conn.execute(
-            'SELECT COUNT(*) as count FROM comments WHERE post_id = ?', (post_id,)
-        ).fetchone()['count']
+        # Получаем общее количество комментариев
+        comments_count = \
+            conn.execute('SELECT COUNT(*) as count FROM comments WHERE post_id = ?', (post_id,)).fetchone()['count']
 
         conn.commit()
         conn.close()
 
         return jsonify({
             'success': True,
-            'comment': comment_data,
+            'comment': dict(comment_data),
             'comments_count': comments_count
         })
 
@@ -984,15 +1534,6 @@ def delete_comment(comment_id):
         # Получаем post_id перед удалением
         post_id = comment['post_id']
 
-        # Удаляем медиафайлы комментария если есть
-        media = conn.execute('SELECT filename FROM comment_media WHERE comment_id = ?', (comment_id,)).fetchall()
-        for m in media:
-            try:
-                os.remove(os.path.join(app.config['POST_MEDIA_FOLDER'], m['filename']))
-            except:
-                pass
-        conn.execute('DELETE FROM comment_media WHERE comment_id = ?', (comment_id,))
-
         # Удаляем комментарий
         conn.execute('DELETE FROM comments WHERE id = ?', (comment_id,))
 
@@ -1014,188 +1555,6 @@ def delete_comment(comment_id):
         return jsonify({'success': False, 'error': str(e)})
 
 
-def ensure_comment_tables():
-    """Создаёт таблицы комментариев если их нет (для совместимости со старой БД)"""
-    conn = get_db_connection()
-    conn.execute('''
-        CREATE TABLE IF NOT EXISTS group_post_comments (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            post_id INTEGER NOT NULL,
-            user_id INTEGER NOT NULL,
-            content TEXT NOT NULL DEFAULT '',
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            FOREIGN KEY (post_id) REFERENCES group_posts(id) ON DELETE CASCADE,
-            FOREIGN KEY (user_id) REFERENCES users(id)
-        )
-    ''')
-    conn.execute('''
-        CREATE TABLE IF NOT EXISTS comment_media (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            comment_id INTEGER,
-            group_comment_id INTEGER,
-            filename TEXT NOT NULL,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            FOREIGN KEY (comment_id) REFERENCES comments(id) ON DELETE CASCADE,
-            FOREIGN KEY (group_comment_id) REFERENCES group_post_comments(id) ON DELETE CASCADE
-        )
-    ''')
-    conn.commit()
-    conn.close()
-
-
-@app.route('/group_post/<int:post_id>/comments', methods=['GET'])
-def get_group_post_comments(post_id):
-    """Получить комментарии к посту группы"""
-    if 'user_id' not in session:
-        return jsonify({'success': False, 'error': 'Требуется авторизация'}), 401
-    ensure_comment_tables()
-    conn = get_db_connection()
-    comments = rows_to_dicts(conn.execute('''
-        SELECT c.*, u.username, up.full_name,
-               COALESCE(up.avatar, 'default_avatar.png') as avatar
-        FROM group_post_comments c
-        JOIN users u ON c.user_id = u.id
-        LEFT JOIN user_profiles up ON u.id = up.user_id
-        WHERE c.post_id = ?
-        ORDER BY c.created_at ASC
-    ''', (post_id,)).fetchall())
-    # Добавляем фото к каждому комментарию
-    for c in comments:
-        media = conn.execute(
-            'SELECT filename FROM comment_media WHERE group_comment_id = ?', (c['id'],)
-        ).fetchone()
-        c['photo'] = media['filename'] if media else None
-    conn.close()
-    return jsonify({'success': True, 'comments': comments})
-
-
-@app.route('/group_post/<int:post_id>/add_comment', methods=['POST'])
-def add_group_post_comment(post_id):
-    """Добавить комментарий к посту группы (с поддержкой фото)"""
-    if 'user_id' not in session:
-        return jsonify({'success': False, 'error': 'Требуется авторизация'}), 401
-
-    # Убедимся что таблицы существуют
-    ensure_comment_tables()
-
-    user_id = session['user_id']
-
-    if request.content_type and 'application/json' in request.content_type:
-        data = request.get_json()
-        content = (data.get('content') or '').strip()
-        photo_file = None
-    else:
-        content = (request.form.get('content') or '').strip()
-        photo_file = request.files.get('photo')
-
-    if not content and not photo_file:
-        return jsonify({'success': False, 'error': 'Комментарий не может быть пустым'})
-
-    conn = get_db_connection()
-    try:
-        post = conn.execute('SELECT id FROM group_posts WHERE id = ?', (post_id,)).fetchone()
-        if not post:
-            conn.close()
-            return jsonify({'success': False, 'error': 'Пост не найден'})
-
-        cursor = conn.cursor()
-        cursor.execute('''
-            INSERT INTO group_post_comments (post_id, user_id, content)
-            VALUES (?, ?, ?)
-        ''', (post_id, user_id, content))
-        comment_id = cursor.lastrowid
-
-        photo_filename = None
-        if photo_file and photo_file.filename and allowed_image_file(photo_file.filename):
-            import time
-            ext = photo_file.filename.rsplit('.', 1)[1].lower()
-            photo_filename = f"gcomment_{comment_id}_{int(time.time())}.{ext}"
-            photo_file.save(os.path.join(app.config['POST_MEDIA_FOLDER'], photo_filename))
-            cursor.execute(
-                'INSERT INTO comment_media (group_comment_id, filename) VALUES (?, ?)',
-                (comment_id, photo_filename)
-            )
-
-        comment_data = dict(conn.execute('''
-            SELECT c.*, u.username, up.full_name,
-                   COALESCE(up.avatar, 'default_avatar.png') as avatar
-            FROM group_post_comments c
-            JOIN users u ON c.user_id = u.id
-            LEFT JOIN user_profiles up ON u.id = up.user_id
-            WHERE c.id = ?
-        ''', (comment_id,)).fetchone())
-        comment_data['photo'] = photo_filename
-
-        comments_count = conn.execute(
-            'SELECT COUNT(*) as count FROM group_post_comments WHERE post_id = ?', (post_id,)
-        ).fetchone()['count']
-
-        conn.commit()
-        conn.close()
-        return jsonify({'success': True, 'comment': comment_data, 'comments_count': comments_count})
-
-    except Exception as e:
-        conn.rollback()
-        conn.close()
-        return jsonify({'success': False, 'error': str(e)})
-
-
-@app.route('/group_post_comment/<int:comment_id>/delete', methods=['POST'])
-def delete_group_post_comment(comment_id):
-    """Удалить комментарий к посту группы"""
-    if 'user_id' not in session:
-        return jsonify({'success': False, 'error': 'Требуется авторизация'}), 401
-    ensure_comment_tables()
-
-    user_id = session['user_id']
-    conn = get_db_connection()
-    try:
-        comment = conn.execute('SELECT * FROM group_post_comments WHERE id = ?', (comment_id,)).fetchone()
-        if not comment:
-            conn.close()
-            return jsonify({'success': False, 'error': 'Комментарий не найден'})
-
-        if comment['user_id'] != user_id:
-            # Проверяем, является ли пользователь автором поста или админом/модером группы
-            post = conn.execute('SELECT author_id, group_id FROM group_posts WHERE id = ?', (comment['post_id'],)).fetchone()
-            is_post_author = post and post['author_id'] == user_id
-            is_group_mod = False
-            if post:
-                membership = conn.execute(
-                    'SELECT role FROM group_members WHERE group_id = ? AND user_id = ?',
-                    (post['group_id'], user_id)
-                ).fetchone()
-                is_group_mod = membership and membership['role'] in ('admin', 'moderator')
-            if not is_post_author and not is_group_mod:
-                conn.close()
-                return jsonify({'success': False, 'error': 'Нет прав на удаление'})
-
-        post_id = comment['post_id']
-
-        # Удаляем медиафайлы
-        media = conn.execute('SELECT filename FROM comment_media WHERE group_comment_id = ?', (comment_id,)).fetchall()
-        for m in media:
-            try:
-                os.remove(os.path.join(app.config['POST_MEDIA_FOLDER'], m['filename']))
-            except:
-                pass
-        conn.execute('DELETE FROM comment_media WHERE group_comment_id = ?', (comment_id,))
-        conn.execute('DELETE FROM group_post_comments WHERE id = ?', (comment_id,))
-
-        comments_count = conn.execute(
-            'SELECT COUNT(*) as count FROM group_post_comments WHERE post_id = ?', (post_id,)
-        ).fetchone()['count']
-
-        conn.commit()
-        conn.close()
-        return jsonify({'success': True, 'comments_count': comments_count})
-
-    except Exception as e:
-        conn.rollback()
-        conn.close()
-        return jsonify({'success': False, 'error': str(e)})
-
-
 @app.route('/post/<int:post_id>')
 def view_post(post_id):
     """Просмотр отдельного поста с комментариями"""
@@ -1207,13 +1566,15 @@ def view_post(post_id):
 
     # Получаем пост
     post = conn.execute('''
-        SELECT p.*, u.username, up.full_name, 
-               COALESCE(up.avatar, 'default_avatar.png') as avatar
-        FROM posts p
-        JOIN users u ON p.user_id = u.id
-        LEFT JOIN user_profiles up ON u.id = up.user_id
-        WHERE p.id = ?
-    ''', (post_id,)).fetchone()
+                        SELECT p.*,
+                               u.username,
+                               up.full_name,
+                               COALESCE(up.avatar, 'default_avatar.png') as avatar
+                        FROM posts p
+                                 JOIN users u ON p.user_id = u.id
+                                 LEFT JOIN user_profiles up ON u.id = up.user_id
+                        WHERE p.id = ?
+                        ''', (post_id,)).fetchone()
 
     if not post:
         conn.close()
@@ -1309,46 +1670,102 @@ def check_post_permission(group_id, user_id, conn):
 # ==================== НОВОСТИ СОЦСЕТИ ====================
 
 def get_posts_feed(user_id, limit=20, filter_type='all', offset=0):
-    """Получение ленты постов пользователей (без импортированных новостей)"""
+    """Получение ленты постов: личные посты + посты из групп пользователя"""
     conn = get_db_connection()
     try:
+        # ── Часть 1: личные посты ──────────────────────────────────────────
         if filter_type == 'mine':
-            filter_clause = 'WHERE p.user_id = :uid'
-            params = {'uid': user_id, 'limit': limit, 'offset': offset}
+            personal_where = 'WHERE p.user_id = :uid'
+            personal_params = {'uid': user_id}
         elif filter_type == 'friends':
-            filter_clause = '''WHERE p.user_id IN (
+            personal_where = '''WHERE p.user_id IN (
                 SELECT CASE WHEN sender_id = :uid THEN receiver_id ELSE sender_id END
                 FROM friendships WHERE (sender_id = :uid OR receiver_id = :uid) AND status = 'accepted'
             )'''
-            params = {'uid': user_id, 'limit': limit, 'offset': offset}
+            personal_params = {'uid': user_id}
         else:
-            filter_clause = ''
-            params = {'limit': limit, 'offset': offset}
+            personal_where = ''
+            personal_params = {}
 
-        rows = conn.execute(f'''
-            SELECT p.*, u.username,
+        personal_rows = conn.execute(f'''
+            SELECT p.id,
+                   p.user_id,
+                   p.content,
+                   p.created_at,
+                   p.source_group_id,
+                   p.source_group_name,
+                   p.source_post_id,
+                   u.username,
                    COALESCE(up.full_name, u.username) as author_name,
                    COALESCE(up.avatar, '') as author_avatar,
                    (SELECT COUNT(*) FROM post_likes WHERE post_id = p.id) as likes_count,
                    (SELECT COUNT(*) FROM comments WHERE post_id = p.id) as comments_count,
-                   EXISTS(SELECT 1 FROM post_likes WHERE post_id = p.id AND user_id = :self_uid) as is_liked
+                   EXISTS(SELECT 1 FROM post_likes WHERE post_id = p.id AND user_id = :self_uid) as is_liked,
+                   'post' as post_kind,
+                   NULL as group_id,
+                   NULL as group_name,
+                   NULL as group_avatar
             FROM posts p
             JOIN users u ON p.user_id = u.id
             LEFT JOIN user_profiles up ON up.user_id = p.user_id
-            {filter_clause}
-            ORDER BY p.created_at DESC
-            LIMIT :limit OFFSET :offset
-        ''', {**params, 'self_uid': user_id}).fetchall()
+            {personal_where}
+        ''', {**personal_params, 'self_uid': user_id}).fetchall()
 
-        posts = rows_to_dicts(rows)
-        for post in posts:
+        personal_posts = rows_to_dicts(personal_rows)
+        for post in personal_posts:
             post['type'] = 'post'
             media_files = conn.execute(
-                'SELECT filename, file_type, original_filename FROM post_media WHERE post_id = ? ORDER BY id',
+                'SELECT id, filename, file_type, original_filename FROM post_media WHERE post_id = ? ORDER BY id',
                 (post['id'],)
             ).fetchall()
             post['media_files'] = rows_to_dicts(media_files) if media_files else []
+
+        # ── Часть 2: посты из групп (только для filter_type != 'mine') ─────
+        group_posts = []
+        if filter_type != 'mine':
+            gp_rows = conn.execute('''
+                SELECT gp.id,
+                       gp.author_id as user_id,
+                       gp.content,
+                       gp.created_at,
+                       NULL as source_group_id,
+                       NULL as source_group_name,
+                       NULL as source_post_id,
+                       u.username,
+                       COALESCE(up.full_name, u.username) as author_name,
+                       COALESCE(up.avatar, '') as author_avatar,
+                       (SELECT COUNT(*) FROM group_post_likes WHERE post_id = gp.id) as likes_count,
+                       (SELECT COUNT(*) FROM group_post_comments WHERE post_id = gp.id) as comments_count,
+                       EXISTS(SELECT 1 FROM group_post_likes WHERE post_id = gp.id AND user_id = :self_uid) as is_liked,
+                       'group_post' as post_kind,
+                       g.id as group_id,
+                       g.name as group_name,
+                       g.avatar as group_avatar
+                FROM group_posts gp
+                JOIN groups g ON gp.group_id = g.id
+                JOIN users u ON gp.author_id = u.id
+                LEFT JOIN user_profiles up ON up.user_id = gp.author_id
+                WHERE gp.group_id IN (
+                    SELECT group_id FROM group_members WHERE user_id = :uid
+                )
+            ''', {'self_uid': user_id, 'uid': user_id}).fetchall()
+
+            group_posts = rows_to_dicts(gp_rows)
+            for post in group_posts:
+                post['type'] = 'post'
+                media_files = conn.execute(
+                    'SELECT id, filename, file_type, original_filename FROM post_media WHERE group_post_id = ? ORDER BY id',
+                    (post['id'],)
+                ).fetchall()
+                post['media_files'] = rows_to_dicts(media_files) if media_files else []
+
+        # ── Объединяем и сортируем по дате ────────────────────────────────
+        all_posts = personal_posts + group_posts
+        all_posts.sort(key=lambda x: str(x.get('created_at', '')), reverse=True)
+        posts = all_posts[offset:offset + limit]
+
     except Exception as e:
+        import traceback; traceback.print_exc()
         print(f"Ошибка get_posts_feed: {e}")
         posts = []
     finally:
@@ -1385,29 +1802,6 @@ def admin_delete_news(news_id):
     conn.commit()
     conn.close()
     return jsonify({'success': True})
-
-
-@app.route('/admin/news/edit/<int:news_id>', methods=['POST'])
-def admin_edit_news(news_id):
-    """Редактирование существующей новости платформы (только для администратора)."""
-    if 'user_id' not in session or session.get('role') != 'admin':
-        return jsonify({'success': False, 'error': 'Нет доступа'}), 403
-    data = request.get_json()
-    title = (data.get('title') or '').strip()
-    body  = (data.get('body')  or '').strip()
-    if not title or not body:
-        return jsonify({'success': False, 'error': 'Заголовок и текст обязательны'})
-    conn = get_db_connection()
-    conn.execute(
-        'UPDATE site_news SET title = ?, body = ? WHERE id = ?',
-        (title, body, news_id)
-    )
-    conn.commit()
-    news = conn.execute('SELECT * FROM site_news WHERE id = ?', (news_id,)).fetchone()
-    conn.close()
-    if not news:
-        return jsonify({'success': False, 'error': 'Новость не найдена'})
-    return jsonify({'success': True, 'news': row_to_dict(news)})
 
 
 # ==================== ОСНОВНЫЕ МАРШРУТЫ ====================
@@ -1447,12 +1841,12 @@ def home():
             # Создаем пост
             cursor = conn.cursor()
             cursor.execute('''
-                INSERT INTO posts (user_id, content, created_at)
-                VALUES (?, ?, ?)
-            ''', (user_id, content, current_datetime))
+                           INSERT INTO posts (user_id, content, created_at)
+                           VALUES (?, ?, ?)
+                           ''', (user_id, content, current_datetime))
 
             post_id = cursor.lastrowid
-            print(f"Создан пост ID: {post_id} с текстом: {content}")
+            print(f"[DEBUG] Создан пост ID: {post_id}")
 
             # Обработка загруженных файлов
             uploaded_files = 0
@@ -1466,8 +1860,9 @@ def home():
                             continue
 
                         file_ext = filename.rsplit('.', 1)[1].lower()
+                        print(f"[DEBUG] Файл: {original_name}, расширение: {file_ext}")
 
-                        # Определяем тип файла
+                        # ОПРЕДЕЛЯЕМ ТИП ФАЙЛА ПО РАСШИРЕНИЮ
                         if file_ext in ALLOWED_IMAGE_EXTENSIONS:
                             file_type = 'image'
                         elif file_ext in ALLOWED_VIDEO_EXTENSIONS:
@@ -1475,41 +1870,55 @@ def home():
                         elif file_ext in ALLOWED_DOCUMENT_EXTENSIONS:
                             file_type = 'document'
                         else:
+                            print(f"[DEBUG] Неподдерживаемый тип: {file_ext}")
                             continue
 
+                        print(f"[DEBUG] Определен тип: {file_type}")
+
+                        # Читаем начало файла для проверки
+                        file.seek(0)
+                        file_data = file.read(20)
+                        file.seek(0)
+                        print(f"[DEBUG] Заголовок файла: {file_data[:10].hex()}")
+
                         # Генерируем уникальное имя файла
-                        import time
                         unique_filename = f"post_{post_id}_{int(time.time())}_{hashlib.md5(filename.encode()).hexdigest()[:8]}.{file_ext}"
                         file_path = os.path.join(app.config['POST_MEDIA_FOLDER'], unique_filename)
 
                         try:
                             # Сохраняем файл
                             file.save(file_path)
-                            print(f"Файл сохранен: {file_path}")
+                            print(f"[DEBUG] Файл сохранен: {file_path}, размер: {os.path.getsize(file_path)} байт")
 
                             # Сохраняем в БД
                             cursor.execute('''
-                                INSERT INTO post_media (post_id, filename, file_type, original_filename)
-                                VALUES (?, ?, ?, ?)
-                            ''', (post_id, unique_filename, file_type, original_name))
+                                           INSERT INTO post_media (post_id, filename, file_type, original_filename)
+                                           VALUES (?, ?, ?, ?)
+                                           ''', (post_id, unique_filename, file_type, original_name))
 
                             uploaded_files += 1
-                            print(f"Сохранен файл {uploaded_files}: {unique_filename} (тип: {file_type})")
+                            print(f"[DEBUG] Файл {uploaded_files} сохранен в БД")
 
                         except Exception as file_error:
-                            print(f"Ошибка при сохранении файла: {str(file_error)}")
+                            print(f"[ERROR] Ошибка при сохранении файла: {str(file_error)}")
+                            import traceback
+                            traceback.print_exc()
                             continue
 
             conn.commit()
+            print(f"[DEBUG] Пост {post_id} сохранен, файлов: {uploaded_files}")
 
             if uploaded_files > 0:
                 flash(f'Пост опубликован с {uploaded_files} файл(ов)!', 'success')
             else:
-                flash('Пост опубликован!', 'success')
+                if has_files:
+                    flash('Пост опубликован, но файлы не загрузились. Проверьте формат файлов.', 'warning')
+                else:
+                    flash('Пост опубликован!', 'success')
 
         except Exception as e:
             conn.rollback()
-            print(f"Ошибка при создании поста: {e}")
+            print(f"[ERROR] Ошибка при создании поста: {e}")
             import traceback
             traceback.print_exc()
             flash(f'Ошибка при публикации поста: {str(e)[:50]}', 'error')
@@ -1536,9 +1945,10 @@ def home():
     conn = get_db_connection()
     try:
         result = conn.execute('''
-            SELECT COUNT(*) as count FROM friendships 
-            WHERE receiver_id = ? AND status = 'pending'
-        ''', (user_id,)).fetchone()
+                              SELECT COUNT(*) as count
+                              FROM friendships
+                              WHERE receiver_id = ? AND status = 'pending'
+                              ''', (user_id,)).fetchone()
         friend_requests_count = result['count'] if result else 0
     except Exception as e:
         print(f"Ошибка при получении заявок: {e}")
@@ -1560,42 +1970,106 @@ def home():
                            is_admin=is_admin)
 
 
-@app.route('/profile')
+@app.route('/profile', methods=['GET', 'POST'])
 def profile():
     if 'user_id' not in session:
         return redirect('/login')
 
     user_id = session['user_id']
+
+    # Создание поста с профиля (идентично home)
+    if request.method == 'POST':
+        content = request.form.get('content', '').strip()
+        files = request.files.getlist('media_files')
+        has_files = any(f and f.filename for f in files)
+        if not content and not has_files:
+            flash('Пост не может быть пустым.', 'error')
+            return redirect('/profile')
+        conn = get_db_connection()
+        try:
+            import time
+            cursor = conn.cursor()
+            cursor.execute('INSERT INTO posts (user_id, content, created_at) VALUES (?, ?, ?)',
+                           (user_id, content, get_current_datetime()))
+            post_id = cursor.lastrowid
+            if files:
+                for file in files:
+                    if file and file.filename and file.filename.strip():
+                        original_name = file.filename
+                        filename = secure_filename(file.filename)
+                        if '.' not in filename:
+                            continue
+                        file_ext = filename.rsplit('.', 1)[1].lower()
+                        if file_ext in ALLOWED_IMAGE_EXTENSIONS:
+                            file_type = 'image'
+                        elif file_ext in ALLOWED_VIDEO_EXTENSIONS:
+                            file_type = 'video'
+                        elif file_ext in ALLOWED_DOCUMENT_EXTENSIONS:
+                            file_type = 'document'
+                        else:
+                            continue
+                        unique_filename = f"post_{post_id}_{int(time.time())}_{hashlib.md5(filename.encode()).hexdigest()[:8]}.{file_ext}"
+                        file.save(os.path.join(app.config['POST_MEDIA_FOLDER'], unique_filename))
+                        cursor.execute('INSERT INTO post_media (post_id, filename, file_type, original_filename) VALUES (?, ?, ?, ?)',
+                                       (post_id, unique_filename, file_type, original_name))
+            conn.commit()
+            flash('Пост опубликован!', 'success')
+        except Exception as e:
+            conn.rollback()
+            flash(f'Ошибка: {str(e)[:50]}', 'error')
+        finally:
+            conn.close()
+        return redirect('/profile')
+
     conn = get_db_connection()
 
-    # Получаем основную информацию о пользователе
     user = row_to_dict(conn.execute('SELECT * FROM users WHERE id = ?', (user_id,)).fetchone())
-
-    # Получаем профиль пользователя
     profile_data = row_to_dict(conn.execute('SELECT * FROM user_profiles WHERE user_id = ?', (user_id,)).fetchone())
-
-    # Получаем количество постов
     posts_count = conn.execute('SELECT COUNT(*) as count FROM posts WHERE user_id = ?', (user_id,)).fetchone()['count']
-
-    # Получаем количество друзей
     friends_count = conn.execute('''
-        SELECT COUNT(*) as count FROM friendships 
+        SELECT COUNT(*) as count FROM friendships
         WHERE (sender_id = ? OR receiver_id = ?) AND status = 'accepted'
     ''', (user_id, user_id)).fetchone()['count']
-
-    # Получаем количество заявок в друзья
     friend_requests_count = conn.execute('''
-        SELECT COUNT(*) as count FROM friendships 
+        SELECT COUNT(*) as count FROM friendships
         WHERE receiver_id = ? AND status = 'pending'
     ''', (user_id,)).fetchone()['count']
+    blacklist_count = conn.execute('SELECT COUNT(*) as count FROM blacklist WHERE blocker_id = ?', (user_id,)).fetchone()['count']
 
-    # Получаем количество пользователей в черном списке
-    blacklist_count = conn.execute('''
-        SELECT COUNT(*) as count FROM blacklist 
-        WHERE blocker_id = ?
-    ''', (user_id,)).fetchone()['count']
+    # Друзья (превью для профиля)
+    user_friends = []
+    if friends_count > 0:
+        user_friends = rows_to_dicts(conn.execute('''
+            SELECT u.id,
+                   u.username,
+                   COALESCE(up.full_name, u.username) as full_name,
+                   COALESCE(up.avatar, 'default_avatar.png') as avatar
+            FROM friendships f
+            JOIN users u ON (CASE
+                                WHEN f.sender_id = ? THEN f.receiver_id
+                                ELSE f.sender_id
+                             END) = u.id
+            LEFT JOIN user_profiles up ON u.id = up.user_id
+            WHERE (f.sender_id = ? OR f.receiver_id = ?)
+              AND f.status = 'accepted'
+            ORDER BY COALESCE(up.full_name, u.username)
+            LIMIT 12
+        ''', (user_id, user_id, user_id)).fetchall())
+
+    # Группы пользователя
+    user_groups = rows_to_dicts(conn.execute('''
+        SELECT g.id, g.name, g.avatar
+        FROM group_members gm
+        JOIN groups g ON gm.group_id = g.id
+        WHERE gm.user_id = ?
+        ORDER BY g.name
+        LIMIT 8
+    ''', (user_id,)).fetchall())
 
     conn.close()
+
+    # Лента постов пользователя (только свои, с медиа)
+    my_posts = get_posts_feed(user_id, limit=20, filter_type='mine', offset=0)
 
     return render_template('profile.html',
                            user=user,
@@ -1603,7 +2077,10 @@ def profile():
                            posts_count=posts_count,
                            friends_count=friends_count,
                            friend_requests_count=friend_requests_count,
-                           blacklist_count=blacklist_count)
+                           blacklist_count=blacklist_count,
+                           user_friends=user_friends,
+                           user_groups=user_groups,
+                           my_posts=my_posts)
 
 
 @app.route('/profile/<int:user_id>')
@@ -1611,7 +2088,10 @@ def view_profile(user_id):
     if 'user_id' not in session:
         return redirect('/login')
 
+    current_user_id = session['user_id']
     conn = get_db_connection()
+
+    # Основная информация о пользователе
     user = row_to_dict(conn.execute('SELECT * FROM users WHERE id = ?', (user_id,)).fetchone())
 
     if not user:
@@ -1619,15 +2099,92 @@ def view_profile(user_id):
         return redirect('/home')
 
     profile_data = row_to_dict(conn.execute('SELECT * FROM user_profiles WHERE user_id = ?', (user_id,)).fetchone())
+
+    # Статистика
     posts_count = conn.execute('SELECT COUNT(*) as count FROM posts WHERE user_id = ?', (user_id,)).fetchone()['count']
+    friends_count = conn.execute('''
+        SELECT COUNT(*) as count FROM friendships
+        WHERE (sender_id = ? OR receiver_id = ?) AND status = 'accepted'
+    ''', (user_id, user_id)).fetchone()['count']
+
+    # Статус дружбы
     friend_status = None
-    if user_id != session['user_id']:
+    is_friend = False
+    if user_id != current_user_id:
         friendship = conn.execute('''
-            SELECT status FROM friendships 
-            WHERE (sender_id = ? AND receiver_id = ?) 
-            OR (sender_id = ? AND receiver_id = ?)
-        ''', (session['user_id'], user_id, user_id, session['user_id'])).fetchone()
+            SELECT status FROM friendships
+            WHERE (sender_id = ? AND receiver_id = ?) OR (sender_id = ? AND receiver_id = ?)
+        ''', (current_user_id, user_id, user_id, current_user_id)).fetchone()
         friend_status = friendship['status'] if friendship else None
+        is_friend = friend_status == 'accepted'
+
+    is_own_profile = (user_id == current_user_id)
+
+    # Приватность
+    privacy_profile = (profile_data or {}).get('privacy_profile', 'public')
+    privacy_posts = (profile_data or {}).get('privacy_posts', 'public')
+    privacy_friends = (profile_data or {}).get('privacy_friends', 'public')
+
+    can_view_profile = is_own_profile or privacy_profile == 'public' or \
+                       (privacy_profile == 'friends' and is_friend)
+    can_view_posts = is_own_profile or privacy_posts == 'public' or \
+                     (privacy_posts == 'friends' and is_friend)
+
+    # === ПОСТЫ ===
+    user_posts = []
+    if can_view_posts:
+        posts_rows = conn.execute('''
+            SELECT p.*,
+                   u.username,
+                   COALESCE(up.full_name, u.username) as author_name,
+                   COALESCE(up.avatar, '') as author_avatar,
+                   (SELECT COUNT(*) FROM post_likes WHERE post_id = p.id) as likes_count,
+                   (SELECT COUNT(*) FROM comments WHERE post_id = p.id) as comments_count,
+                   EXISTS(SELECT 1 FROM post_likes WHERE post_id = p.id AND user_id = ?) as is_liked
+            FROM posts p
+            JOIN users u ON p.user_id = u.id
+            LEFT JOIN user_profiles up ON u.id = up.user_id
+            WHERE p.user_id = ?
+            ORDER BY p.created_at DESC
+            LIMIT 30
+        ''', (current_user_id, user_id)).fetchall()
+
+        user_posts = rows_to_dicts(posts_rows)
+        for post in user_posts:
+            post['media_files'] = get_post_media(post['id'], is_group_post=False)
+
+    # === ДРУЗЬЯ (новое) ===
+    user_friends = []
+    if friends_count > 0:
+        user_friends = rows_to_dicts(conn.execute('''
+            SELECT u.id,
+                   u.username,
+                   COALESCE(up.full_name, u.username) as full_name,
+                   COALESCE(up.avatar, 'default_avatar.png') as avatar
+            FROM friendships f
+            JOIN users u ON (CASE 
+                                WHEN f.sender_id = ? THEN f.receiver_id 
+                                ELSE f.sender_id 
+                             END) = u.id
+            LEFT JOIN user_profiles up ON u.id = up.user_id
+            WHERE (f.sender_id = ? OR f.receiver_id = ?) 
+              AND f.status = 'accepted'
+            ORDER BY COALESCE(up.full_name, u.username)
+            LIMIT 12
+        ''', (user_id, user_id, user_id)).fetchall())
+
+    # === ГРУППЫ ===
+    user_groups = rows_to_dicts(conn.execute('''
+        SELECT g.id, g.name, g.avatar, g.is_public, 
+               COUNT(gm2.user_id) as members_count
+        FROM group_members gm
+        JOIN groups g ON gm.group_id = g.id
+        LEFT JOIN group_members gm2 ON g.id = gm2.group_id
+        WHERE gm.user_id = ?
+        GROUP BY g.id 
+        ORDER BY g.name 
+        LIMIT 8
+    ''', (user_id,)).fetchall())
 
     conn.close()
 
@@ -1635,8 +2192,67 @@ def view_profile(user_id):
                            user=user,
                            profile=profile_data,
                            posts_count=posts_count,
+                           friends_count=friends_count,
                            friend_status=friend_status,
-                           is_own_profile=(user_id == session['user_id']))
+                           is_own_profile=is_own_profile,
+                           is_friend=is_friend,
+                           can_view_profile=can_view_profile,
+                           can_view_posts=can_view_posts,
+                           user_posts=user_posts,
+                           user_friends=user_friends,
+                           user_groups=user_groups,
+                           current_user_id=current_user_id)
+
+
+@app.route('/profile/<int:user_id>/posts')
+def view_user_posts(user_id):
+    """Просмотр публикаций пользователя"""
+    if 'user_id' not in session:
+        return redirect('/login')
+
+    conn = get_db_connection()
+
+    # Получаем информацию о пользователе
+    user = row_to_dict(conn.execute('SELECT * FROM users WHERE id = ?', (user_id,)).fetchone())
+
+    if not user:
+        flash('Пользователь не найден', 'error')
+        conn.close()
+        return redirect('/home')
+
+    # Получаем профиль пользователя
+    profile_data = row_to_dict(conn.execute('SELECT * FROM user_profiles WHERE user_id = ?', (user_id,)).fetchone())
+
+    # Получаем посты пользователя с лайками и комментариями
+    posts_rows = conn.execute('''
+                              SELECT p.*,
+                                     (SELECT COUNT(*) FROM post_likes WHERE post_id = p.id)                as likes_count,
+                                     (SELECT COUNT(*) FROM comments WHERE post_id = p.id)                  as comments_count,
+                                     EXISTS(SELECT 1 FROM post_likes WHERE post_id = p.id AND user_id = ?) as is_liked
+                              FROM posts p
+                              WHERE user_id = ?
+                              ORDER BY created_at DESC
+                              ''', (session['user_id'], user_id)).fetchall()
+
+    posts = rows_to_dicts(posts_rows)
+
+    # Получаем медиафайлы для каждого поста
+    for post in posts:
+        media_files = conn.execute('''
+                                   SELECT filename, file_type, original_filename
+                                   FROM post_media
+                                   WHERE post_id = ?
+                                   ORDER BY id
+                                   ''', (post['id'],)).fetchall()
+        post['media_files'] = rows_to_dicts(media_files) if media_files else []
+
+    conn.close()
+
+    return render_template('user_posts.html',
+                           user=user,
+                           profile=profile_data,
+                           posts=posts,
+                           posts_count=len(posts))
 
 
 @app.route('/profile/edit', methods=['GET', 'POST'])
@@ -1647,9 +2263,17 @@ def edit_profile():
     user_id = session['user_id']
 
     if request.method == 'POST':
-        full_name = request.form.get('full_name', '')
-        bio = request.form.get('bio', '')
-        location = request.form.get('location', '')
+        full_name = request.form.get('full_name', '').strip()
+        bio = request.form.get('bio', '').strip()
+        location = request.form.get('location', '').strip()
+        website = request.form.get('website', '').strip()
+        gender = request.form.get('gender', '').strip()
+        birthdate = request.form.get('birthdate', '').strip()
+        language = request.form.get('language', '').strip()
+        telegram = request.form.get('telegram', '').strip()
+        privacy_profile = request.form.get('privacy_profile', 'public')
+        privacy_posts = request.form.get('privacy_posts', 'public')
+        privacy_friends = request.form.get('privacy_friends', 'public')
 
         avatar_filename = None
         if 'avatar' in request.files:
@@ -1668,34 +2292,43 @@ def edit_profile():
         if existing_profile:
             if avatar_filename:
                 conn.execute('''
-                    UPDATE user_profiles 
-                    SET full_name = ?, bio = ?, location = ?, avatar = ?
-                    WHERE user_id = ?
-                ''', (full_name, bio, location, avatar_filename, user_id))
+                    UPDATE user_profiles
+                    SET full_name=?, bio=?, location=?, website=?,
+                        gender=?, birthdate=?, language=?, telegram=?, avatar=?,
+                        privacy_profile=?, privacy_posts=?, privacy_friends=?
+                    WHERE user_id=?
+                ''', (full_name, bio, location, website, gender, birthdate, language, telegram, avatar_filename,
+                      privacy_profile, privacy_posts, privacy_friends, user_id))
             else:
                 conn.execute('''
-                    UPDATE user_profiles 
-                    SET full_name = ?, bio = ?, location = ?
-                    WHERE user_id = ?
-                ''', (full_name, bio, location, user_id))
+                    UPDATE user_profiles
+                    SET full_name=?, bio=?, location=?, website=?,
+                        gender=?, birthdate=?, language=?, telegram=?,
+                        privacy_profile=?, privacy_posts=?, privacy_friends=?
+                    WHERE user_id=?
+                ''', (full_name, bio, location, website, gender, birthdate, language, telegram,
+                      privacy_profile, privacy_posts, privacy_friends, user_id))
         else:
             avatar_to_use = avatar_filename if avatar_filename else 'default_avatar.png'
             conn.execute('''
-                INSERT INTO user_profiles (user_id, full_name, bio, location, avatar)
-                VALUES (?, ?, ?, ?, ?)
-            ''', (user_id, full_name, bio, location, avatar_to_use))
+                INSERT INTO user_profiles (user_id, full_name, bio, location, website,
+                                           gender, birthdate, language, telegram, avatar,
+                                           privacy_profile, privacy_posts, privacy_friends)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ''', (user_id, full_name, bio, location, website, gender, birthdate, language, telegram, avatar_to_use,
+                  privacy_profile, privacy_posts, privacy_friends))
 
         conn.commit()
         conn.close()
-        flash('Профиль успешно обновлен!', 'success')
-        return redirect('/profile')
+        flash('Профиль успешно обновлён!', 'success')
+        return redirect('/settings?tab=profile')
 
     # GET запрос - показываем форму редактирования
     conn = get_db_connection()
     profile_data = row_to_dict(conn.execute('SELECT * FROM user_profiles WHERE user_id = ?', (user_id,)).fetchone())
     conn.close()
 
-    return render_template('edit_profile.html', profile=profile_data)
+    return redirect('/settings?tab=profile')
 
 
 @app.route('/find_friends', methods=['GET', 'POST'])
@@ -1713,14 +2346,16 @@ def find_friends():
 
             # Ищем пользователей по имени пользователя или ФИО
             rows = conn.execute('''
-                SELECT u.id, u.username, up.full_name, 
-                       COALESCE(up.avatar, 'default_avatar.png') as avatar 
-                FROM users u
-                LEFT JOIN user_profiles up ON u.id = up.user_id
-                WHERE (u.username LIKE ? OR up.full_name LIKE ?) 
-                AND u.id != ? AND u.is_banned = 0
+                                SELECT u.id,
+                                       u.username,
+                                       up.full_name,
+                                       COALESCE(up.avatar, 'default_avatar.png') as avatar
+                                FROM users u
+                                         LEFT JOIN user_profiles up ON u.id = up.user_id
+                                WHERE (u.username LIKE ? OR up.full_name LIKE ?)
+                                  AND u.id != ? AND u.is_banned = 0
                 LIMIT 20
-            ''', (f'%{search_query}%', f'%{search_query}%', user_id)).fetchall()
+                                ''', (f'%{search_query}%', f'%{search_query}%', user_id)).fetchall()
 
             # Преобразуем Row объекты в словари
             search_results = rows_to_dicts(rows)
@@ -1729,18 +2364,21 @@ def find_friends():
             for user in search_results:
                 # Проверяем статус дружбы
                 friend_status = conn.execute('''
-                    SELECT status FROM friendships 
-                    WHERE (sender_id = ? AND receiver_id = ?) 
-                    OR (sender_id = ? AND receiver_id = ?)
-                ''', (user_id, user['id'], user['id'], user_id)).fetchone()
+                                             SELECT status
+                                             FROM friendships
+                                             WHERE (sender_id = ? AND receiver_id = ?)
+                                                OR (sender_id = ? AND receiver_id = ?)
+                                             ''', (user_id, user['id'], user['id'], user_id)).fetchone()
 
                 user['friend_status'] = friend_status['status'] if friend_status else None
 
                 # Проверяем, находится ли пользователь в черном списке
                 blacklisted = conn.execute('''
-                    SELECT id FROM blacklist 
-                    WHERE blocker_id = ? AND blocked_id = ?
-                ''', (user_id, user['id'])).fetchone()
+                                           SELECT id
+                                           FROM blacklist
+                                           WHERE blocker_id = ?
+                                             AND blocked_id = ?
+                                           ''', (user_id, user['id'])).fetchone()
 
                 user['is_blacklisted'] = blacklisted is not None
 
@@ -1758,27 +2396,30 @@ def add_friend(friend_id):
 
     if user_id == friend_id:
         flash('Нельзя добавить себя в друзья!', 'error')
-        return redirect('/find_friends')
+        return redirect('/friends?tab=find')
 
     conn = get_db_connection()
 
     # Проверяем, не заблокирован ли пользователь
     is_blacklisted = conn.execute('''
-        SELECT id FROM blacklist 
-        WHERE blocker_id = ? AND blocked_id = ?
-    ''', (user_id, friend_id)).fetchone()
+                                  SELECT id
+                                  FROM blacklist
+                                  WHERE blocker_id = ?
+                                    AND blocked_id = ?
+                                  ''', (user_id, friend_id)).fetchone()
 
     if is_blacklisted:
         flash('Вы не можете добавить в друзья пользователя из черного списка!', 'error')
         conn.close()
-        return redirect('/find_friends')
+        return redirect('/friends?tab=find')
 
     # Проверяем, не существует ли уже заявка
     existing_request = conn.execute('''
-        SELECT * FROM friendships 
-        WHERE (sender_id = ? AND receiver_id = ?) 
-        OR (sender_id = ? AND receiver_id = ?)
-    ''', (user_id, friend_id, friend_id, user_id)).fetchone()
+                                    SELECT *
+                                    FROM friendships
+                                    WHERE (sender_id = ? AND receiver_id = ?)
+                                       OR (sender_id = ? AND receiver_id = ?)
+                                    ''', (user_id, friend_id, friend_id, user_id)).fetchone()
 
     if existing_request:
         status = existing_request['status']
@@ -1786,9 +2427,10 @@ def add_friend(friend_id):
             if existing_request['receiver_id'] == user_id:
                 # Пользователь принимает заявку
                 conn.execute('''
-                    UPDATE friendships SET status = 'accepted' 
-                    WHERE id = ?
-                ''', (existing_request['id'],))
+                             UPDATE friendships
+                             SET status = 'accepted'
+                             WHERE id = ?
+                             ''', (existing_request['id'],))
                 flash('Заявка в друзья принята!', 'success')
             else:
                 flash('Заявка уже отправлена и ожидает подтверждения', 'info')
@@ -1797,22 +2439,27 @@ def add_friend(friend_id):
         elif status == 'rejected':
             # Разрешаем отправить заявку заново
             conn.execute('''
-                UPDATE friendships SET status = 'pending', sender_id = ?, receiver_id = ?
-                WHERE id = ?
-            ''', (user_id, friend_id, existing_request['id']))
+                         UPDATE friendships
+                         SET status      = 'pending',
+                             sender_id   = ?,
+                             receiver_id = ?
+                         WHERE id = ?
+                         ''', (user_id, friend_id, existing_request['id']))
             flash('Заявка в друзья отправлена повторно!', 'success')
     else:
         # Отправляем новую заявку
         conn.execute('''
-            INSERT INTO friendships (sender_id, receiver_id, status)
-            VALUES (?, ?, 'pending')
-        ''', (user_id, friend_id))
+                     INSERT INTO friendships (sender_id, receiver_id, status)
+                     VALUES (?, ?, 'pending')
+                     ''', (user_id, friend_id))
         flash('Заявка в друзья отправлена!', 'success')
 
     conn.commit()
     conn.close()
 
-    return redirect('/find_friends')
+    if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+        return jsonify({'success': True})
+    return redirect('/friends?tab=find')
 
 
 @app.route('/add_friend_to_blacklist/<int:friend_id>')
@@ -1831,11 +2478,11 @@ def add_friend_to_blacklist(friend_id):
 
     # Получаем информацию о друге
     friend_info = conn.execute('''
-        SELECT u.username, up.full_name 
-        FROM users u
-        LEFT JOIN user_profiles up ON u.id = up.user_id
-        WHERE u.id = ?
-    ''', (friend_id,)).fetchone()
+                               SELECT u.username, up.full_name
+                               FROM users u
+                                        LEFT JOIN user_profiles up ON u.id = up.user_id
+                               WHERE u.id = ?
+                               ''', (friend_id,)).fetchone()
 
     if not friend_info:
         conn.close()
@@ -1844,33 +2491,37 @@ def add_friend_to_blacklist(friend_id):
 
     # Проверяем, не добавлен ли уже пользователь в черный список
     existing = conn.execute('''
-        SELECT id FROM blacklist 
-        WHERE blocker_id = ? AND blocked_id = ?
-    ''', (blocker_id, friend_id)).fetchone()
+                            SELECT id
+                            FROM blacklist
+                            WHERE blocker_id = ?
+                              AND blocked_id = ?
+                            ''', (blocker_id, friend_id)).fetchone()
 
     if existing:
         flash('Пользователь уже в вашем черном списке', 'info')
     else:
         # Добавляем в черный список
         conn.execute('''
-            INSERT INTO blacklist (blocker_id, blocked_id, reason)
-            VALUES (?, ?, ?)
-        ''', (blocker_id, friend_id, 'Добавлен из раздела друзей'))
+                     INSERT INTO blacklist (blocker_id, blocked_id, reason)
+                     VALUES (?, ?, ?)
+                     ''', (blocker_id, friend_id, 'Добавлен из раздела друзей'))
 
         # Удаляем из друзей
         conn.execute('''
-            DELETE FROM friendships 
-            WHERE ((sender_id = ? AND receiver_id = ?) 
-            OR (sender_id = ? AND receiver_id = ?)) 
-            AND status = 'accepted'
-        ''', (blocker_id, friend_id, friend_id, blocker_id))
+                     DELETE
+                     FROM friendships
+                     WHERE ((sender_id = ? AND receiver_id = ?)
+                         OR (sender_id = ? AND receiver_id = ?))
+                       AND status = 'accepted'
+                     ''', (blocker_id, friend_id, friend_id, blocker_id))
 
         # Отменяем все заявки в друзья между этими пользователями
         conn.execute('''
-            DELETE FROM friendships 
-            WHERE (sender_id = ? AND receiver_id = ?) 
-            OR (sender_id = ? AND receiver_id = ?)
-        ''', (blocker_id, friend_id, friend_id, blocker_id))
+                     DELETE
+                     FROM friendships
+                     WHERE (sender_id = ? AND receiver_id = ?)
+                        OR (sender_id = ? AND receiver_id = ?)
+                     ''', (blocker_id, friend_id, friend_id, blocker_id))
 
         flash(f'{friend_info["username"]} добавлен в черный список и удален из друзей', 'success')
 
@@ -1880,68 +2531,230 @@ def add_friend_to_blacklist(friend_id):
     return redirect('/friends')
 
 
-@app.route('/friends')
+@app.route('/friends', methods=['GET', 'POST'])
 def friends():
     if 'user_id' not in session:
         return redirect('/login')
 
     user_id = session['user_id']
+    current_tab = request.args.get('tab', 'my')
     conn = get_db_connection()
 
-    # Получаем список друзей
+    # ── Вкладка: Мои друзья ──────────────────────────────────────────
+    friends_list = []
+    incoming_requests = []
+    outgoing_requests = []
+
     friends_rows = conn.execute('''
-        SELECT u.id, u.username, up.full_name, 
-               COALESCE(up.avatar, 'default_avatar.png') as avatar 
-        FROM users u
-        LEFT JOIN user_profiles up ON u.id = up.user_id
-        WHERE u.id IN (
-            SELECT CASE 
-                WHEN sender_id = ? THEN receiver_id 
-                ELSE sender_id 
-            END as friend_id
-            FROM friendships 
-            WHERE (sender_id = ? OR receiver_id = ?) AND status = 'accepted'
-        )
-        ORDER BY up.full_name, u.username
-    ''', (user_id, user_id, user_id)).fetchall()
+                                SELECT u.id,
+                                       u.username,
+                                       up.full_name,
+                                       COALESCE(up.avatar, 'default_avatar.png') as avatar
+                                FROM users u
+                                         LEFT JOIN user_profiles up ON u.id = up.user_id
+                                WHERE u.id IN (SELECT CASE
+                                                          WHEN sender_id = ? THEN receiver_id
+                                                          ELSE sender_id
+                                                          END as friend_id
+                                               FROM friendships
+                                               WHERE (sender_id = ? OR receiver_id = ?)
+                                                 AND status = 'accepted')
+                                ORDER BY up.full_name, u.username
+                                ''', (user_id, user_id, user_id)).fetchall()
+    friends_list = rows_to_dicts(friends_rows)
 
-    # Преобразуем в словари
-    friends = rows_to_dicts(friends_rows)
+    incoming_rows = conn.execute('''
+                                 SELECT u.id,
+                                        u.username,
+                                        up.full_name,
+                                        COALESCE(up.avatar, 'default_avatar.png') as avatar,
+                                        f.created_at,
+                                        f.id                                      as request_id
+                                 FROM users u
+                                          LEFT JOIN user_profiles up ON u.id = up.user_id
+                                          JOIN friendships f ON u.id = f.sender_id
+                                 WHERE f.receiver_id = ?
+                                   AND f.status = 'pending'
+                                 ORDER BY f.created_at DESC
+                                 ''', (user_id,)).fetchall()
+    incoming_requests = rows_to_dicts(incoming_rows)
 
-    # Получаем входящие заявки в друзья
-    incoming_requests_rows = conn.execute('''
-        SELECT u.id, u.username, up.full_name, 
-               COALESCE(up.avatar, 'default_avatar.png') as avatar, 
-               f.created_at, f.id as request_id
-        FROM users u
-        LEFT JOIN user_profiles up ON u.id = up.user_id
-        JOIN friendships f ON u.id = f.sender_id
-        WHERE f.receiver_id = ? AND f.status = 'pending'
-        ORDER BY f.created_at DESC
-    ''', (user_id,)).fetchall()
+    outgoing_rows = conn.execute('''
+                                 SELECT u.id,
+                                        u.username,
+                                        up.full_name,
+                                        COALESCE(up.avatar, 'default_avatar.png') as avatar,
+                                        f.created_at,
+                                        f.id                                      as request_id
+                                 FROM users u
+                                          LEFT JOIN user_profiles up ON u.id = up.user_id
+                                          JOIN friendships f ON u.id = f.receiver_id
+                                 WHERE f.sender_id = ?
+                                   AND f.status = 'pending'
+                                 ORDER BY f.created_at DESC
+                                 ''', (user_id,)).fetchall()
+    outgoing_requests = rows_to_dicts(outgoing_rows)
 
-    incoming_requests = rows_to_dicts(incoming_requests_rows)
+    # ── Вкладка: Найти друзей ────────────────────────────────────────
+    search_results = None
+    if current_tab == 'find' and request.method == 'POST':
+        search_query = request.form.get('search_query', '').strip()
+        if search_query:
+            rows = conn.execute('''
+                                SELECT u.id,
+                                       u.username,
+                                       up.full_name,
+                                       COALESCE(up.avatar, 'default_avatar.png') as avatar
+                                FROM users u
+                                         LEFT JOIN user_profiles up ON u.id = up.user_id
+                                WHERE (u.username LIKE ? OR up.full_name LIKE ?)
+                                  AND u.id != ? AND u.is_banned = 0
+                LIMIT 20
+                                ''', (f'%{search_query}%', f'%{search_query}%', user_id)).fetchall()
+            search_results = rows_to_dicts(rows)
 
-    # Получаем исходящие заявки
-    outgoing_requests_rows = conn.execute('''
-        SELECT u.id, u.username, up.full_name, 
-               COALESCE(up.avatar, 'default_avatar.png') as avatar, 
-               f.created_at, f.id as request_id
-        FROM users u
-        LEFT JOIN user_profiles up ON u.id = up.user_id
-        JOIN friendships f ON u.id = f.receiver_id
-        WHERE f.sender_id = ? AND f.status = 'pending'
-        ORDER BY f.created_at DESC
-    ''', (user_id,)).fetchall()
+            for user in search_results:
+                friend_status = conn.execute('''
+                                             SELECT status
+                                             FROM friendships
+                                             WHERE (sender_id = ? AND receiver_id = ?)
+                                                OR (sender_id = ? AND receiver_id = ?)
+                                             ''', (user_id, user['id'], user['id'], user_id)).fetchone()
+                user['friend_status'] = friend_status['status'] if friend_status else None
 
-    outgoing_requests = rows_to_dicts(outgoing_requests_rows)
+                blacklisted = conn.execute('''
+                                           SELECT id
+                                           FROM blacklist
+                                           WHERE blocker_id = ?
+                                             AND blocked_id = ?
+                                           ''', (user_id, user['id'])).fetchone()
+                user['is_blacklisted'] = blacklisted is not None
+
+    # ── Поиск среди друзей (вкладка my) ─────────────────────────────
+    if current_tab == 'my' and request.method == 'POST':
+        search_query = request.form.get('search_query', '').strip()
+        if search_query:
+            friends_list = [f for f in friends_list if
+                            search_query.lower() in (f.get('full_name') or '').lower() or
+                            search_query.lower() in (f.get('username') or '').lower()]
+
+    # ── Поиск среди заявок (вкладка requests) ───────────────────────
+    if current_tab == 'requests' and request.method == 'POST':
+        search_query = request.form.get('search_query', '').strip()
+        if search_query:
+            incoming_requests = [r for r in incoming_requests if
+                                 search_query.lower() in (r.get('full_name') or '').lower() or
+                                 search_query.lower() in (r.get('username') or '').lower()]
+            outgoing_requests = [r for r in outgoing_requests if
+                                 search_query.lower() in (r.get('full_name') or '').lower() or
+                                 search_query.lower() in (r.get('username') or '').lower()]
+
+    # ── Предложка (вкладка find, без поиска) ────────────────────────
+    suggested_users = []
+    if current_tab == 'find' and request.method == 'GET':
+        friend_ids = [f['id'] for f in friends_list]
+        excluded_ids = friend_ids + [user_id]
+        # исключаем тех кто в ЧС или уже есть заявка
+        placeholders = ','.join('?' * len(excluded_ids))
+        suggested_rows = conn.execute(f'''
+            SELECT u.id, u.username,
+                   up.full_name,
+                   COALESCE(up.avatar, 'default_avatar.png') as avatar
+            FROM users u
+            LEFT JOIN user_profiles up ON u.id = up.user_id
+            WHERE u.id NOT IN ({placeholders})
+              AND u.is_banned = 0
+              AND u.id NOT IN (
+                  SELECT blocked_id FROM blacklist WHERE blocker_id = ?
+              )
+              AND u.id NOT IN (
+                  SELECT CASE WHEN sender_id = ? THEN receiver_id ELSE sender_id END
+                  FROM friendships
+                  WHERE (sender_id = ? OR receiver_id = ?) AND status = 'pending'
+              )
+            ORDER BY RANDOM()
+            LIMIT 10
+        ''', excluded_ids + [user_id, user_id, user_id, user_id]).fetchall()
+        suggested_users = rows_to_dicts(suggested_rows)
+        for u in suggested_users:
+            u['friend_status'] = None
+
+    # ── Вкладка: Чёрный список ───────────────────────────────────────
+    blacklisted_users = []
+    if current_tab == 'blacklist':
+        blacklist_rows = conn.execute('''
+                                      SELECT u.id,
+                                             u.username,
+                                             up.full_name,
+                                             COALESCE(up.avatar, 'default_avatar.png') as avatar,
+                                             b.reason,
+                                             b.created_at
+                                      FROM blacklist b
+                                               JOIN users u ON b.blocked_id = u.id
+                                               LEFT JOIN user_profiles up ON u.id = up.user_id
+                                      WHERE b.blocker_id = ?
+                                      ORDER BY b.created_at DESC
+                                      ''', (user_id,)).fetchall()
+        blacklisted_users = rows_to_dicts(blacklist_rows)
+
+        # Поиск в чёрном списке
+        if request.method == 'POST':
+            search_query = request.form.get('search_query', '').strip()
+            if search_query:
+                blacklisted_users = [u for u in blacklisted_users if
+                                     search_query.lower() in (u.get('full_name') or '').lower() or
+                                     search_query.lower() in (u.get('username') or '').lower()]
 
     conn.close()
 
     return render_template('friends.html',
-                           friends=friends,
+                           current_tab=current_tab,
+                           friends=friends_list,
                            incoming_requests=incoming_requests,
-                           outgoing_requests=outgoing_requests)
+                           outgoing_requests=outgoing_requests,
+                           search_results=search_results,
+                           blacklisted_users=blacklisted_users,
+                           suggested_users=suggested_users)
+
+
+@app.route('/friends/accepted_notifications')
+def friends_accepted_notifications():
+    """Возвращает список принятых заявок которые ещё не показаны пользователю"""
+    if 'user_id' not in session:
+        return jsonify({'notifications': []})
+    user_id = session['user_id']
+    conn = get_db_connection()
+    rows = conn.execute('''
+        SELECT f.id, u.username,
+               COALESCE(up.full_name, u.username) as full_name,
+               COALESCE(up.avatar, 'default_avatar.png') as avatar
+        FROM friendships f
+        JOIN users u ON u.id = f.receiver_id
+        LEFT JOIN user_profiles up ON up.user_id = f.receiver_id
+        WHERE f.sender_id = ? AND f.status = 'accepted' AND f.accepted_notified = 0
+    ''', (user_id,)).fetchall()
+    notifications = rows_to_dicts(rows)
+    if notifications:
+        ids = [str(n['id']) for n in notifications]
+        conn.execute(f"UPDATE friendships SET accepted_notified = 1 WHERE id IN ({','.join(ids)})")
+        conn.commit()
+    conn.close()
+    return jsonify({'notifications': notifications})
+
+
+@app.route('/friends/pending_count')
+def friends_pending_count():
+    """Количество входящих заявок в друзья (для бейджа)"""
+    if 'user_id' not in session:
+        return jsonify({'count': 0})
+    conn = get_db_connection()
+    count = conn.execute('''
+                         SELECT COUNT(*) as count
+                         FROM friendships
+                         WHERE receiver_id = ? AND status = 'pending'
+                         ''', (session['user_id'],)).fetchone()['count']
+    conn.close()
+    return jsonify({'count': count})
 
 
 @app.route('/friend_action/<int:request_id>/<action>')
@@ -1954,30 +2767,35 @@ def friend_action(request_id, action):
 
     # Получаем информацию о заявке
     friend_request = conn.execute('''
-        SELECT * FROM friendships 
-        WHERE id = ?
-    ''', (request_id,)).fetchone()
+                                  SELECT *
+                                  FROM friendships
+                                  WHERE id = ?
+                                  ''', (request_id,)).fetchone()
 
     if friend_request:
         friend_request_dict = dict(friend_request)
         # Проверяем, имеет ли пользователь право выполнять это действие
         if action == 'accept' and friend_request_dict['receiver_id'] == user_id:
             conn.execute('''
-                UPDATE friendships SET status = 'accepted' 
-                WHERE id = ?
-            ''', (request_id,))
+                         UPDATE friendships
+                         SET status = 'accepted', accepted_notified = 0
+                         WHERE id = ?
+                         ''', (request_id,))
             flash('Заявка в друзья принята!', 'success')
         elif action == 'reject' and friend_request_dict['receiver_id'] == user_id:
             conn.execute('''
-                UPDATE friendships SET status = 'rejected' 
-                WHERE id = ?
-            ''', (request_id,))
+                         UPDATE friendships
+                         SET status = 'rejected'
+                         WHERE id = ?
+                         ''', (request_id,))
             flash('Заявка в друзья отклонена', 'info')
         elif action == 'cancel' and friend_request_dict['sender_id'] == user_id:
             # Пользователь отменяет свою исходящую заявку
             conn.execute('''
-                DELETE FROM friendships WHERE id = ?
-            ''', (request_id,))
+                         DELETE
+                         FROM friendships
+                         WHERE id = ?
+                         ''', (request_id,))
             flash('Заявка отменена', 'info')
         else:
             flash('У вас нет прав для выполнения этого действия', 'error')
@@ -1998,10 +2816,11 @@ def remove_friend(friend_id):
 
     # Удаляем запись о дружбе (любой статус)
     conn.execute('''
-        DELETE FROM friendships 
-        WHERE (sender_id = ? AND receiver_id = ?) 
-        OR (sender_id = ? AND receiver_id = ?)
-    ''', (user_id, friend_id, friend_id, user_id))
+                 DELETE
+                 FROM friendships
+                 WHERE (sender_id = ? AND receiver_id = ?)
+                    OR (sender_id = ? AND receiver_id = ?)
+                 ''', (user_id, friend_id, friend_id, user_id))
 
     conn.commit()
     conn.close()
@@ -2021,15 +2840,18 @@ def blacklist():
 
     # Получаем список пользователей в черном списке
     blacklist_rows = conn.execute('''
-        SELECT u.id, u.username, up.full_name, 
-               COALESCE(up.avatar, 'default_avatar.png') as avatar,
-               b.reason, b.created_at
-        FROM blacklist b
-        JOIN users u ON b.blocked_id = u.id
-        LEFT JOIN user_profiles up ON u.id = up.user_id
-        WHERE b.blocker_id = ?
-        ORDER BY b.created_at DESC
-    ''', (user_id,)).fetchall()
+                                  SELECT u.id,
+                                         u.username,
+                                         up.full_name,
+                                         COALESCE(up.avatar, 'default_avatar.png') as avatar,
+                                         b.reason,
+                                         b.created_at
+                                  FROM blacklist b
+                                           JOIN users u ON b.blocked_id = u.id
+                                           LEFT JOIN user_profiles up ON u.id = up.user_id
+                                  WHERE b.blocker_id = ?
+                                  ORDER BY b.created_at DESC
+                                  ''', (user_id,)).fetchall()
 
     blacklisted_users = rows_to_dicts(blacklist_rows)
 
@@ -2056,49 +2878,53 @@ def add_to_blacklist(user_id):
 
         # Проверяем, не добавлен ли уже пользователь в черный список
         existing = conn.execute('''
-            SELECT id FROM blacklist 
-            WHERE blocker_id = ? AND blocked_id = ?
-        ''', (blocker_id, user_id)).fetchone()
+                                SELECT id
+                                FROM blacklist
+                                WHERE blocker_id = ?
+                                  AND blocked_id = ?
+                                ''', (blocker_id, user_id)).fetchone()
 
         if existing:
             flash('Пользователь уже в вашем черном списке', 'info')
         else:
             # Добавляем в черный список
             conn.execute('''
-                INSERT INTO blacklist (blocker_id, blocked_id, reason)
-                VALUES (?, ?, ?)
-            ''', (blocker_id, user_id, reason))
+                         INSERT INTO blacklist (blocker_id, blocked_id, reason)
+                         VALUES (?, ?, ?)
+                         ''', (blocker_id, user_id, reason))
 
             # Удаляем из друзей, если были друзьями
             conn.execute('''
-                DELETE FROM friendships 
-                WHERE ((sender_id = ? AND receiver_id = ?) 
-                OR (sender_id = ? AND receiver_id = ?)) 
-                AND status = 'accepted'
-            ''', (blocker_id, user_id, user_id, blocker_id))
+                         DELETE
+                         FROM friendships
+                         WHERE ((sender_id = ? AND receiver_id = ?)
+                             OR (sender_id = ? AND receiver_id = ?))
+                           AND status = 'accepted'
+                         ''', (blocker_id, user_id, user_id, blocker_id))
 
             # Отменяем все заявки в друзья между этими пользователями
             conn.execute('''
-                DELETE FROM friendships 
-                WHERE (sender_id = ? AND receiver_id = ?) 
-                OR (sender_id = ? AND receiver_id = ?)
-            ''', (blocker_id, user_id, user_id, blocker_id))
+                         DELETE
+                         FROM friendships
+                         WHERE (sender_id = ? AND receiver_id = ?)
+                            OR (sender_id = ? AND receiver_id = ?)
+                         ''', (blocker_id, user_id, user_id, blocker_id))
 
             flash('Пользователь добавлен в черный список', 'success')
 
         conn.commit()
         conn.close()
 
-        return redirect('/blacklist')
+        return redirect('/friends?tab=blacklist')
 
     # GET запрос - показываем форму
     conn = get_db_connection()
     user_info = conn.execute('''
-        SELECT u.username, up.full_name 
-        FROM users u
-        LEFT JOIN user_profiles up ON u.id = up.user_id
-        WHERE u.id = ?
-    ''', (user_id,)).fetchone()
+                             SELECT u.username, up.full_name
+                             FROM users u
+                                      LEFT JOIN user_profiles up ON u.id = up.user_id
+                             WHERE u.id = ?
+                             ''', (user_id,)).fetchone()
 
     conn.close()
 
@@ -2123,15 +2949,17 @@ def remove_from_blacklist(blocked_id):
 
     # Удаляем из черного списка
     conn.execute('''
-        DELETE FROM blacklist 
-        WHERE blocker_id = ? AND blocked_id = ?
-    ''', (blocker_id, blocked_id))
+                 DELETE
+                 FROM blacklist
+                 WHERE blocker_id = ?
+                   AND blocked_id = ?
+                 ''', (blocker_id, blocked_id))
 
     conn.commit()
     conn.close()
 
     flash('Пользователь удален из черного списка', 'info')
-    return redirect('/blacklist')
+    return redirect('/friends?tab=blacklist')
 
 
 # Жалобы на пользователей
@@ -2161,9 +2989,9 @@ def report_friend(friend_id):
             # Отправляем жалобу
             full_reason = f"Тип нарушения: {violation_type}\n\n{reason}"
             conn.execute('''
-                INSERT INTO reports (reporter_id, reported_id, reason, status)
-                VALUES (?, ?, ?, 'pending')
-            ''', (reporter_id, friend_id, full_reason))
+                         INSERT INTO reports (reporter_id, reported_id, reason, status)
+                         VALUES (?, ?, ?, 'pending')
+                         ''', (reporter_id, friend_id, full_reason))
 
             conn.commit()
             flash('Жалоба отправлена администратору. Спасибо за ваше сообщение!', 'success')
@@ -2180,11 +3008,11 @@ def report_friend(friend_id):
     # GET запрос - показываем форму
     conn = get_db_connection()
     friend_info = conn.execute('''
-        SELECT u.username, up.full_name 
-        FROM users u
-        LEFT JOIN user_profiles up ON u.id = up.user_id
-        WHERE u.id = ?
-    ''', (friend_id,)).fetchone()
+                               SELECT u.username, up.full_name
+                               FROM users u
+                                        LEFT JOIN user_profiles up ON u.id = up.user_id
+                               WHERE u.id = ?
+                               ''', (friend_id,)).fetchone()
 
     conn.close()
 
@@ -2225,9 +3053,9 @@ def report_user(user_id):
             # Отправляем жалобу
             full_reason = f"Тип нарушения: {violation_type}\n\n{reason}"
             conn.execute('''
-                INSERT INTO reports (reporter_id, reported_id, reason, status)
-                VALUES (?, ?, ?, 'pending')
-            ''', (reporter_id, user_id, full_reason))
+                         INSERT INTO reports (reporter_id, reported_id, reason, status)
+                         VALUES (?, ?, ?, 'pending')
+                         ''', (reporter_id, user_id, full_reason))
 
             conn.commit()
             flash('Жалоба отправлена администратору. Спасибо за ваше сообщение!', 'success')
@@ -2244,11 +3072,11 @@ def report_user(user_id):
     # GET запрос - показываем форму
     conn = get_db_connection()
     user_info = conn.execute('''
-        SELECT u.username, up.full_name 
-        FROM users u
-        LEFT JOIN user_profiles up ON u.id = up.user_id
-        WHERE u.id = ?
-    ''', (user_id,)).fetchone()
+                             SELECT u.username, up.full_name
+                             FROM users u
+                                      LEFT JOIN user_profiles up ON u.id = up.user_id
+                             WHERE u.id = ?
+                             ''', (user_id,)).fetchone()
 
     conn.close()
     if user_info:
@@ -2277,16 +3105,17 @@ def groups_list():
 
     # Базовый запрос для ВСЕХ групп
     query = '''
-        SELECT g.*, 
-               COUNT(DISTINCT gm.user_id) as members_count,
-               COUNT(DISTINCT gp.id) as posts_count,
-               EXISTS(SELECT 1 FROM group_members WHERE group_id = g.id AND user_id = ?) as is_member,
-               (SELECT role FROM group_members WHERE group_id = g.id AND user_id = ? LIMIT 1) as role,
+            SELECT g.*,
+                   COUNT(DISTINCT gm.user_id)                                                as members_count,
+                   COUNT(DISTINCT gp.id)                                                     as posts_count,
+                   EXISTS(SELECT 1 FROM group_members WHERE group_id = g.id AND user_id = ?) as is_member,
+                   (SELECT role FROM group_members WHERE group_id = g.id AND user_id = ?        LIMIT 1) as role,
                EXISTS(SELECT 1 FROM group_requests WHERE group_id = g.id AND user_id = ? AND status = 'pending') as has_pending_request
-        FROM groups g
-        LEFT JOIN group_members gm ON g.id = gm.group_id
-        LEFT JOIN group_posts gp ON g.id = gp.group_id
-    '''
+            FROM groups g
+                LEFT JOIN group_members gm \
+            ON g.id = gm.group_id
+                LEFT JOIN group_posts gp ON g.id = gp.group_id \
+            '''
     params = [user_id, user_id, user_id]
 
     if tab == 'my':
@@ -2351,17 +3180,17 @@ def create_group():
     try:
         cursor = conn.cursor()
         cursor.execute('''
-            INSERT INTO groups (name, description, avatar, creator_id, is_public, created_at)
-            VALUES (?, ?, ?, ?, ?, ?)
-        ''', (name, description, avatar_filename if avatar_filename else 'default_group.png',
-              user_id, 1 if is_public else 0, current_datetime))
+                       INSERT INTO groups (name, description, avatar, creator_id, is_public, created_at)
+                       VALUES (?, ?, ?, ?, ?, ?)
+                       ''', (name, description, avatar_filename if avatar_filename else 'default_group.png',
+                             user_id, 1 if is_public else 0, current_datetime))
 
         group_id = cursor.lastrowid
 
         cursor.execute('''
-            INSERT INTO group_members (group_id, user_id, role)
-            VALUES (?, ?, 'admin')
-        ''', (group_id, user_id))
+                       INSERT INTO group_members (group_id, user_id, role)
+                       VALUES (?, ?, 'admin')
+                       ''', (group_id, user_id))
 
         conn.commit()
         flash('Паблик успешно создан!', 'success')
@@ -2385,8 +3214,11 @@ def join_group(group_id):
 
     try:
         existing_member = conn.execute('''
-            SELECT id FROM group_members WHERE group_id = ? AND user_id = ?
-        ''', (group_id, user_id)).fetchone()
+                                       SELECT id
+                                       FROM group_members
+                                       WHERE group_id = ?
+                                         AND user_id = ?
+                                       ''', (group_id, user_id)).fetchone()
 
         if existing_member:
             flash('Вы уже в этой группе', 'info')
@@ -2399,23 +3231,26 @@ def join_group(group_id):
 
         if group['is_public']:
             conn.execute('''
-                INSERT INTO group_members (group_id, user_id, role)
-                VALUES (?, ?, 'member')
-            ''', (group_id, user_id))
+                         INSERT INTO group_members (group_id, user_id, role)
+                         VALUES (?, ?, 'member')
+                         ''', (group_id, user_id))
             flash(f'Вы присоединились к группе "{group["name"]}"!', 'success')
         else:
             existing_request = conn.execute('''
-                SELECT id FROM group_requests 
-                WHERE group_id = ? AND user_id = ? AND status = 'pending'
-            ''', (group_id, user_id)).fetchone()
+                                            SELECT id
+                                            FROM group_requests
+                                            WHERE group_id = ?
+                                              AND user_id = ?
+                                              AND status = 'pending'
+                                            ''', (group_id, user_id)).fetchone()
 
             if existing_request:
                 flash('Вы уже отправили заявку на вступление', 'info')
             else:
                 conn.execute('''
-                    INSERT INTO group_requests (group_id, user_id, status, created_at)
-                    VALUES (?, ?, 'pending', ?)
-                ''', (group_id, user_id, get_current_datetime()))
+                             INSERT INTO group_requests (group_id, user_id, status, created_at)
+                             VALUES (?, ?, 'pending', ?)
+                             ''', (group_id, user_id, get_current_datetime()))
                 flash('Заявка на вступление отправлена! Администратор рассмотрит её в ближайшее время.', 'success')
 
         conn.commit()
@@ -2435,46 +3270,71 @@ def leave_group(group_id):
         return redirect('/login')
 
     user_id = session['user_id']
+    print(f"[DEBUG] Удаление группы {group_id}, редирект будет на /groups")
     conn = get_db_connection()
 
     try:
-        group = conn.execute('SELECT creator_id, name FROM groups WHERE id = ?', (group_id,)).fetchone()
+        group = conn.execute('SELECT creator_id, name, avatar FROM groups WHERE id = ?', (group_id,)).fetchone()
         membership = conn.execute('SELECT role FROM group_members WHERE group_id = ? AND user_id = ?',
                                   (group_id, user_id)).fetchone()
 
         # Если пользователь — администратор группы, удаляем группу целиком
         if membership and membership['role'] == 'admin':
-            conn.execute('DELETE FROM group_posts WHERE group_id = ?', (group_id,))
+            # Удаляем медиафайлы постов
+            media_files = conn.execute('''
+                                       SELECT filename
+                                       FROM post_media
+                                       WHERE group_post_id IN (SELECT id FROM group_posts WHERE group_id = ?)
+                                       ''', (group_id,)).fetchall()
+            for m in media_files:
+                try:
+                    os.remove(os.path.join(app.config['POST_MEDIA_FOLDER'], m['filename']))
+                except:
+                    pass
+
+            # Удаляем аватар группы
+            if group['avatar'] and group['avatar'] != 'default_group.png':
+                try:
+                    os.remove(os.path.join(app.config['GROUP_UPLOAD_FOLDER'], group['avatar']))
+                except:
+                    pass
+
+            # Удаляем все связанные данные
+            conn.execute(
+                'DELETE FROM post_media WHERE group_post_id IN (SELECT id FROM group_posts WHERE group_id = ?)',
+                (group_id,))
             conn.execute(
                 'DELETE FROM group_post_likes WHERE post_id IN (SELECT id FROM group_posts WHERE group_id = ?)',
                 (group_id,))
+            conn.execute('DELETE FROM group_posts WHERE group_id = ?', (group_id,))
             conn.execute('DELETE FROM group_members WHERE group_id = ?', (group_id,))
             conn.execute('DELETE FROM group_requests WHERE group_id = ?', (group_id,))
             conn.execute('DELETE FROM groups WHERE id = ?', (group_id,))
 
-            group_avatar = conn.execute('SELECT avatar FROM groups WHERE id = ?', (group_id,)).fetchone()
-            if group_avatar and group_avatar['avatar'] and group_avatar['avatar'] != 'default_group.png':
-                try:
-                    os.remove(os.path.join(app.config['GROUP_UPLOAD_FOLDER'], group_avatar['avatar']))
-                except:
-                    pass
+            conn.commit()
+            conn.close()
 
-            flash(f'Группа "{group["name"]}" была удалена, так как вы покинули её как создатель.', 'info')
+            flash(f'Группа "{group["name"]}" была удалена', 'info')
+
+            # ВАЖНО: редирект на страницу со списком групп
+            print(f"[DEBUG] Редирект на /groups")
+            return redirect('/groups')
 
         else:
             conn.execute('DELETE FROM group_members WHERE group_id = ? AND user_id = ?', (group_id, user_id))
-            flash(f'Вы отписались от группы "{group["name"]}"', 'info')
+            conn.commit()
+            conn.close()
 
-        conn.commit()
+            flash(f'Вы отписались от группы "{group["name"]}"', 'info')
+            print(f"[DEBUG] Редирект на /groups")
+            return redirect('/groups')
 
     except Exception as e:
         conn.rollback()
-        flash(f'Ошибка: {str(e)}', 'error')
-
-    finally:
         conn.close()
-
-    return redirect('/groups')
+        flash(f'Ошибка: {str(e)}', 'error')
+        print(f"[DEBUG] Редирект на /groups")
+        return redirect('/groups')
 
 
 @app.route('/group/<int:group_id>')
@@ -2487,17 +3347,17 @@ def group_detail(group_id):
 
     # Получаем информацию о группе
     group = row_to_dict(conn.execute('''
-        SELECT g.*, 
-               COUNT(DISTINCT gm.user_id) as members_count,
-               COUNT(DISTINCT gp.id) as posts_count,
-               u.username as creator_username
-        FROM groups g
-        LEFT JOIN group_members gm ON g.id = gm.group_id
-        LEFT JOIN group_posts gp ON g.id = gp.group_id
-        LEFT JOIN users u ON g.creator_id = u.id
-        WHERE g.id = ?
-        GROUP BY g.id
-    ''', (group_id,)).fetchone())
+                                     SELECT g.*,
+                                            COUNT(DISTINCT gm.user_id) as members_count,
+                                            COUNT(DISTINCT gp.id)      as posts_count,
+                                            u.username                 as creator_username
+                                     FROM groups g
+                                              LEFT JOIN group_members gm ON g.id = gm.group_id
+                                              LEFT JOIN group_posts gp ON g.id = gp.group_id
+                                              LEFT JOIN users u ON g.creator_id = u.id
+                                     WHERE g.id = ?
+                                     GROUP BY g.id
+                                     ''', (group_id,)).fetchone())
 
     if not group:
         flash('Паблик не найден', 'error')
@@ -2505,8 +3365,11 @@ def group_detail(group_id):
 
     # Проверяем, является ли пользователь участником
     membership = conn.execute('''
-        SELECT role FROM group_members WHERE group_id = ? AND user_id = ?
-    ''', (group_id, user_id)).fetchone()
+                              SELECT role
+                              FROM group_members
+                              WHERE group_id = ?
+                                AND user_id = ?
+                              ''', (group_id, user_id)).fetchone()
 
     is_member = membership is not None
     role = membership['role'] if membership else None
@@ -2531,14 +3394,19 @@ def group_detail(group_id):
         if show_requests_tab:
             # Получаем заявки на вступление
             pending_requests = rows_to_dicts(conn.execute('''
-                SELECT gr.id as request_id, gr.user_id, gr.created_at,
-                       u.username, up.full_name, COALESCE(up.avatar, 'default_avatar.png') as avatar
-                FROM group_requests gr
-                JOIN users u ON gr.user_id = u.id
-                LEFT JOIN user_profiles up ON u.id = up.user_id
-                WHERE gr.group_id = ? AND gr.status = 'pending'
-                ORDER BY gr.created_at
-            ''', (group_id,)).fetchall())
+                                                          SELECT gr.id                                     as request_id,
+                                                                 gr.user_id,
+                                                                 gr.created_at,
+                                                                 u.username,
+                                                                 up.full_name,
+                                                                 COALESCE(up.avatar, 'default_avatar.png') as avatar
+                                                          FROM group_requests gr
+                                                                   JOIN users u ON gr.user_id = u.id
+                                                                   LEFT JOIN user_profiles up ON u.id = up.user_id
+                                                          WHERE gr.group_id = ?
+                                                            AND gr.status = 'pending'
+                                                          ORDER BY gr.created_at
+                                                          ''', (group_id,)).fetchall())
 
             pending_requests_count = len(pending_requests)
 
@@ -2546,26 +3414,29 @@ def group_detail(group_id):
     posts_data = []
     if is_member or group['is_public']:
         posts = rows_to_dicts(conn.execute('''
-            SELECT gp.*,
-                   u.username as author_username,
-                   up.full_name as author_name,
-                   COALESCE(up.avatar, 'default_avatar.png') as author_avatar,
-                   (SELECT COUNT(*) FROM group_post_likes WHERE post_id = gp.id) as likes_count
-            FROM group_posts gp
-            JOIN users u ON gp.author_id = u.id
-            LEFT JOIN user_profiles up ON u.id = up.user_id
-            WHERE gp.group_id = ?
-            ORDER BY gp.created_at DESC
-            LIMIT 50
-        ''', (group_id,)).fetchall())
+                                           SELECT gp.*,
+                                                  u.username                                                    as author_username,
+                                                  up.full_name                                                  as author_name,
+                                                  COALESCE(up.avatar, 'default_avatar.png')                     as author_avatar,
+                                                  (SELECT COUNT(*) FROM group_post_likes WHERE post_id = gp.id) as likes_count,
+                                                  (SELECT COUNT(*) FROM group_post_comments WHERE post_id = gp.id) as comments_count,
+                                                  EXISTS(SELECT 1 FROM group_post_likes WHERE post_id = gp.id AND user_id = ?) as is_liked
+                                           FROM group_posts gp
+                                                    JOIN users u ON gp.author_id = u.id
+                                                    LEFT JOIN user_profiles up ON u.id = up.user_id
+                                           WHERE gp.group_id = ?
+                                           ORDER BY gp.created_at DESC LIMIT 50
+                                           ''', (user_id, group_id,)).fetchall())
 
         # Добавляем роль автора поста для каждого поста
         for post in posts:
             # Получаем роль автора поста в этой группе
             author_role = conn.execute('''
-                SELECT role FROM group_members 
-                WHERE group_id = ? AND user_id = ?
-            ''', (group_id, post['author_id'])).fetchone()
+                                       SELECT role
+                                       FROM group_members
+                                       WHERE group_id = ?
+                                         AND user_id = ?
+                                       ''', (group_id, post['author_id'])).fetchone()
 
             # Если автор не состоит в группе (хотя это маловероятно), считаем его участником
             post['author_role'] = author_role['role'] if author_role else 'member'
@@ -2573,55 +3444,51 @@ def group_detail(group_id):
             # Получаем медиафайлы для поста
             post['media_files'] = get_post_media(post['id'], is_group_post=True)
 
-            # Количество комментариев
-            post['comments_count'] = conn.execute(
-                'SELECT COUNT(*) as c FROM group_post_comments WHERE post_id = ?', (post['id'],)
-            ).fetchone()['c']
-
-            # Лайкнул ли текущий пользователь
-            post['is_liked'] = conn.execute(
-                'SELECT id FROM group_post_likes WHERE post_id = ? AND user_id = ?',
-                (post['id'], user_id)
-            ).fetchone() is not None
-
             posts_data.append(post)
 
     # Получаем участников группы
     members = rows_to_dicts(conn.execute('''
-        SELECT u.id, u.username, up.full_name, 
-               COALESCE(up.avatar, 'default_avatar.png') as avatar,
+                                         SELECT u.id,
+                                                u.username,
+                                                up.full_name,
+                                                COALESCE(up.avatar, 'default_avatar.png') as avatar,
 
 
-        gm.role, gm.joined_at
-        FROM group_members gm
-        JOIN users u ON gm.user_id = u.id
-        LEFT JOIN user_profiles up ON u.id = up.user_id
-        WHERE gm.group_id = ?
-        ORDER BY 
-            CASE gm.role 
-                WHEN 'admin' THEN 1
-                WHEN 'moderator' THEN 2
-                ELSE 3
-            END,
-            u.username
-    ''', (group_id,)).fetchall())
+                                                gm.role,
+                                                gm.joined_at
+                                         FROM group_members gm
+                                                  JOIN users u ON gm.user_id = u.id
+                                                  LEFT JOIN user_profiles up ON u.id = up.user_id
+                                         WHERE gm.group_id = ?
+                                         ORDER BY CASE gm.role
+                                                      WHEN 'admin' THEN 1
+                                                      WHEN 'moderator' THEN 2
+                                                      ELSE 3
+                                                      END,
+                                                  u.username
+                                         ''', (group_id,)).fetchall())
 
     # Получаем создателя
     creator = row_to_dict(conn.execute('''
-        SELECT u.id, u.username, up.full_name, 
-               COALESCE(up.avatar, 'default_avatar.png') as avatar
-        FROM users u
-        LEFT JOIN user_profiles up ON u.id = up.user_id
-        WHERE u.id = ?
-    ''', (group['creator_id'],)).fetchone())
+                                       SELECT u.id,
+                                              u.username,
+                                              up.full_name,
+                                              COALESCE(up.avatar, 'default_avatar.png') as avatar
+                                       FROM users u
+                                                LEFT JOIN user_profiles up ON u.id = up.user_id
+                                       WHERE u.id = ?
+                                       ''', (group['creator_id'],)).fetchone())
 
     # Проверяем, есть ли у пользователя ожидающая заявка (для приватных групп)
     has_pending_request = False
     if not is_member and not group['is_public']:
         pending_request = conn.execute('''
-            SELECT id FROM group_requests 
-            WHERE group_id = ? AND user_id = ? AND status = 'pending'
-        ''', (group_id, user_id)).fetchone()
+                                       SELECT id
+                                       FROM group_requests
+                                       WHERE group_id = ?
+                                         AND user_id = ?
+                                         AND status = 'pending'
+                                       ''', (group_id, user_id)).fetchone()
         has_pending_request = pending_request is not None
 
     conn.close()
@@ -2650,9 +3517,7 @@ def create_group_post(group_id):
     content = request.form.get('content', '').strip()
     conn = get_db_connection()
 
-    print(f"=== НАЧАЛО СОЗДАНИЯ ПОСТА ===")
-    print(f"user_id: {user_id}")
-    print(f"content: '{content}'")
+    print(f"[DEBUG] Создание поста в группе {group_id}")
 
     try:
         # Проверяем права на публикацию
@@ -2665,10 +3530,10 @@ def create_group_post(group_id):
         files = []
         if 'media_files' in request.files:
             files = request.files.getlist('media_files')
-            print(f"Получено файлов: {len(files)}")
             for file in files:
                 if file and file.filename and file.filename.strip() != '':
                     has_valid_files = True
+                    print(f"[DEBUG] Получен файл: {file.filename}")
 
         # Проверяем, есть ли хоть что-то для публикации
         if not content and not has_valid_files:
@@ -2680,12 +3545,12 @@ def create_group_post(group_id):
         # Создаем пост
         cursor = conn.cursor()
         cursor.execute('''
-            INSERT INTO group_posts (group_id, author_id, content, created_at)
-            VALUES (?, ?, ?, ?)
-        ''', (group_id, user_id, content, current_datetime))
+                       INSERT INTO group_posts (group_id, author_id, content, created_at)
+                       VALUES (?, ?, ?, ?)
+                       ''', (group_id, user_id, content, current_datetime))
 
         post_id = cursor.lastrowid
-        print(f"Создан пост ID: {post_id}")
+        print(f"[DEBUG] Создан групповой пост ID: {post_id}")
 
         # Обработка загруженных файлов
         uploaded_files = 0
@@ -2696,9 +3561,11 @@ def create_group_post(group_id):
                     filename = secure_filename(file.filename)
 
                     if '.' not in filename:
+                        print(f"[DEBUG] Файл без расширения: {filename}")
                         continue
 
                     file_ext = filename.rsplit('.', 1)[1].lower()
+                    print(f"[DEBUG] Файл: {original_name}, расширение: {file_ext}")
 
                     # Определяем тип файла
                     if file_ext in ALLOWED_IMAGE_EXTENSIONS:
@@ -2708,45 +3575,161 @@ def create_group_post(group_id):
                     elif file_ext in ALLOWED_DOCUMENT_EXTENSIONS:
                         file_type = 'document'
                     else:
+                        print(f"[DEBUG] Неподдерживаемый тип: {file_ext}")
                         continue
 
+                    print(f"[DEBUG] Определен тип: {file_type}")
+
+                    # Читаем начало файла для проверки
+                    file.seek(0)
+                    file_data = file.read(20)
+                    file.seek(0)
+                    print(f"[DEBUG] Заголовок файла: {file_data[:10].hex()}")
+
                     # Генерируем уникальное имя файла
-                    import time
-                    unique_filename = f"{post_id}_{int(time.time())}_{hashlib.md5(filename.encode()).hexdigest()[:8]}.{file_ext}"
+                    unique_filename = f"group_{post_id}_{int(time.time())}_{hashlib.md5(filename.encode()).hexdigest()[:8]}.{file_ext}"
                     file_path = os.path.join(app.config['POST_MEDIA_FOLDER'], unique_filename)
 
                     try:
                         # Сохраняем файл
                         file.save(file_path)
+                        print(f"[DEBUG] Файл сохранен: {file_path}, размер: {os.path.getsize(file_path)} байт")
 
-                        # ВАЖНО: Используем group_post_id для групповых постов
+                        # Сохраняем в БД
                         cursor.execute('''
-                            INSERT INTO post_media (group_post_id, filename, file_type, original_filename)
-                            VALUES (?, ?, ?, ?)
-                        ''', (post_id, unique_filename, file_type, original_name))
+                                       INSERT INTO post_media (group_post_id, filename, file_type, original_filename)
+                                       VALUES (?, ?, ?, ?)
+                                       ''', (post_id, unique_filename, file_type, original_name))
 
                         uploaded_files += 1
+                        print(f"[DEBUG] Файл {uploaded_files} сохранен в БД")
 
                     except Exception as file_error:
-                        print(f"Ошибка при сохранении файла: {str(file_error)}")
+                        print(f"[ERROR] Ошибка при сохранении файла: {str(file_error)}")
+                        import traceback
+                        traceback.print_exc()
                         continue
 
         conn.commit()
+        print(f"[DEBUG] Пост {post_id} сохранен, файлов: {uploaded_files}")
 
         if uploaded_files > 0:
             flash(f'Пост опубликован в группе! Загружено {uploaded_files} файл(ов)', 'success')
         else:
-            flash('Пост опубликован в группе!', 'success')
+            if has_valid_files:
+                flash('Пост опубликован, но файлы не загрузились. Проверьте формат файлов.', 'warning')
+            else:
+                flash('Пост опубликован в группе!', 'success')
 
     except Exception as e:
         conn.rollback()
-        print(f"Ошибка: {str(e)}")
+        print(f"[ERROR] Ошибка: {str(e)}")
+        import traceback
+        traceback.print_exc()
         flash(f'Ошибка при создании поста: {str(e)}', 'error')
     finally:
         conn.close()
 
     return redirect(f'/group/{group_id}')
 
+
+@app.route('/debug_upload')
+def debug_upload():
+    """Страница для тестирования загрузки файлов"""
+    if 'user_id' not in session:
+        return redirect('/login')
+
+    return '''
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <title>Тест загрузки</title>
+        <style>
+            body { font-family: monospace; padding: 20px; }
+            .result { background: #f0f0f0; padding: 15px; margin-top: 20px; border-radius: 5px; }
+        </style>
+    </head>
+    <body>
+        <h2>Тест загрузки файлов</h2>
+        <form id="uploadForm" enctype="multipart/form-data">
+            <input type="file" name="test_file" id="testFile" accept="image/*,video/*">
+            <button type="submit">Загрузить</button>
+        </form>
+        <div id="result" class="result"></div>
+
+        <script>
+            document.getElementById('uploadForm').onsubmit = async (e) => {
+                e.preventDefault();
+                const fileInput = document.getElementById('testFile');
+                if (!fileInput.files.length) {
+                    alert('Выберите файл');
+                    return;
+                }
+
+                const formData = new FormData();
+                formData.append('test_file', fileInput.files[0]);
+
+                const resultDiv = document.getElementById('result');
+                resultDiv.innerHTML = '<p>Загрузка...</p>';
+
+                const response = await fetch('/test_upload', {
+                    method: 'POST',
+                    body: formData
+                });
+                const result = await response.json();
+                resultDiv.innerHTML = '<pre>' + JSON.stringify(result, null, 2) + '</pre>';
+            };
+        </script>
+    </body>
+    </html>
+    '''
+
+
+@app.route('/test_upload', methods=['POST'])
+def test_upload():
+    """Тестовый endpoint для проверки загрузки"""
+    if 'user_id' not in session:
+        return jsonify({'error': 'Not authorized'}), 401
+
+    if 'test_file' not in request.files:
+        return jsonify({'error': 'No file'})
+
+    file = request.files['test_file']
+    if file.filename == '':
+        return jsonify({'error': 'Empty filename'})
+
+    result = {
+        'filename': file.filename,
+        'content_type': file.content_type,
+        'size': 0,
+        'header_hex': '',
+        'saved': False
+    }
+
+    if file:
+        file.seek(0, 2)
+        result['size'] = file.tell()
+        file.seek(0)
+
+        # Читаем начало файла
+        header = file.read(20)
+        result['header_hex'] = header.hex()
+        result['header_ascii'] = ''.join(chr(b) if 32 <= b < 127 else '.' for b in header)
+        file.seek(0)
+
+        # Сохраняем
+        try:
+            filename = secure_filename(file.filename)
+            file_ext = filename.rsplit('.', 1)[1].lower() if '.' in filename else ''
+            unique_name = f"test_{int(time.time())}_{filename}"
+            file_path = os.path.join(app.config['POST_MEDIA_FOLDER'], unique_name)
+            file.save(file_path)
+            result['saved'] = True
+            result['saved_path'] = file_path
+        except Exception as e:
+            result['error'] = str(e)
+
+    return jsonify(result)
 
 @app.route('/group/<int:group_id>/manage')
 def manage_group(group_id):
@@ -2757,7 +3740,10 @@ def manage_group(group_id):
 
     conn = get_db_connection()
 
-    membership = conn.execute(''' SELECT role FROM group_members WHERE group_id = ? AND user_id = ? ''',
+    membership = conn.execute(''' SELECT role
+                                  FROM group_members
+                                  WHERE group_id = ?
+                                    AND user_id = ? ''',
                               (group_id, user_id)).fetchone()
 
     if not membership or membership['role'] != 'admin':
@@ -2767,21 +3753,23 @@ def manage_group(group_id):
     group = row_to_dict(conn.execute('SELECT * FROM groups WHERE id = ?', (group_id,)).fetchone())
 
     members = rows_to_dicts(conn.execute('''
-        SELECT u.id, u.username, up.full_name, 
-               COALESCE(up.avatar, 'default_avatar.png') as avatar,
-               gm.role, gm.joined_at
-        FROM group_members gm
-        JOIN users u ON gm.user_id = u.id
-        LEFT JOIN user_profiles up ON u.id = up.user_id
-        WHERE gm.group_id = ?
-        ORDER BY 
-            CASE gm.role 
-                WHEN 'admin' THEN 1
-                WHEN 'moderator' THEN 2
-                ELSE 3
-            END,
-            u.username
-    ''', (group_id,)).fetchall())
+                                         SELECT u.id,
+                                                u.username,
+                                                up.full_name,
+                                                COALESCE(up.avatar, 'default_avatar.png') as avatar,
+                                                gm.role,
+                                                gm.joined_at
+                                         FROM group_members gm
+                                                  JOIN users u ON gm.user_id = u.id
+                                                  LEFT JOIN user_profiles up ON u.id = up.user_id
+                                         WHERE gm.group_id = ?
+                                         ORDER BY CASE gm.role
+                                                      WHEN 'admin' THEN 1
+                                                      WHEN 'moderator' THEN 2
+                                                      ELSE 3
+                                                      END,
+                                                  u.username
+                                         ''', (group_id,)).fetchall())
 
     conn.close()
 
@@ -2798,8 +3786,11 @@ def group_settings(group_id):
 
     # Проверяем права (только админы)
     membership = conn.execute('''
-        SELECT role FROM group_members WHERE group_id = ? AND user_id = ?
-    ''', (group_id, user_id)).fetchone()
+                              SELECT role
+                              FROM group_members
+                              WHERE group_id = ?
+                                AND user_id = ?
+                              ''', (group_id, user_id)).fetchone()
 
     if not membership or membership['role'] != 'admin':
         flash('Только администраторы могут изменять настройки группы', 'error')
@@ -2810,21 +3801,23 @@ def group_settings(group_id):
 
     # Получаем список всех участников группы
     members = rows_to_dicts(conn.execute('''
-        SELECT u.id as user_id, u.username, up.full_name, 
-               COALESCE(up.avatar, 'default_avatar.png') as avatar,
-               gm.role, gm.joined_at
-        FROM group_members gm
-        JOIN users u ON gm.user_id = u.id
-        LEFT JOIN user_profiles up ON u.id = up.user_id
-        WHERE gm.group_id = ?
-        ORDER BY 
-            CASE gm.role 
-                WHEN 'admin' THEN 1
-                WHEN 'moderator' THEN 2
-                ELSE 3
-            END,
-            u.username
-    ''', (group_id,)).fetchall())
+                                         SELECT u.id                                      as user_id,
+                                                u.username,
+                                                up.full_name,
+                                                COALESCE(up.avatar, 'default_avatar.png') as avatar,
+                                                gm.role,
+                                                gm.joined_at
+                                         FROM group_members gm
+                                                  JOIN users u ON gm.user_id = u.id
+                                                  LEFT JOIN user_profiles up ON u.id = up.user_id
+                                         WHERE gm.group_id = ?
+                                         ORDER BY CASE gm.role
+                                                      WHEN 'admin' THEN 1
+                                                      WHEN 'moderator' THEN 2
+                                                      ELSE 3
+                                                      END,
+                                                  u.username
+                                         ''', (group_id,)).fetchall())
 
     conn.close()
     return render_template('group_settings.html',
@@ -2843,8 +3836,11 @@ def update_group_settings(group_id):
 
     # Проверяем права
     membership = conn.execute('''
-        SELECT role FROM group_members WHERE group_id = ? AND user_id = ?
-    ''', (group_id, user_id)).fetchone()
+                              SELECT role
+                              FROM group_members
+                              WHERE group_id = ?
+                                AND user_id = ?
+                              ''', (group_id, user_id)).fetchone()
 
     if not membership or membership['role'] != 'admin':
         flash('Только администраторы могут изменять настройки группы', 'error')
@@ -2864,12 +3860,15 @@ def update_group_settings(group_id):
     try:
         # Обновляем основные данные
         conn.execute('''
-            UPDATE groups 
-            SET name = ?, description = ?, is_public = ?, 
-                post_permissions = ?, request_permissions = ?
-            WHERE id = ?
-        ''', (name, description, 1 if is_public else 0,
-              post_permissions, request_permissions, group_id))
+                     UPDATE groups
+                     SET name                = ?,
+                         description         = ?,
+                         is_public           = ?,
+                         post_permissions    = ?,
+                         request_permissions = ?
+                     WHERE id = ?
+                     ''', (name, description, 1 if is_public else 0,
+                           post_permissions, request_permissions, group_id))
 
         # Обработка аватарки
         if 'avatar' in request.files:
@@ -2917,62 +3916,115 @@ def update_group_settings(group_id):
     return redirect(f'/group/{group_id}')
 
 
-@app.route('/group/<int:group_id>/request/<int:request_id>/<action>')
-def handle_group_request(group_id, request_id, action):
+@app.route('/group_request/<int:request_id>/approve', methods=['POST'])
+def approve_group_request(request_id):
+    """Принять заявку на вступление"""
     if 'user_id' not in session:
         return jsonify({'success': False, 'error': 'Not authorized'})
 
     user_id = session['user_id']
     conn = get_db_connection()
 
-    # Получаем настройки группы
-    group = conn.execute('SELECT request_permissions FROM groups WHERE id = ?', (group_id,)).fetchone()
-
-    if not group:
-        return jsonify({'success': False, 'error': 'Группа не найдена'})
-
-    # Проверяем права в зависимости от настроек
-    membership = conn.execute('''
-        SELECT role FROM group_members WHERE group_id = ? AND user_id = ?
-    ''', (group_id, user_id)).fetchone()
-
-    if not membership:
-        return jsonify({'success': False, 'error': 'Вы не состоите в этой группе'})
-
-    if group['request_permissions'] == 'admins':
-        # Только админы могут обрабатывать заявки
-        if membership['role'] != 'admin':
-            return jsonify({'success': False, 'error': 'Только администраторы могут обрабатывать заявки'})
-    else:
-        # Админы и модераторы могут обрабатывать заявки
-        if membership['role'] not in ['admin', 'moderator']:
-            return jsonify({'success': False, 'error': 'Только администраторы и модераторы могут обрабатывать заявки'})
-
     try:
-        if action == 'approve':
-            # Получаем заявку
-            request_data = conn.execute('SELECT * FROM group_requests WHERE id = ?', (request_id,)).fetchone()
-            if request_data:
-                # Добавляем пользователя в группу
-                conn.execute('''
-                    INSERT INTO group_members (group_id, user_id, role)
-                    VALUES (?, ?, 'member')
-                ''', (group_id, request_data['user_id']))
+        # Получаем информацию о заявке (исправленный запрос)
+        request_data = conn.execute('''
+                                    SELECT gr.id, gr.group_id, gr.user_id, g.request_permissions
+                                    FROM group_requests gr
+                                             JOIN groups g ON gr.group_id = g.id
+                                    WHERE gr.id = ?
+                                    ''', (request_id,)).fetchone()
 
-                # Удаляем заявку
-                conn.execute('DELETE FROM group_requests WHERE id = ?', (request_id,))
+        if not request_data:
+            return jsonify({'success': False, 'error': 'Заявка не найдена'})
 
-                conn.commit()
-                return jsonify({'success': True})
+        # Проверяем права пользователя
+        membership = conn.execute('''
+                                  SELECT role
+                                  FROM group_members
+                                  WHERE group_id = ?
+                                    AND user_id = ?
+                                  ''', (request_data['group_id'], user_id)).fetchone()
 
+        if not membership:
+            return jsonify({'success': False, 'error': 'Вы не состоите в этой группе'})
 
-        elif action == 'reject':
-            conn.execute('DELETE FROM group_requests WHERE id = ?', (request_id,))
-            conn.commit()
-            return jsonify({'success': True})
+        # Проверяем права в зависимости от настроек группы
+        if request_data['request_permissions'] == 'admins':
+            if membership['role'] != 'admin':
+                return jsonify({'success': False, 'error': 'Только администраторы могут принимать заявки'})
+        else:
+            if membership['role'] not in ['admin', 'moderator']:
+                return jsonify({'success': False, 'error': 'Недостаточно прав'})
+
+        # Добавляем пользователя в группу
+        conn.execute('''
+                     INSERT INTO group_members (group_id, user_id, role)
+                     VALUES (?, ?, 'member')
+                     ''', (request_data['group_id'], request_data['user_id']))
+
+        # Удаляем заявку
+        conn.execute('DELETE FROM group_requests WHERE id = ?', (request_id,))
+        conn.commit()
+
+        return jsonify({'success': True})
 
     except Exception as e:
         conn.rollback()
+        print(f"[ERROR] Принятие заявки: {e}")
+        return jsonify({'success': False, 'error': str(e)})
+    finally:
+        conn.close()
+
+
+@app.route('/group_request/<int:request_id>/reject', methods=['POST'])
+def reject_group_request(request_id):
+    """Отклонить заявку на вступление"""
+    if 'user_id' not in session:
+        return jsonify({'success': False, 'error': 'Not authorized'})
+
+    user_id = session['user_id']
+    conn = get_db_connection()
+
+    try:
+        # Получаем информацию о заявке (исправленный запрос)
+        request_data = conn.execute('''
+                                    SELECT gr.id, gr.group_id, gr.user_id, g.request_permissions
+                                    FROM group_requests gr
+                                             JOIN groups g ON gr.group_id = g.id
+                                    WHERE gr.id = ?
+                                    ''', (request_id,)).fetchone()
+
+        if not request_data:
+            return jsonify({'success': False, 'error': 'Заявка не найдена'})
+
+        # Проверяем права пользователя
+        membership = conn.execute('''
+                                  SELECT role
+                                  FROM group_members
+                                  WHERE group_id = ?
+                                    AND user_id = ?
+                                  ''', (request_data['group_id'], user_id)).fetchone()
+
+        if not membership:
+            return jsonify({'success': False, 'error': 'Вы не состоите в этой группе'})
+
+        # Проверяем права
+        if request_data['request_permissions'] == 'admins':
+            if membership['role'] != 'admin':
+                return jsonify({'success': False, 'error': 'Только администраторы могут отклонять заявки'})
+        else:
+            if membership['role'] not in ['admin', 'moderator']:
+                return jsonify({'success': False, 'error': 'Недостаточно прав'})
+
+        # Удаляем заявку
+        conn.execute('DELETE FROM group_requests WHERE id = ?', (request_id,))
+        conn.commit()
+
+        return jsonify({'success': True})
+
+    except Exception as e:
+        conn.rollback()
+        print(f"[ERROR] Отклонение заявки: {e}")
         return jsonify({'success': False, 'error': str(e)})
     finally:
         conn.close()
@@ -2994,15 +4046,21 @@ def change_member_role(group_id, user_id):
 
     try:
         current_user_role = conn.execute('''
-            SELECT role FROM group_members WHERE group_id = ? AND user_id = ?
-        ''', (group_id, current_user_id)).fetchone()
+                                         SELECT role
+                                         FROM group_members
+                                         WHERE group_id = ?
+                                           AND user_id = ?
+                                         ''', (group_id, current_user_id)).fetchone()
 
         if not current_user_role or current_user_role['role'] != 'admin':
             return jsonify({'success': False, 'error': 'Только администраторы могут изменять роли'})
 
         target_role = conn.execute('''
-            SELECT role FROM group_members WHERE group_id = ? AND user_id = ?
-        ''', (group_id, user_id)).fetchone()
+                                   SELECT role
+                                   FROM group_members
+                                   WHERE group_id = ?
+                                     AND user_id = ?
+                                   ''', (group_id, user_id)).fetchone()
 
         if not target_role:
             return jsonify({'success': False, 'error': 'Пользователь не найден в группе'})
@@ -3011,10 +4069,11 @@ def change_member_role(group_id, user_id):
             return jsonify({'success': False, 'error': 'Нельзя изменить роль администратора — сначала передайте права'})
 
         conn.execute('''
-            UPDATE group_members 
-            SET role = ?
-            WHERE group_id = ? AND user_id = ?
-        ''', (new_role, group_id, user_id))
+                     UPDATE group_members
+                     SET role = ?
+                     WHERE group_id = ?
+                       AND user_id = ?
+                     ''', (new_role, group_id, user_id))
 
         conn.commit()
         return jsonify({'success': True})
@@ -3037,15 +4096,21 @@ def transfer_admin_rights(group_id, new_admin_id):
 
     try:
         current_user_role = conn.execute('''
-            SELECT role FROM group_members WHERE group_id = ? AND user_id = ?
-        ''', (group_id, current_user_id)).fetchone()
+                                         SELECT role
+                                         FROM group_members
+                                         WHERE group_id = ?
+                                           AND user_id = ?
+                                         ''', (group_id, current_user_id)).fetchone()
 
         if not current_user_role or current_user_role['role'] != 'admin':
             return jsonify({'success': False, 'error': 'Только администраторы могут передавать права'})
 
         new_admin = conn.execute('''
-            SELECT user_id, role FROM group_members WHERE group_id = ? AND user_id = ?
-        ''', (group_id, new_admin_id)).fetchone()
+                                 SELECT user_id, role
+                                 FROM group_members
+                                 WHERE group_id = ?
+                                   AND user_id = ?
+                                 ''', (group_id, new_admin_id)).fetchone()
 
         if not new_admin:
             return jsonify({'success': False, 'error': 'Пользователь не найден в группе'})
@@ -3054,16 +4119,18 @@ def transfer_admin_rights(group_id, new_admin_id):
             return jsonify({'success': False, 'error': 'Этот пользователь уже является администратором'})
 
         conn.execute('''
-            UPDATE group_members 
-            SET role = 'member'
-            WHERE group_id = ? AND user_id = ?
-        ''', (group_id, current_user_id))
+                     UPDATE group_members
+                     SET role = 'member'
+                     WHERE group_id = ?
+                       AND user_id = ?
+                     ''', (group_id, current_user_id))
 
         conn.execute('''
-            UPDATE group_members 
-            SET role = 'admin'
-            WHERE group_id = ? AND user_id = ?
-        ''', (group_id, new_admin_id))
+                     UPDATE group_members
+                     SET role = 'admin'
+                     WHERE group_id = ?
+                       AND user_id = ?
+                     ''', (group_id, new_admin_id))
 
         conn.commit()
         return jsonify({'success': True})
@@ -3086,15 +4153,21 @@ def remove_group_member(group_id, user_id):
 
     try:
         current_user_role = conn.execute('''
-            SELECT role FROM group_members WHERE group_id = ? AND user_id = ?
-        ''', (group_id, current_user_id)).fetchone()
+                                         SELECT role
+                                         FROM group_members
+                                         WHERE group_id = ?
+                                           AND user_id = ?
+                                         ''', (group_id, current_user_id)).fetchone()
 
         if not current_user_role or current_user_role['role'] != 'admin':
             return jsonify({'success': False, 'error': 'Только администраторы могут удалять участников'})
 
         target_user_role = conn.execute('''
-            SELECT role FROM group_members WHERE group_id = ? AND user_id = ?
-        ''', (group_id, user_id)).fetchone()
+                                        SELECT role
+                                        FROM group_members
+                                        WHERE group_id = ?
+                                          AND user_id = ?
+                                        ''', (group_id, user_id)).fetchone()
 
         if not target_user_role:
             return jsonify({'success': False, 'error': 'Пользователь не найден в группе'})
@@ -3130,24 +4203,28 @@ def edit_group_post(post_id):
 
     try:
         post = conn.execute('''
-            SELECT gp.*, g.creator_id, gp.author_id as post_author_id
-            FROM group_posts gp
-            JOIN groups g ON gp.group_id = g.id
-            WHERE gp.id = ?
-        ''', (post_id,)).fetchone()
+                            SELECT gp.*, g.creator_id, gp.author_id as post_author_id
+                            FROM group_posts gp
+                                     JOIN groups g ON gp.group_id = g.id
+                            WHERE gp.id = ?
+                            ''', (post_id,)).fetchone()
 
         if not post:
             return jsonify({'success': False, 'error': 'Пост не найден'})
 
         user_role = conn.execute('''
-            SELECT role FROM group_members 
-            WHERE group_id = ? AND user_id = ?
-        ''', (post['group_id'], user_id)).fetchone()
+                                 SELECT role
+                                 FROM group_members
+                                 WHERE group_id = ?
+                                   AND user_id = ?
+                                 ''', (post['group_id'], user_id)).fetchone()
 
         author_role = conn.execute('''
-            SELECT role FROM group_members 
-            WHERE group_id = ? AND user_id = ?
-        ''', (post['group_id'], post['post_author_id'])).fetchone()
+                                   SELECT role
+                                   FROM group_members
+                                   WHERE group_id = ?
+                                     AND user_id = ?
+                                   ''', (post['group_id'], post['post_author_id'])).fetchone()
 
         can_edit = False
 
@@ -3185,24 +4262,28 @@ def delete_group_post(post_id):
 
     try:
         post = conn.execute('''
-            SELECT gp.*, g.creator_id, gp.author_id as post_author_id
-            FROM group_posts gp
-            JOIN groups g ON gp.group_id = g.id
-            WHERE gp.id = ?
-        ''', (post_id,)).fetchone()
+                            SELECT gp.*, g.creator_id, gp.author_id as post_author_id
+                            FROM group_posts gp
+                                     JOIN groups g ON gp.group_id = g.id
+                            WHERE gp.id = ?
+                            ''', (post_id,)).fetchone()
 
         if not post:
             return jsonify({'success': False, 'error': 'Post not found'})
 
         user_role = conn.execute('''
-            SELECT role FROM group_members 
-            WHERE group_id = ? AND user_id = ?
-        ''', (post['group_id'], user_id)).fetchone()
+                                 SELECT role
+                                 FROM group_members
+                                 WHERE group_id = ?
+                                   AND user_id = ?
+                                 ''', (post['group_id'], user_id)).fetchone()
 
         author_role = conn.execute('''
-            SELECT role FROM group_members 
-            WHERE group_id = ? AND user_id = ?
-        ''', (post['group_id'], post['post_author_id'])).fetchone()
+                                   SELECT role
+                                   FROM group_members
+                                   WHERE group_id = ?
+                                     AND user_id = ?
+                                   ''', (post['group_id'], post['post_author_id'])).fetchone()
 
         can_delete = False
 
@@ -3232,6 +4313,102 @@ def delete_group_post(post_id):
         conn.close()
 
 
+# ── Комментарии к постам групп ─────────────────────────────────────────────
+
+@app.route('/group_post/<int:post_id>/comments', methods=['GET'])
+def get_group_post_comments(post_id):
+    """Получить комментарии к посту группы"""
+    if 'user_id' not in session:
+        return jsonify({'success': False, 'error': 'Требуется авторизация'}), 401
+    conn = get_db_connection()
+    comments = rows_to_dicts(conn.execute('''
+        SELECT c.*, u.username, up.full_name,
+               COALESCE(up.avatar, 'default_avatar.png') as avatar
+        FROM group_post_comments c
+        JOIN users u ON c.user_id = u.id
+        LEFT JOIN user_profiles up ON u.id = up.user_id
+        WHERE c.post_id = ?
+        ORDER BY c.created_at ASC
+    ''', (post_id,)).fetchall())
+    conn.close()
+    return jsonify({'success': True, 'comments': comments,
+                    'comments_count': len(comments)})
+
+
+@app.route('/group_post/<int:post_id>/add_comment', methods=['POST'])
+def add_group_post_comment(post_id):
+    """Добавить комментарий к посту группы"""
+    if 'user_id' not in session:
+        return jsonify({'success': False, 'error': 'Требуется авторизация'}), 401
+    user_id = session['user_id']
+    data = request.get_json()
+    content = (data.get('content') or '').strip()
+    if not content:
+        return jsonify({'success': False, 'error': 'Комментарий не может быть пустым'})
+    conn = get_db_connection()
+    try:
+        post = conn.execute('SELECT id, group_id FROM group_posts WHERE id = ?', (post_id,)).fetchone()
+        if not post:
+            return jsonify({'success': False, 'error': 'Пост не найден'})
+        # Проверяем, участник ли пользователь группы
+        member = conn.execute('SELECT id FROM group_members WHERE group_id = ? AND user_id = ?',
+                              (post['group_id'], user_id)).fetchone()
+        if not member:
+            return jsonify({'success': False, 'error': 'Вы не состоите в этой группе'})
+        cursor = conn.cursor()
+        cursor.execute('INSERT INTO group_post_comments (post_id, user_id, content) VALUES (?, ?, ?)',
+                       (post_id, user_id, content))
+        comment_id = cursor.lastrowid
+        comment = row_to_dict(conn.execute('''
+            SELECT c.*, u.username, up.full_name,
+                   COALESCE(up.avatar, 'default_avatar.png') as avatar
+            FROM group_post_comments c
+            JOIN users u ON c.user_id = u.id
+            LEFT JOIN user_profiles up ON u.id = up.user_id
+            WHERE c.id = ?
+        ''', (comment_id,)).fetchone())
+        count = conn.execute('SELECT COUNT(*) as cnt FROM group_post_comments WHERE post_id = ?',
+                             (post_id,)).fetchone()['cnt']
+        conn.commit()
+        return jsonify({'success': True, 'comment': comment, 'comments_count': count})
+    except Exception as e:
+        conn.rollback()
+        return jsonify({'success': False, 'error': str(e)})
+    finally:
+        conn.close()
+
+
+@app.route('/group_post_comment/<int:comment_id>/delete', methods=['POST'])
+def delete_group_post_comment(comment_id):
+    """Удалить комментарий к посту группы"""
+    if 'user_id' not in session:
+        return jsonify({'success': False, 'error': 'Требуется авторизация'}), 401
+    user_id = session['user_id']
+    conn = get_db_connection()
+    try:
+        comment = conn.execute('SELECT * FROM group_post_comments WHERE id = ?', (comment_id,)).fetchone()
+        if not comment:
+            return jsonify({'success': False, 'error': 'Комментарий не найден'})
+        post = conn.execute('SELECT group_id FROM group_posts WHERE id = ?', (comment['post_id'],)).fetchone()
+        role_row = conn.execute('SELECT role FROM group_members WHERE group_id = ? AND user_id = ?',
+                                (post['group_id'], user_id)).fetchone() if post else None
+        can_delete = (comment['user_id'] == user_id or
+                      (role_row and role_row['role'] in ('admin', 'moderator')))
+        if not can_delete:
+            return jsonify({'success': False, 'error': 'Нет прав на удаление'})
+        post_id = comment['post_id']
+        conn.execute('DELETE FROM group_post_comments WHERE id = ?', (comment_id,))
+        count = conn.execute('SELECT COUNT(*) as cnt FROM group_post_comments WHERE post_id = ?',
+                             (post_id,)).fetchone()['cnt']
+        conn.commit()
+        return jsonify({'success': True, 'comments_count': count})
+    except Exception as e:
+        conn.rollback()
+        return jsonify({'success': False, 'error': str(e)})
+    finally:
+        conn.close()
+
+
 # Добавьте в main.py после импортов
 
 @app.route('/friends/list')
@@ -3244,19 +4421,18 @@ def friends_list():
     conn = get_db_connection()
 
     friends = rows_to_dicts(conn.execute('''
-        SELECT u.id, u.username, up.full_name, up.avatar
-        FROM users u
-        LEFT JOIN user_profiles up ON u.id = up.user_id
-        WHERE u.id IN (
-            SELECT CASE 
-                WHEN sender_id = ? THEN receiver_id 
-                ELSE sender_id 
-            END as friend_id
-            FROM friendships 
-            WHERE (sender_id = ? OR receiver_id = ?) AND status = 'accepted'
-        )
-        ORDER BY up.full_name, u.username
-    ''', (user_id, user_id, user_id)).fetchall())
+                                         SELECT u.id, u.username, up.full_name, up.avatar
+                                         FROM users u
+                                                  LEFT JOIN user_profiles up ON u.id = up.user_id
+                                         WHERE u.id IN (SELECT CASE
+                                                                   WHEN sender_id = ? THEN receiver_id
+                                                                   ELSE sender_id
+                                                                   END as friend_id
+                                                        FROM friendships
+                                                        WHERE (sender_id = ? OR receiver_id = ?)
+                                                          AND status = 'accepted')
+                                         ORDER BY up.full_name, u.username
+                                         ''', (user_id, user_id, user_id)).fetchall())
 
     conn.close()
 
@@ -3271,8 +4447,10 @@ def group_members_list(group_id):
 
     conn = get_db_connection()
     members = conn.execute('''
-        SELECT user_id FROM group_members WHERE group_id = ?
-    ''', (group_id,)).fetchall()
+                           SELECT user_id
+                           FROM group_members
+                           WHERE group_id = ?
+                           ''', (group_id,)).fetchall()
 
     member_ids = [m['user_id'] for m in members]
     conn.close()
@@ -3297,9 +4475,11 @@ def invite_to_group(group_id):
 
     # Проверяем, является ли пользователь администратором группы
     role = conn.execute('''
-        SELECT role FROM group_members 
-        WHERE group_id = ? AND user_id = ?
-    ''', (group_id, user_id)).fetchone()
+                        SELECT role
+                        FROM group_members
+                        WHERE group_id = ?
+                          AND user_id = ?
+                        ''', (group_id, user_id)).fetchone()
 
     if not role or role['role'] != 'admin':
         conn.close()
@@ -3311,27 +4491,32 @@ def invite_to_group(group_id):
     for invited_id in user_ids:
         # Проверяем, не состоит ли уже пользователь в группе
         existing = conn.execute('''
-            SELECT id FROM group_members 
-            WHERE group_id = ? AND user_id = ?
-        ''', (group_id, invited_id)).fetchone()
+                                SELECT id
+                                FROM group_members
+                                WHERE group_id = ?
+                                  AND user_id = ?
+                                ''', (group_id, invited_id)).fetchone()
 
         if existing:
             continue
 
         # Проверяем, есть ли уже заявка
         existing_request = conn.execute('''
-            SELECT id FROM group_requests 
-            WHERE group_id = ? AND user_id = ? AND status = 'pending'
-        ''', (group_id, invited_id)).fetchone()
+                                        SELECT id
+                                        FROM group_requests
+                                        WHERE group_id = ?
+                                          AND user_id = ?
+                                          AND status = 'pending'
+                                        ''', (group_id, invited_id)).fetchone()
 
         if existing_request:
             continue
 
         # Добавляем приглашение (создаем запись в group_requests)
         conn.execute('''
-            INSERT INTO group_requests (group_id, user_id, status, created_at)
-            VALUES (?, ?, 'pending', ?)
-        ''', (group_id, invited_id, get_current_datetime()))
+                     INSERT INTO group_requests (group_id, user_id, status, created_at)
+                     VALUES (?, ?, 'pending', ?)
+                     ''', (group_id, invited_id, get_current_datetime()))
 
         sent_count += 1
         sent_ids.append(invited_id)
@@ -3350,7 +4535,156 @@ def invite_to_group(group_id):
         return jsonify({'success': False, 'error': 'Все выбранные пользователи уже в группе или имеют активные заявки'})
 
 
-@app.route('/feed', methods=['GET', 'POST'])
+@app.route('/group/<int:group_id>/repost/<int:post_id>', methods=['POST'])
+def repost_group_post(group_id, post_id):
+    """Репост поста из группы в главную ленту пользователя"""
+    if 'user_id' not in session:
+        return jsonify({'success': False, 'error': 'Требуется авторизация'}), 401
+
+    user_id = session['user_id']
+    conn = get_db_connection()
+
+    try:
+        # Получаем оригинальный пост + информацию о группе и авторе
+        orig = conn.execute('''
+            SELECT gp.*,
+                   g.name as group_name,
+                   u.username as author_username,
+                   COALESCE(up.full_name, u.username) as author_name,
+                   gp.author_id
+            FROM group_posts gp
+            JOIN groups g ON gp.group_id = g.id
+            JOIN users u ON gp.author_id = u.id
+            LEFT JOIN user_profiles up ON u.id = up.user_id
+            WHERE gp.id = ? AND gp.group_id = ?
+        ''', (post_id, group_id)).fetchone()
+
+        if not orig:
+            return jsonify({'success': False, 'error': 'Пост не найден'})
+
+        # Проверка доступа к группе
+        group = conn.execute('SELECT is_public FROM groups WHERE id = ?', (group_id,)).fetchone()
+        if not group:
+            return jsonify({'success': False, 'error': 'Группа не найдена'})
+
+        is_member = conn.execute(
+            'SELECT id FROM group_members WHERE group_id = ? AND user_id = ?',
+            (group_id, user_id)
+        ).fetchone()
+
+        if not group['is_public'] and not is_member:
+            return jsonify({'success': False, 'error': 'Нет доступа к группе'})
+
+        # Опционально: проверка, не репостил ли уже этот пост пользователь
+        existing_repost = conn.execute('''
+            SELECT id FROM posts 
+            WHERE user_id = ? 
+              AND source_group_id = ? 
+              AND source_post_id = ?
+        ''', (user_id, group_id, post_id)).fetchone()
+
+        if existing_repost:
+            return jsonify({'success': False, 'error': 'Вы уже репостили этот пост'})
+
+        # Создаём репост в главной ленте
+        cursor = conn.cursor()
+        cursor.execute('''
+            INSERT INTO posts 
+                (user_id, content, created_at, source_group_id, source_group_name, source_post_id)
+            VALUES (?, ?, ?, ?, ?, ?)
+        ''', (user_id, orig['content'], get_current_datetime(),
+              group_id, orig['group_name'], post_id))
+
+        new_post_id = cursor.lastrowid
+
+        # Копируем медиафайлы
+        media = conn.execute(
+            'SELECT filename, file_type, original_filename FROM post_media WHERE group_post_id = ?',
+            (post_id,)
+        ).fetchall()
+
+        for m in media:
+            cursor.execute(
+                'INSERT INTO post_media (post_id, filename, file_type, original_filename) '
+                'VALUES (?, ?, ?, ?)',
+                (new_post_id, m['filename'], m['file_type'], m['original_filename'])
+            )
+
+        conn.commit()
+
+        return jsonify({
+            'success': True,
+            'message': 'Пост успешно репостирован в вашу ленту!',
+            'new_post_id': new_post_id
+        })
+
+    except Exception as e:
+        conn.rollback()
+        print(f"Ошибка при репосте: {e}")   # для отладки
+        return jsonify({'success': False, 'error': 'Произошла ошибка при репосте'})
+    finally:
+        conn.close()
+
+
+@app.route('/group/<int:group_id>/invite_message', methods=['POST'])
+def invite_to_group_via_message(group_id):
+    """Приглашение в группу через личное сообщение"""
+    if 'user_id' not in session:
+        return jsonify({'success': False, 'error': 'Требуется авторизация'}), 401
+
+    ensure_messenger_tables()
+    user_id = session['user_id']
+    data = request.get_json()
+    user_ids = data.get('user_ids', [])
+
+    if not user_ids:
+        return jsonify({'success': False, 'error': 'Нет пользователей для приглашения'})
+
+    conn = get_db_connection()
+    group = conn.execute('SELECT id, name FROM groups WHERE id = ?', (group_id,)).fetchone()
+    if not group:
+        conn.close()
+        return jsonify({'success': False, 'error': 'Группа не найдена'})
+
+    sender = conn.execute('''
+        SELECT u.username, COALESCE(up.full_name, u.username) as full_name
+        FROM users u LEFT JOIN user_profiles up ON u.id = up.user_id WHERE u.id = ?
+    ''', (user_id,)).fetchone()
+    sender_name = sender['full_name'] if sender else 'Пользователь'
+
+    sent_count = 0
+    invite_url = f"/group/{group_id}"
+    message_text = (
+        f"👥 {sender_name} приглашает тебя вступить в группу «{group['name']}»!\n"
+        f"Ссылка: {invite_url}"
+    )
+
+    for invited_id in user_ids:
+        if invited_id == user_id:
+            continue
+        try:
+            conv_id = get_or_create_conversation(user_id, int(invited_id))
+            cursor = conn.cursor()
+            cursor.execute(
+                'INSERT INTO messages (conversation_id, sender_id, text) VALUES (?, ?, ?)',
+                (conv_id, user_id, message_text)
+            )
+            conn.execute(
+                'UPDATE conversations SET last_message_at = CURRENT_TIMESTAMP WHERE id = ?',
+                (conv_id,)
+            )
+            sent_count += 1
+        except Exception:
+            pass
+
+    conn.commit()
+    conn.close()
+
+    if sent_count > 0:
+        return jsonify({'success': True, 'message': f'Приглашения отправлены {sent_count} пользователям через мессенджер'})
+    else:
+        return jsonify({'success': False, 'error': 'Не удалось отправить приглашения'})
+
 def feed():
     if 'user_id' not in session:
         return redirect('/login')
@@ -3387,14 +4721,13 @@ def feed():
         friend_requests_count = 0
 
     my_groups = rows_to_dicts(conn.execute('''
-        SELECT g.*, COUNT(DISTINCT gm.user_id) as members_count
-        FROM groups g
-        JOIN group_members gm ON g.id = gm.group_id
-        WHERE gm.user_id = ?
-        GROUP BY g.id
-        ORDER BY g.name
-        LIMIT 10
-    ''', (user_id,)).fetchall())
+                                           SELECT g.*, COUNT(DISTINCT gm.user_id) as members_count
+                                           FROM groups g
+                                                    JOIN group_members gm ON g.id = gm.group_id
+                                           WHERE gm.user_id = ?
+                                           GROUP BY g.id
+                                           ORDER BY g.name LIMIT 10
+                                           ''', (user_id,)).fetchall())
 
     conn.close()
 
@@ -3423,9 +4756,9 @@ def create_post():
     conn = get_db_connection()
     current_datetime = get_current_datetime()
     conn.execute('''
-        INSERT INTO posts (user_id, content, visibility, created_at)
-        VALUES (?, ?, ?, ?)
-    ''', (user_id, content, visibility, current_datetime))
+                 INSERT INTO posts (user_id, content, visibility, created_at)
+                 VALUES (?, ?, ?, ?)
+                 ''', (user_id, content, visibility, current_datetime))
     conn.commit()
     conn.close()
 
@@ -3446,8 +4779,11 @@ def like_post(post_id):
     try:
         if post_type == 'personal':
             existing_like = conn.execute('''
-                SELECT id FROM post_likes WHERE post_id = ? AND user_id = ?
-            ''', (post_id, user_id)).fetchone()
+                                         SELECT id
+                                         FROM post_likes
+                                         WHERE post_id = ?
+                                           AND user_id = ?
+                                         ''', (post_id, user_id)).fetchone()
 
             if existing_like:
                 conn.execute('DELETE FROM post_likes WHERE id = ?', (existing_like['id'],))
@@ -3461,8 +4797,11 @@ def like_post(post_id):
                     'count']
         else:
             existing_like = conn.execute('''
-                SELECT id FROM group_post_likes WHERE post_id = ? AND user_id = ?
-            ''', (post_id, user_id)).fetchone()
+                                         SELECT id
+                                         FROM group_post_likes
+                                         WHERE post_id = ?
+                                           AND user_id = ?
+                                         ''', (post_id, user_id)).fetchone()
 
             if existing_like:
                 conn.execute('DELETE FROM group_post_likes WHERE id = ?', (existing_like['id'],))
@@ -3512,9 +4851,12 @@ def delete_post(post_id):
 
             is_author = post['author_id'] == user_id
             is_admin = conn.execute('''
-                SELECT role FROM group_members 
-                WHERE group_id = ? AND user_id = ? AND role IN ('admin', 'moderator')
-            ''', (post['group_id'], user_id)).fetchone()
+                                    SELECT role
+                                    FROM group_members
+                                    WHERE group_id = ?
+                                      AND user_id = ?
+                                      AND role IN ('admin', 'moderator')
+                                    ''', (post['group_id'], user_id)).fetchone()
 
             if not is_author and not is_admin:
                 return jsonify({'success': False, 'error': 'Not authorized to delete this post'})
@@ -3543,13 +4885,13 @@ def my_posts():
 
     # Получаем посты с количеством лайков и комментариев
     posts_rows = conn.execute('''
-        SELECT p.*, 
-               (SELECT COUNT(*) FROM post_likes WHERE post_id = p.id) as likes_count,
-               (SELECT COUNT(*) FROM comments WHERE post_id = p.id) as comments_count
-        FROM posts p 
-        WHERE user_id = ? 
-        ORDER BY created_at DESC
-    ''', (user_id,)).fetchall()
+                              SELECT p.*,
+                                     (SELECT COUNT(*) FROM post_likes WHERE post_id = p.id) as likes_count,
+                                     (SELECT COUNT(*) FROM comments WHERE post_id = p.id)   as comments_count
+                              FROM posts p
+                              WHERE user_id = ?
+                              ORDER BY created_at DESC
+                              ''', (user_id,)).fetchall()
 
     posts = rows_to_dicts(posts_rows)
 
@@ -3602,17 +4944,17 @@ def techadmin_reports():
 
     # Формируем запрос в зависимости от фильтра
     query = '''
-        SELECT r.*, 
-               reporter.username as reporter_username,
-               reported.username as reported_username,
-               reporter_profile.full_name as reporter_full_name,
-               reported_profile.full_name as reported_full_name
-        FROM reports r
-        JOIN users reporter ON r.reporter_id = reporter.id
-        JOIN users reported ON r.reported_id = reported.id
-        LEFT JOIN user_profiles reporter_profile ON reporter.id = reporter_profile.user_id
-        LEFT JOIN user_profiles reported_profile ON reported.id = reported_profile.user_id
-    '''
+            SELECT r.*,
+                   reporter.username          as reporter_username,
+                   reported.username          as reported_username,
+                   reporter_profile.full_name as reporter_full_name,
+                   reported_profile.full_name as reported_full_name
+            FROM reports r
+                     JOIN users reporter ON r.reporter_id = reporter.id
+                     JOIN users reported ON r.reported_id = reported.id
+                     LEFT JOIN user_profiles reporter_profile ON reporter.id = reporter_profile.user_id
+                     LEFT JOIN user_profiles reported_profile ON reported.id = reported_profile.user_id \
+            '''
 
     if status_filter != 'all':
         query += f" WHERE r.status = '{status_filter}'"
@@ -3653,18 +4995,22 @@ def techadmin_report_action(report_id, action):
     if action == 'approve':
         # Помечаем жалобу как обработанную
         conn.execute('''
-            UPDATE reports 
-            SET status = 'approved', admin_notes = ?, updated_at = CURRENT_TIMESTAMP
-            WHERE id = ?
-        ''', (admin_notes, report_id))
+                     UPDATE reports
+                     SET status      = 'approved',
+                         admin_notes = ?,
+                         updated_at  = CURRENT_TIMESTAMP
+                     WHERE id = ?
+                     ''', (admin_notes, report_id))
 
         # Получаем информацию о жалобе
         report = conn.execute('SELECT reported_id FROM reports WHERE id = ?', (report_id,)).fetchone()
         if report:
             # Баним пользователя (можно добавить более сложную логику)
             conn.execute('''
-                UPDATE users SET is_banned = 1 WHERE id = ?
-            ''', (report['reported_id'],))
+                         UPDATE users
+                         SET is_banned = 1
+                         WHERE id = ?
+                         ''', (report['reported_id'],))
 
         flash('Жалоба одобрена, пользователь забанен', 'success')
 
@@ -3672,10 +5018,12 @@ def techadmin_report_action(report_id, action):
     elif action == 'reject':
         # Помечаем жалобу как отклоненную
         conn.execute('''
-            UPDATE reports 
-            SET status = 'rejected', admin_notes = ?, updated_at = CURRENT_TIMESTAMP
-            WHERE id = ?
-        ''', (admin_notes, report_id))
+                     UPDATE reports
+                     SET status      = 'rejected',
+                         admin_notes = ?,
+                         updated_at  = CURRENT_TIMESTAMP
+                     WHERE id = ?
+                     ''', (admin_notes, report_id))
         flash('Жалоба отклонена', 'info')
 
     elif action == 'delete':
@@ -3705,13 +5053,19 @@ def techadmin_stats():
         return jsonify({'error': 'Доступ запрещен'}), 403
 
     # Получаем статистику жалоб
-    pending_reports = conn.execute('''SELECT COUNT(*) as count FROM reports WHERE status = 'pending''').fetchone()[
+    pending_reports = conn.execute('''SELECT COUNT(*) as count
+                                      FROM reports
+                                      WHERE status = 'pending''').fetchone()[
         'count']
-    total_reports = conn.execute('''SELECT COUNT(*) as count FROM reports''').fetchone()['count']
+    total_reports = conn.execute('''SELECT COUNT(*) as count
+                                    FROM reports''').fetchone()['count']
 
     # Получаем статистику пользователей
-    banned_users = conn.execute('''SELECT COUNT(*) as count FROM users WHERE is_banned = 1''').fetchone()['count']
-    total_users = conn.execute('''SELECT COUNT(*) as count FROM users''').fetchone()['count']
+    banned_users = conn.execute('''SELECT COUNT(*) as count
+                                   FROM users
+                                   WHERE is_banned = 1''').fetchone()['count']
+    total_users = conn.execute('''SELECT COUNT(*) as count
+                                  FROM users''').fetchone()['count']
 
     conn.close()
 
@@ -3781,9 +5135,12 @@ def login():
 
                 # Проверяем включена ли 2FA
                 tfa = connection.execute('''
-                    SELECT * FROM two_factor_auth
-                    WHERE user_id = ? AND is_enabled = 1 AND telegram_chat_id IS NOT NULL
-                ''', (user['id'],)).fetchone()
+                                         SELECT *
+                                         FROM two_factor_auth
+                                         WHERE user_id = ?
+                                           AND is_enabled = 1
+                                           AND telegram_chat_id IS NOT NULL
+                                         ''', (user['id'],)).fetchone()
 
                 if tfa:
                     tfa = dict(tfa)
@@ -3791,9 +5148,11 @@ def login():
                     code = generate_code()
                     expires = (datetime.now() + timedelta(minutes=5)).strftime('%Y-%m-%d %H:%M:%S')
                     connection.execute('''
-                        UPDATE two_factor_auth SET auth_code = ?, auth_code_expires = ?
-                        WHERE user_id = ?
-                    ''', (code, expires, user['id']))
+                                       UPDATE two_factor_auth
+                                       SET auth_code         = ?,
+                                           auth_code_expires = ?
+                                       WHERE user_id = ?
+                                       ''', (code, expires, user['id']))
                     connection.commit()
                     connection.close()
 
@@ -3834,9 +5193,16 @@ def settings():
     conn = get_db_connection()
     user = row_to_dict(conn.execute('SELECT * FROM users WHERE id = ?', (user_id,)).fetchone())
     tfa = row_to_dict(conn.execute('SELECT * FROM two_factor_auth WHERE user_id = ?', (user_id,)).fetchone())
+    profile = row_to_dict(conn.execute('SELECT * FROM user_profiles WHERE user_id = ?', (user_id,)).fetchone())
+    friends_count = conn.execute('''
+        SELECT COUNT(*) as count FROM friendships
+        WHERE (sender_id = ? OR receiver_id = ?) AND status = 'accepted'
+    ''', (user_id, user_id)).fetchone()['count']
+    posts_count = conn.execute('SELECT COUNT(*) as count FROM posts WHERE user_id = ?', (user_id,)).fetchone()['count']
     conn.close()
 
-    return render_template('settings.html', user=user, tfa=tfa)
+    return render_template('settings.html', user=user, tfa=tfa, profile=profile,
+                           friends_count=friends_count, posts_count=posts_count)
 
 
 @app.route('/settings/change_password', methods=['POST'])
@@ -3899,15 +5265,18 @@ def settings_2fa_start():
 
     if tfa:
         conn.execute('''
-            UPDATE two_factor_auth
-            SET link_code = ?, link_code_expires = ?, telegram_chat_id = NULL, is_enabled = 0
-            WHERE user_id = ?
-        ''', (link_code, expires, user_id))
+                     UPDATE two_factor_auth
+                     SET link_code         = ?,
+                         link_code_expires = ?,
+                         telegram_chat_id  = NULL,
+                         is_enabled        = 0
+                     WHERE user_id = ?
+                     ''', (link_code, expires, user_id))
     else:
         conn.execute('''
-            INSERT INTO two_factor_auth (user_id, link_code, link_code_expires)
-            VALUES (?, ?, ?)
-        ''', (user_id, link_code, expires))
+                     INSERT INTO two_factor_auth (user_id, link_code, link_code_expires)
+                     VALUES (?, ?, ?)
+                     ''', (user_id, link_code, expires))
 
     conn.commit()
     conn.close()
@@ -3944,11 +5313,13 @@ def settings_2fa_disable():
     user_id = session['user_id']
     conn = get_db_connection()
     conn.execute('''
-        UPDATE two_factor_auth
-        SET is_enabled = 0, telegram_chat_id = NULL,
-            link_code = NULL, link_code_expires = NULL
-        WHERE user_id = ?
-    ''', (user_id,))
+                 UPDATE two_factor_auth
+                 SET is_enabled        = 0,
+                     telegram_chat_id  = NULL,
+                     link_code         = NULL,
+                     link_code_expires = NULL
+                 WHERE user_id = ?
+                 ''', (user_id,))
     conn.commit()
     conn.close()
 
@@ -3971,18 +5342,21 @@ def twofa_verify():
 
         conn = get_db_connection()
         tfa = conn.execute('''
-            SELECT * FROM two_factor_auth
-            WHERE user_id = ?
-              AND auth_code = ?
-              AND auth_code_expires > datetime('now')
-        ''', (user_id, entered_code)).fetchone()
+                           SELECT *
+                           FROM two_factor_auth
+                           WHERE user_id = ?
+                             AND auth_code = ?
+                             AND auth_code_expires > datetime('now')
+                           ''', (user_id, entered_code)).fetchone()
 
         if tfa:
             # Сбрасываем одноразовый код
             conn.execute('''
-                UPDATE two_factor_auth SET auth_code = NULL, auth_code_expires = NULL
-                WHERE user_id = ?
-            ''', (user_id,))
+                         UPDATE two_factor_auth
+                         SET auth_code         = NULL,
+                             auth_code_expires = NULL
+                         WHERE user_id = ?
+                         ''', (user_id,))
             conn.commit()
 
             user = row_to_dict(conn.execute('SELECT * FROM users WHERE id = ?', (user_id,)).fetchone())
@@ -4022,9 +5396,11 @@ def twofa_resend():
     code = generate_code()
     expires = (datetime.now() + timedelta(minutes=5)).strftime('%Y-%m-%d %H:%M:%S')
     conn.execute('''
-        UPDATE two_factor_auth SET auth_code = ?, auth_code_expires = ?
-        WHERE user_id = ?
-    ''', (code, expires, user_id))
+                 UPDATE two_factor_auth
+                 SET auth_code         = ?,
+                     auth_code_expires = ?
+                 WHERE user_id = ?
+                 ''', (code, expires, user_id))
     conn.commit()
     conn.close()
 
@@ -4059,11 +5435,12 @@ def run_telegram_bot():
             conn = get_db_connection()
             try:
                 record = conn.execute('''
-                    SELECT user_id FROM two_factor_auth
-                    WHERE link_code = ?
-                      AND link_code_expires > datetime('now')
-                      AND telegram_chat_id IS NULL
-                ''', (link_code,)).fetchone()
+                                      SELECT user_id
+                                      FROM two_factor_auth
+                                      WHERE link_code = ?
+                                        AND link_code_expires > datetime('now')
+                                        AND telegram_chat_id IS NULL
+                                      ''', (link_code,)).fetchone()
 
                 if record:
                     user_id = record['user_id']
@@ -4071,13 +5448,13 @@ def run_telegram_bot():
                     username = user['username'] if user else f"id{user_id}"
 
                     conn.execute('''
-                        UPDATE two_factor_auth
-                        SET telegram_chat_id = ?,
-                            link_code = NULL,
-                            link_code_expires = NULL,
-                            is_enabled = 1
-                        WHERE user_id = ?
-                    ''', (str(chat_id), user_id))
+                                 UPDATE two_factor_auth
+                                 SET telegram_chat_id  = ?,
+                                     link_code         = NULL,
+                                     link_code_expires = NULL,
+                                     is_enabled        = 1
+                                 WHERE user_id = ?
+                                 ''', (str(chat_id), user_id))
                     conn.commit()
 
                     await update.message.reply_text(
@@ -4110,10 +5487,12 @@ def run_telegram_bot():
         conn = get_db_connection()
         try:
             record = conn.execute('''
-                SELECT u.username FROM two_factor_auth tfa
-                JOIN users u ON tfa.user_id = u.id
-                WHERE tfa.telegram_chat_id = ? AND tfa.is_enabled = 1
-            ''', (chat_id,)).fetchone()
+                                  SELECT u.username
+                                  FROM two_factor_auth tfa
+                                           JOIN users u ON tfa.user_id = u.id
+                                  WHERE tfa.telegram_chat_id = ?
+                                    AND tfa.is_enabled = 1
+                                  ''', (chat_id,)).fetchone()
 
             if record:
                 await update.message.reply_text(
@@ -4202,15 +5581,17 @@ def admin_users():
 
     # Формируем запрос
     query = '''
-        SELECT u.*, 
-               up.full_name, 
-               up.avatar,
-               (SELECT COUNT(*) FROM posts WHERE user_id = u.id) as posts_count,
-               (SELECT COUNT(*) FROM friendships WHERE (sender_id = u.id OR receiver_id = u.id) AND status = 'accepted') as friends_count
-        FROM users u
-        LEFT JOIN user_profiles up ON u.id = up.user_id
-        WHERE 1=1
-    '''
+            SELECT u.*,
+                   up.full_name,
+                   up.avatar,
+                   (SELECT COUNT(*) FROM posts WHERE user_id = u.id)                        as posts_count,
+                   (SELECT COUNT(*) \
+                    FROM friendships \
+                    WHERE (sender_id = u.id OR receiver_id = u.id) AND status = 'accepted') as friends_count
+            FROM users u
+                     LEFT JOIN user_profiles up ON u.id = up.user_id
+            WHERE 1 = 1 \
+            '''
 
     params = []
 
@@ -4269,15 +5650,15 @@ def admin_banned():
 
     # Получаем список забаненных пользователей
     users = rows_to_dicts(conn.execute('''
-        SELECT u.*, 
-               up.full_name, 
-               up.avatar,
-               (SELECT COUNT(*) FROM posts WHERE user_id = u.id) as posts_count
-        FROM users u
-        LEFT JOIN user_profiles up ON u.id = up.user_id
-        WHERE u.is_banned = 1
-        ORDER BY u.created_at DESC
-    ''').fetchall())
+                                       SELECT u.*,
+                                              up.full_name,
+                                              up.avatar,
+                                              (SELECT COUNT(*) FROM posts WHERE user_id = u.id) as posts_count
+                                       FROM users u
+                                                LEFT JOIN user_profiles up ON u.id = up.user_id
+                                       WHERE u.is_banned = 1
+                                       ORDER BY u.created_at DESC
+                                       ''').fetchall())
 
     conn.close()
 
@@ -4437,10 +5818,10 @@ def admin_get_user_stats():
 
     # Получаем распределение по ролям
     roles_stats = rows_to_dicts(conn.execute('''
-        SELECT role, COUNT(*) as count 
-        FROM users 
-        GROUP BY role
-    ''').fetchall())
+                                             SELECT role, COUNT(*) as count
+                                             FROM users
+                                             GROUP BY role
+                                             ''').fetchall())
 
     conn.close()
 
@@ -4451,6 +5832,271 @@ def admin_get_user_stats():
         'active_users': active_users,
         'roles_stats': roles_stats
     })
+
+
+@app.route('/admin/groups')
+def admin_groups():
+    """Управление группами"""
+    if 'user_id' not in session:
+        return redirect('/login')
+    if not is_admin(session['user_id']):
+        flash('Доступ запрещен', 'error')
+        return redirect('/home')
+
+    search_query = request.args.get('search', '').strip()
+    conn = get_db_connection()
+
+    query = """
+            SELECT g.*,
+                   u.username                 as creator_username,
+                   COUNT(DISTINCT gm.user_id) as members_count,
+                   COUNT(DISTINCT gp.id)      as posts_count
+            FROM groups g
+                     LEFT JOIN users u ON g.creator_id = u.id
+                     LEFT JOIN group_members gm ON gm.group_id = g.id
+                     LEFT JOIN group_posts gp ON gp.group_id = g.id \
+            """
+    params = []
+    if search_query:
+        query += " WHERE g.name LIKE ? OR g.description LIKE ?"
+        params.extend([f'%{search_query}%', f'%{search_query}%'])
+    query += " GROUP BY g.id ORDER BY members_count DESC"
+
+    groups = rows_to_dicts(conn.execute(query, params).fetchall())
+    total_groups = conn.execute('SELECT COUNT(*) as c FROM groups').fetchone()['c']
+    total_members = conn.execute('SELECT COUNT(*) as c FROM group_members').fetchone()['c']
+    total_posts = conn.execute('SELECT COUNT(*) as c FROM group_posts').fetchone()['c']
+    conn.close()
+
+    return render_template('admin_groups.html',
+                           groups=groups,
+                           search_query=search_query,
+                           total_groups=total_groups,
+                           total_members=total_members,
+                           total_posts=total_posts)
+
+
+@app.route('/admin/posts')
+def admin_posts():
+    """Управление постами"""
+    if 'user_id' not in session:
+        return redirect('/login')
+    if not is_admin(session['user_id']):
+        flash('Доступ запрещен', 'error')
+        return redirect('/home')
+
+    search_query = request.args.get('search', '').strip()
+    post_type = request.args.get('type', 'all')  # all | personal | group
+    conn = get_db_connection()
+
+    personal_posts = []
+    group_posts = []
+
+    if post_type in ('all', 'personal'):
+        q = """
+            SELECT p.id, \
+                   p.content, \
+                   p.created_at, \
+                   p.user_id,
+                   u.username                                             as author_username,
+                   COALESCE(up.full_name, u.username)                     as author_name,
+                   (SELECT COUNT(*) FROM post_likes WHERE post_id = p.id) as likes_count,
+                   (SELECT COUNT(*) FROM comments WHERE post_id = p.id)   as comments_count
+            FROM posts p
+                     JOIN users u ON p.user_id = u.id
+                     LEFT JOIN user_profiles up ON up.user_id = u.id \
+            """
+        p = []
+        if search_query:
+            q += " WHERE p.content LIKE ? OR u.username LIKE ?"
+            p.extend([f'%{search_query}%', f'%{search_query}%'])
+        q += " ORDER BY p.created_at DESC LIMIT 200"
+        personal_posts = rows_to_dicts(conn.execute(q, p).fetchall())
+
+    if post_type in ('all', 'group'):
+        q = """
+            SELECT gp.id, \
+                   gp.content, \
+                   gp.created_at, \
+                   gp.group_id, \
+                   gp.author_id,
+                   u.username                                                    as author_username,
+                   COALESCE(up.full_name, u.username)                            as author_name,
+                   g.name                                                        as group_name,
+                   (SELECT COUNT(*) FROM group_post_likes WHERE post_id = gp.id) as likes_count
+            FROM group_posts gp
+                     JOIN users u ON gp.author_id = u.id
+                     LEFT JOIN user_profiles up ON up.user_id = u.id
+                     JOIN groups g ON gp.group_id = g.id \
+            """
+        p = []
+        if search_query:
+            q += " WHERE gp.content LIKE ? OR u.username LIKE ? OR g.name LIKE ?"
+            p.extend([f'%{search_query}%', f'%{search_query}%', f'%{search_query}%'])
+        q += " ORDER BY gp.created_at DESC LIMIT 200"
+        group_posts = rows_to_dicts(conn.execute(q, p).fetchall())
+
+    total_personal = conn.execute('SELECT COUNT(*) as c FROM posts').fetchone()['c']
+    total_group = conn.execute('SELECT COUNT(*) as c FROM group_posts').fetchone()['c']
+    conn.close()
+
+    return render_template('admin_posts.html',
+                           personal_posts=personal_posts,
+                           group_posts=group_posts,
+                           search_query=search_query,
+                           post_type=post_type,
+                           total_personal=total_personal,
+                           total_group=total_group)
+
+
+def is_admin(user_id):
+    """Проверяет, является ли пользователь администратором"""
+    conn = get_db_connection()
+    user = conn.execute('SELECT role FROM users WHERE id = ?', (user_id,)).fetchone()
+    conn.close()
+    return user and user['role'] == 'admin'
+
+
+@app.route('/admin/delete_group/<int:group_id>', methods=['POST'])
+def admin_delete_group(group_id):
+    """Удаление любой группы администратором"""
+    if 'user_id' not in session:
+        return jsonify({'success': False, 'error': 'Требуется авторизация'}), 401
+
+    if not is_admin(session['user_id']):
+        return jsonify({'success': False, 'error': 'Доступ запрещен'}), 403
+
+    conn = get_db_connection()
+    try:
+        group = conn.execute('SELECT name, avatar FROM groups WHERE id = ?', (group_id,)).fetchone()
+        if not group:
+            return jsonify({'success': False, 'error': 'Группа не найдена'})
+
+        # Удаляем медиафайлы постов группы
+        media_files = conn.execute('''
+                                   SELECT filename
+                                   FROM post_media
+                                   WHERE group_post_id IN (SELECT id FROM group_posts WHERE group_id = ?)
+                                   ''', (group_id,)).fetchall()
+        for m in media_files:
+            try:
+                os.remove(os.path.join(app.config['POST_MEDIA_FOLDER'], m['filename']))
+            except:
+                pass
+
+        # Удаляем аватар группы
+        if group['avatar'] and group['avatar'] != 'default_group.png':
+            try:
+                os.remove(os.path.join(app.config['GROUP_UPLOAD_FOLDER'], group['avatar']))
+            except:
+                pass
+
+        # Удаляем все связанные данные
+        conn.execute('DELETE FROM post_media WHERE group_post_id IN (SELECT id FROM group_posts WHERE group_id = ?)',
+                     (group_id,))
+        conn.execute('DELETE FROM group_post_likes WHERE post_id IN (SELECT id FROM group_posts WHERE group_id = ?)',
+                     (group_id,))
+        conn.execute('DELETE FROM group_posts WHERE group_id = ?', (group_id,))
+        conn.execute('DELETE FROM group_members WHERE group_id = ?', (group_id,))
+        conn.execute('DELETE FROM group_requests WHERE group_id = ?', (group_id,))
+        conn.execute('DELETE FROM groups WHERE id = ?', (group_id,))
+        conn.commit()
+
+        return jsonify({'success': True, 'message': f'Группа "{group["name"]}" удалена'})
+
+    except Exception as e:
+        conn.rollback()
+        return jsonify({'success': False, 'error': str(e)})
+    finally:
+        conn.close()
+
+
+@app.route('/admin/delete_post/<int:post_id>', methods=['POST'])
+def admin_delete_post(post_id):
+    """Удаление любого поста администратором"""
+    if 'user_id' not in session:
+        return jsonify({'success': False, 'error': 'Требуется авторизация'}), 401
+
+    if not is_admin(session['user_id']):
+        return jsonify({'success': False, 'error': 'Доступ запрещен'}), 403
+
+    data = request.get_json() or {}
+    is_group_post = data.get('is_group_post', False)
+
+    conn = get_db_connection()
+    try:
+        if is_group_post:
+            post = conn.execute('SELECT id FROM group_posts WHERE id = ?', (post_id,)).fetchone()
+            if not post:
+                return jsonify({'success': False, 'error': 'Пост не найден'})
+
+            # Удаляем медиафайлы
+            media_files = conn.execute('SELECT filename FROM post_media WHERE group_post_id = ?', (post_id,)).fetchall()
+            for m in media_files:
+                try:
+                    os.remove(os.path.join(app.config['POST_MEDIA_FOLDER'], m['filename']))
+                except:
+                    pass
+
+            conn.execute('DELETE FROM post_media WHERE group_post_id = ?', (post_id,))
+            conn.execute('DELETE FROM group_post_likes WHERE post_id = ?', (post_id,))
+            conn.execute('DELETE FROM group_posts WHERE id = ?', (post_id,))
+        else:
+            post = conn.execute('SELECT id FROM posts WHERE id = ?', (post_id,)).fetchone()
+            if not post:
+                return jsonify({'success': False, 'error': 'Пост не найден'})
+
+            # Удаляем медиафайлы
+            media_files = conn.execute('SELECT filename FROM post_media WHERE post_id = ?', (post_id,)).fetchall()
+            for m in media_files:
+                try:
+                    os.remove(os.path.join(app.config['POST_MEDIA_FOLDER'], m['filename']))
+                except:
+                    pass
+
+            conn.execute('DELETE FROM post_media WHERE post_id = ?', (post_id,))
+            conn.execute('DELETE FROM post_likes WHERE post_id = ?', (post_id,))
+            conn.execute('DELETE FROM comments WHERE post_id = ?', (post_id,))
+            conn.execute('DELETE FROM posts WHERE id = ?', (post_id,))
+
+        conn.commit()
+        return jsonify({'success': True, 'message': 'Пост удален'})
+
+    except Exception as e:
+        conn.rollback()
+        return jsonify({'success': False, 'error': str(e)})
+    finally:
+        conn.close()
+
+
+@app.route('/admin/delete_comment/<int:comment_id>', methods=['POST'])
+def admin_delete_comment(comment_id):
+    """Удаление любого комментария администратором"""
+    if 'user_id' not in session:
+        return jsonify({'success': False, 'error': 'Требуется авторизация'}), 401
+
+    if not is_admin(session['user_id']):
+        return jsonify({'success': False, 'error': 'Доступ запрещен'}), 403
+
+    conn = get_db_connection()
+    try:
+        comment = conn.execute('SELECT id, post_id FROM comments WHERE id = ?', (comment_id,)).fetchone()
+        if not comment:
+            return jsonify({'success': False, 'error': 'Комментарий не найден'})
+
+        post_id = comment['post_id']
+        conn.execute('DELETE FROM comments WHERE id = ?', (comment_id,))
+        comments_count = \
+        conn.execute('SELECT COUNT(*) as count FROM comments WHERE post_id = ?', (post_id,)).fetchone()['count']
+        conn.commit()
+
+        return jsonify({'success': True, 'message': 'Комментарий удален', 'comments_count': comments_count})
+
+    except Exception as e:
+        conn.rollback()
+        return jsonify({'success': False, 'error': str(e)})
+    finally:
+        conn.close()
 
 
 def redirect_based_on_role(username):
@@ -4495,14 +6141,17 @@ def get_user_stats():
 
     # Получаем количество постов пользователя
     posts_count = conn.execute('''
-        SELECT COUNT(*) as count FROM posts WHERE user_id = ?
-    ''', (user_id,)).fetchone()['count']
+                               SELECT COUNT(*) as count
+                               FROM posts
+                               WHERE user_id = ?
+                               ''', (user_id,)).fetchone()['count']
 
     # Получаем количество друзей
     friends_count = conn.execute('''
-        SELECT COUNT(*) as count FROM friendships 
-        WHERE (sender_id = ? OR receiver_id = ?) AND status = 'accepted'
-    ''', (user_id, user_id)).fetchone()['count']
+                                 SELECT COUNT(*) as count
+                                 FROM friendships
+                                 WHERE (sender_id = ? OR receiver_id = ?) AND status = 'accepted'
+                                 ''', (user_id, user_id)).fetchone()['count']
 
     conn.close()
 
@@ -4518,46 +6167,48 @@ def feed_more():
     if 'user_id' not in session:
         return jsonify({'posts': [], 'has_more': False})
 
-    user_id     = session['user_id']
-    offset      = request.args.get('offset', 0, type=int)
+    user_id = session['user_id']
+    offset = request.args.get('offset', 0, type=int)
     filter_type = request.args.get('filter', 'all')
-    per_page    = 10
+    per_page = 10
 
     try:
-        items    = get_posts_feed(user_id, limit=per_page + 1, filter_type=filter_type, offset=offset)
+        items = get_posts_feed(user_id, limit=per_page + 1, filter_type=filter_type, offset=offset)
         has_more = len(items) > per_page
-        items    = items[:per_page]
+        items = items[:per_page]
 
         result = []
         for item in items:
             media = []
             for m in item.get('media_files', []):
                 media.append({
-                    'filename':          m.get('filename', ''),
-                    'file_type':         m.get('file_type', 'image'),
+                    'filename': m.get('filename', ''),
+                    'file_type': m.get('file_type', 'image'),
                     'original_filename': m.get('original_filename', ''),
-                    'id':                m.get('id', 0),
+                    'id': m.get('id', 0),
                 })
             result.append({
-                'id':             item['id'],
-                'user_id':        item['user_id'],
-                'username':       item.get('username', ''),
-                'author_name':    item.get('author_name', item.get('username', '')),
-                'author_avatar':  item.get('author_avatar', ''),
-                'content':        item.get('content', ''),
-                'created_at':     item.get('created_at', ''),
-                'likes_count':    item.get('likes_count', 0),
+                'id': item['id'],
+                'user_id': item['user_id'],
+                'username': item.get('username', ''),
+                'author_name': item.get('author_name', item.get('username', '')),
+                'author_avatar': item.get('author_avatar', ''),
+                'content': item.get('content', ''),
+                'created_at': item.get('created_at', ''),
+                'likes_count': item.get('likes_count', 0),
                 'comments_count': item.get('comments_count', 0),
-                'is_liked':       bool(item.get('is_liked', 0)),
-                'is_own':         item['user_id'] == user_id,
-                'media':          media,
+                'is_liked': bool(item.get('is_liked', 0)),
+                'is_own': item['user_id'] == user_id,
+                'media': media,
             })
 
         return jsonify({'posts': result, 'has_more': has_more})
 
     except Exception as e:
-        import traceback; traceback.print_exc()
+        import traceback;
+        traceback.print_exc()
         return jsonify({'posts': [], 'has_more': False, 'error': str(e)})
+
 
 @app.route('/debug_video')
 def debug_video():
@@ -4568,13 +6219,13 @@ def debug_video():
 
     # Получаем все видео из БД
     videos = conn.execute('''
-        SELECT pm.*, p.content, p.user_id, u.username
-        FROM post_media pm
-        JOIN posts p ON pm.post_id = p.id
-        JOIN users u ON p.user_id = u.id
-        WHERE pm.file_type = 'video'
-        ORDER BY pm.id DESC
-    ''').fetchall()
+                          SELECT pm.*, p.content, p.user_id, u.username
+                          FROM post_media pm
+                                   JOIN posts p ON pm.post_id = p.id
+                                   JOIN users u ON p.user_id = u.id
+                          WHERE pm.file_type = 'video'
+                          ORDER BY pm.id DESC
+                          ''').fetchall()
 
     # Проверяем физическое существование файлов
     import os
@@ -4687,10 +6338,12 @@ def fix_video_types():
 
     # Получаем все медиафайлы с неправильным или отсутствующим типом
     media_files = conn.execute('''
-        SELECT id, filename, file_type, post_id
-        FROM post_media
-        WHERE file_type IS NULL OR file_type = '' OR file_type = 'unknown'
-    ''').fetchall()
+                               SELECT id, filename, file_type, post_id
+                               FROM post_media
+                               WHERE file_type IS NULL
+                                  OR file_type = ''
+                                  OR file_type = 'unknown'
+                               ''').fetchall()
 
     fixed_count = 0
     for media in media_files:
@@ -4704,10 +6357,10 @@ def fix_video_types():
 
         if new_type != 'unknown':
             conn.execute('''
-                UPDATE post_media 
-                SET file_type = ? 
-                WHERE id = ?
-            ''', (new_type, media['id']))
+                         UPDATE post_media
+                         SET file_type = ?
+                         WHERE id = ?
+                         ''', (new_type, media['id']))
             fixed_count += 1
             print(f"Исправлен файл {media['filename']}: {media['file_type']} -> {new_type}")
 
@@ -4741,16 +6394,18 @@ def test_video(post_id):
 
     # Получаем медиафайлы поста
     media = conn.execute('''
-        SELECT * FROM post_media WHERE post_id = ?
-    ''', (post_id,)).fetchall()
+                         SELECT *
+                         FROM post_media
+                         WHERE post_id = ?
+                         ''', (post_id,)).fetchall()
 
     # Получаем сам пост
     post = conn.execute('''
-        SELECT p.*, u.username 
-        FROM posts p
-        JOIN users u ON p.user_id = u.id
-        WHERE p.id = ?
-    ''', (post_id,)).fetchone()
+                        SELECT p.*, u.username
+                        FROM posts p
+                                 JOIN users u ON p.user_id = u.id
+                        WHERE p.id = ?
+                        ''', (post_id,)).fetchone()
 
     conn.close()
 
@@ -4925,6 +6580,28 @@ def serve_post_file(filename):
     response = send_from_directory(app.config['POST_MEDIA_FOLDER'], filename, mimetype=mimetype)
     # Убираем заголовок скачивания — браузер должен показать файл, а не скачать
     response.headers.pop('Content-Disposition', None)
+    return response
+
+
+@app.route('/download_file/<int:media_id>')
+def download_file(media_id):
+    """Скачивание файла по media_id из post_media"""
+    if 'user_id' not in session:
+        return redirect('/login')
+    from flask import send_from_directory
+    conn = get_db_connection()
+    media = conn.execute('SELECT * FROM post_media WHERE id = ?', (media_id,)).fetchone()
+    conn.close()
+    if not media:
+        return 'Файл не найден', 404
+    media = dict(media)
+    original_name = media.get('original_filename') or media['filename']
+    response = send_from_directory(
+        app.config['POST_MEDIA_FOLDER'],
+        media['filename'],
+        as_attachment=True,
+        download_name=original_name
+    )
     return response
 
 
@@ -5118,31 +6795,120 @@ def view_document_content(media_id):
 def ensure_messenger_tables():
     conn = get_db_connection()
     conn.execute('''
-        CREATE TABLE IF NOT EXISTS conversations (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            user1_id INTEGER NOT NULL,
-            user2_id INTEGER NOT NULL,
-            last_message_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            FOREIGN KEY (user1_id) REFERENCES users(id),
-            FOREIGN KEY (user2_id) REFERENCES users(id),
-            UNIQUE(user1_id, user2_id)
-        )
-    ''')
+                 CREATE TABLE IF NOT EXISTS conversations
+                 (
+                     id
+                     INTEGER
+                     PRIMARY
+                     KEY
+                     AUTOINCREMENT,
+                     user1_id
+                     INTEGER
+                     NOT
+                     NULL,
+                     user2_id
+                     INTEGER
+                     NOT
+                     NULL,
+                     last_message_at
+                     TIMESTAMP
+                     DEFAULT
+                     CURRENT_TIMESTAMP,
+                     created_at
+                     TIMESTAMP
+                     DEFAULT
+                     CURRENT_TIMESTAMP,
+                     FOREIGN
+                     KEY
+                 (
+                     user1_id
+                 ) REFERENCES users
+                 (
+                     id
+                 ),
+                     FOREIGN KEY
+                 (
+                     user2_id
+                 ) REFERENCES users
+                 (
+                     id
+                 ),
+                     UNIQUE
+                 (
+                     user1_id,
+                     user2_id
+                 )
+                     )
+                 ''')
     conn.execute('''
-        CREATE TABLE IF NOT EXISTS messages (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            conversation_id INTEGER NOT NULL,
-            sender_id INTEGER NOT NULL,
-            text TEXT NOT NULL,
-            is_read INTEGER DEFAULT 0,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            FOREIGN KEY (conversation_id) REFERENCES conversations(id) ON DELETE CASCADE,
-            FOREIGN KEY (sender_id) REFERENCES users(id)
+                 CREATE TABLE IF NOT EXISTS messages
+                 (
+                     id
+                     INTEGER
+                     PRIMARY
+                     KEY
+                     AUTOINCREMENT,
+                     conversation_id
+                     INTEGER
+                     NOT
+                     NULL,
+                     sender_id
+                     INTEGER
+                     NOT
+                     NULL,
+                     text
+                     TEXT
+                     NOT
+                     NULL,
+                     is_read
+                     INTEGER
+                     DEFAULT
+                     0,
+                     created_at
+                     TIMESTAMP
+                     DEFAULT
+                     CURRENT_TIMESTAMP,
+                     FOREIGN
+                     KEY
+                 (
+                     conversation_id
+                 ) REFERENCES conversations
+                 (
+                     id
+                 ) ON DELETE CASCADE,
+                     FOREIGN KEY
+                 (
+                     sender_id
+                 ) REFERENCES users
+                 (
+                     id
+                 )
+                     )
+                 ''')
+    # Таблица файлов в сообщениях
+    conn.execute('''
+        CREATE TABLE IF NOT EXISTS message_files (
+            id              INTEGER PRIMARY KEY AUTOINCREMENT,
+            message_id      INTEGER NOT NULL,
+            filename        TEXT NOT NULL,
+            original_name   TEXT,
+            file_type       TEXT NOT NULL,
+            file_size       INTEGER DEFAULT 0,
+            created_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (message_id) REFERENCES messages (id) ON DELETE CASCADE
         )
     ''')
+    # Добавляем колонку file_count в messages если нет
+    try:
+        conn.execute('SELECT file_count FROM messages LIMIT 1')
+    except Exception:
+        conn.execute('ALTER TABLE messages ADD COLUMN file_count INTEGER DEFAULT 0')
     conn.commit()
     conn.close()
+
+
+MSG_FILES_FOLDER = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'static', 'uploads', 'messages')
+os.makedirs(MSG_FILES_FOLDER, exist_ok=True)
 
 
 def get_or_create_conversation(user1_id, user2_id):
@@ -5167,20 +6933,24 @@ def get_or_create_conversation(user1_id, user2_id):
 def get_conversations_list(user_id):
     conn = get_db_connection()
     rows = rows_to_dicts(conn.execute('''
-        SELECT
-            c.id as conv_id,
-            CASE WHEN c.user1_id = ? THEN c.user2_id ELSE c.user1_id END as partner_id,
-            u.username as partner_username,
-            COALESCE(up.full_name, u.username) as partner_name,
-            COALESCE(up.avatar, 'default_avatar.png') as partner_avatar,
-            (SELECT text FROM messages WHERE conversation_id = c.id ORDER BY created_at DESC LIMIT 1) as last_message,
+                                      SELECT c.id                                                         as conv_id,
+                                             CASE WHEN c.user1_id = ? THEN c.user2_id ELSE c.user1_id END as partner_id,
+                                             u.username                                                   as partner_username,
+                                             COALESCE(up.full_name, u.username)                           as partner_name,
+                                             COALESCE(up.avatar, 'default_avatar.png')                    as partner_avatar,
+                                             (SELECT text
+                                              FROM messages
+                                              WHERE conversation_id = c.id
+                                              ORDER BY created_at DESC                                       LIMIT 1) as last_message,
             (SELECT COUNT(*) FROM messages WHERE conversation_id = c.id AND sender_id != ? AND is_read = 0) as unread_count
-        FROM conversations c
-        JOIN users u ON u.id = CASE WHEN c.user1_id = ? THEN c.user2_id ELSE c.user1_id END
+                                      FROM conversations c
+                                          JOIN users u
+                                      ON u.id = CASE WHEN c.user1_id = ? THEN c.user2_id ELSE c.user1_id
+                                      END
         LEFT JOIN user_profiles up ON up.user_id = u.id
         WHERE c.user1_id = ? OR c.user2_id = ?
         ORDER BY c.last_message_at DESC
-    ''', (user_id, user_id, user_id, user_id, user_id)).fetchall())
+                                      ''', (user_id, user_id, user_id, user_id, user_id)).fetchall())
     conn.close()
     return rows
 
@@ -5215,26 +6985,39 @@ def messenger_chat(partner_id):
     conv_id = get_or_create_conversation(user_id, partner_id)
     conn = get_db_connection()
     conn.execute('''
-        UPDATE messages SET is_read = 1
-        WHERE conversation_id = ? AND sender_id != ?
-    ''', (conv_id, user_id))
+                 UPDATE messages
+                 SET is_read = 1
+                 WHERE conversation_id = ?
+                   AND sender_id != ?
+                 ''', (conv_id, user_id))
     conn.commit()
     chat_messages = rows_to_dicts(conn.execute('''
-        SELECT m.id, m.sender_id, m.text, m.created_at, u.username as sender_username
-        FROM messages m
-        JOIN users u ON m.sender_id = u.id
-        WHERE m.conversation_id = ?
-        ORDER BY m.created_at ASC
-        LIMIT 200
-    ''', (conv_id,)).fetchall())
+                                               SELECT m.id,
+                                                      m.sender_id,
+                                                      m.text,
+                                                      m.created_at,
+                                                      u.username as sender_username
+                                               FROM messages m
+                                                        JOIN users u ON m.sender_id = u.id
+                                               WHERE m.conversation_id = ?
+                                               ORDER BY m.created_at ASC LIMIT 200
+                                               ''', (conv_id,)).fetchall())
+    # Attach files to each message
+    for msg in chat_messages:
+        mf = rows_to_dicts(conn.execute(
+            'SELECT id, filename, original_name, file_type, file_size FROM message_files WHERE message_id = ? ORDER BY id',
+            (msg['id'],)
+        ).fetchall())
+        msg['files'] = mf
     partner = row_to_dict(conn.execute('''
-        SELECT u.id, u.username,
-               COALESCE(up.full_name, u.username) as full_name,
-               COALESCE(up.avatar, 'default_avatar.png') as avatar
-        FROM users u
-        LEFT JOIN user_profiles up ON up.user_id = u.id
-        WHERE u.id = ?
-    ''', (partner_id,)).fetchone())
+                                       SELECT u.id,
+                                              u.username,
+                                              COALESCE(up.full_name, u.username)        as full_name,
+                                              COALESCE(up.avatar, 'default_avatar.png') as avatar
+                                       FROM users u
+                                                LEFT JOIN user_profiles up ON up.user_id = u.id
+                                       WHERE u.id = ?
+                                       ''', (partner_id,)).fetchone())
     is_blocked_by_me = conn.execute(
         'SELECT id FROM blacklist WHERE blocker_id = ? AND blocked_id = ?',
         (user_id, partner_id)
@@ -5258,34 +7041,83 @@ def messenger_chat(partner_id):
                            is_blocked_by_me=is_blocked_by_me,
                            is_blocked_by_them=is_blocked_by_them)
 
-
 @app.route('/messenger/send_ajax', methods=['POST'])
 def messenger_send_ajax():
     if 'user_id' not in session:
         return jsonify({'success': False}), 401
     ensure_messenger_tables()
     user_id = session['user_id']
-    data = request.get_json()
-    partner_id = data.get('partner_id')
-    text = (data.get('text') or '').strip()
-    if not text or not partner_id:
+
+    # Поддерживаем как JSON (текст), так и multipart (с файлами)
+    if request.content_type and 'multipart' in request.content_type:
+        partner_id = request.form.get('partner_id')
+        text = (request.form.get('text') or '').strip()
+        files = request.files.getlist('files')
+    else:
+        data = request.get_json() or {}
+        partner_id = data.get('partner_id')
+        text = (data.get('text') or '').strip()
+        files = []
+
+    if not partner_id:
+        return jsonify({'success': False, 'error': 'Нет получателя'})
+
+    has_files = any(f and f.filename for f in files)
+    if not text and not has_files:
         return jsonify({'success': False, 'error': 'Пустое сообщение'})
+
     conv_id = get_or_create_conversation(user_id, int(partner_id))
     conn = get_db_connection()
-    cursor = conn.cursor()
-    cursor.execute(
-        'INSERT INTO messages (conversation_id, sender_id, text) VALUES (?, ?, ?)',
-        (conv_id, user_id, text)
-    )
-    msg_id = cursor.lastrowid
-    conn.execute(
-        'UPDATE conversations SET last_message_at = CURRENT_TIMESTAMP WHERE id = ?',
-        (conv_id,)
-    )
-    conn.commit()
-    msg = row_to_dict(conn.execute('SELECT * FROM messages WHERE id = ?', (msg_id,)).fetchone())
-    conn.close()
-    return jsonify({'success': True, 'message': msg})
+    try:
+        cursor = conn.cursor()
+        cursor.execute(
+            'INSERT INTO messages (conversation_id, sender_id, text, file_count) VALUES (?, ?, ?, ?)',
+            (conv_id, user_id, text, len([f for f in files if f and f.filename]))
+        )
+        msg_id = cursor.lastrowid
+
+        # Сохраняем файлы
+        saved_files = []
+        import time
+        for f in files:
+            if not f or not f.filename:
+                continue
+            original_name = f.filename
+            filename = secure_filename(f.filename)
+            if '.' not in filename:
+                continue
+            file_ext = filename.rsplit('.', 1)[1].lower()
+            if file_ext in ALLOWED_IMAGE_EXTENSIONS:
+                file_type = 'image'
+            elif file_ext in ALLOWED_VIDEO_EXTENSIONS:
+                file_type = 'video'
+            elif file_ext in ALLOWED_DOCUMENT_EXTENSIONS:
+                file_type = 'document'
+            else:
+                continue
+            unique_name = f"msg_{msg_id}_{int(time.time())}_{hashlib.md5(filename.encode()).hexdigest()[:8]}.{file_ext}"
+            file_path = os.path.join(MSG_FILES_FOLDER, unique_name)
+            f.save(file_path)
+            file_size = os.path.getsize(file_path)
+            cursor.execute(
+                'INSERT INTO message_files (message_id, filename, original_name, file_type, file_size) VALUES (?, ?, ?, ?, ?)',
+                (msg_id, unique_name, original_name, file_type, file_size)
+            )
+            saved_files.append({'filename': unique_name, 'original_name': original_name, 'file_type': file_type, 'file_size': file_size})
+
+        conn.execute(
+            'UPDATE conversations SET last_message_at = CURRENT_TIMESTAMP WHERE id = ?',
+            (conv_id,)
+        )
+        conn.commit()
+        msg = row_to_dict(conn.execute('SELECT * FROM messages WHERE id = ?', (msg_id,)).fetchone())
+        msg['files'] = saved_files
+        conn.close()
+        return jsonify({'success': True, 'message': msg})
+    except Exception as e:
+        conn.rollback()
+        conn.close()
+        return jsonify({'success': False, 'error': str(e)})
 
 
 @app.route('/messenger/poll/<int:conv_id>')
@@ -5304,25 +7136,43 @@ def messenger_poll(conv_id):
         conn.close()
         return jsonify({'success': False, 'error': 'Нет доступа'})
     new_messages = rows_to_dicts(conn.execute('''
-        SELECT m.id, m.sender_id, m.text, m.created_at, u.username as sender_username
-        FROM messages m
-        JOIN users u ON m.sender_id = u.id
-        WHERE m.conversation_id = ? AND m.id > ?
-        ORDER BY m.created_at ASC
-    ''', (conv_id, last_id)).fetchall())
+                                              SELECT m.id,
+                                                     m.sender_id,
+                                                     m.text,
+                                                     m.created_at,
+                                                     u.username as sender_username
+                                              FROM messages m
+                                                       JOIN users u ON m.sender_id = u.id
+                                              WHERE m.conversation_id = ?
+                                                AND m.id > ?
+                                              ORDER BY m.created_at ASC
+                                              ''', (conv_id, last_id)).fetchall())
     if new_messages:
         conn.execute('''
-            UPDATE messages SET is_read = 1
-            WHERE conversation_id = ? AND sender_id != ? AND id > ?
-        ''', (conv_id, user_id, last_id))
+                     UPDATE messages
+                     SET is_read = 1
+                     WHERE conversation_id = ?
+                       AND sender_id != ? AND id > ?
+                     ''', (conv_id, user_id, last_id))
         conn.commit()
+    # Attach files to each message
+    for msg in new_messages:
+        mf = rows_to_dicts(conn.execute(
+            'SELECT id, filename, original_name, file_type, file_size FROM message_files WHERE message_id = ? ORDER BY id',
+            (msg['id'],)
+        ).fetchall())
+        msg['files'] = mf
     total_unread = conn.execute('''
-        SELECT COUNT(*) as count FROM messages m
-        JOIN conversations c ON m.conversation_id = c.id
-        WHERE (c.user1_id = ? OR c.user2_id = ?)
-          AND m.sender_id != ? AND m.is_read = 0
-          AND m.conversation_id != ?
-    ''', (user_id, user_id, user_id, conv_id)).fetchone()['count']
+                                SELECT COUNT(*) as count
+                                FROM messages m
+                                    JOIN conversations c
+                                ON m.conversation_id = c.id
+                                WHERE (c.user1_id = ?
+                                   OR c.user2_id = ?)
+                                  AND m.sender_id != ?
+                                  AND m.is_read = 0
+                                  AND m.conversation_id != ?
+                                ''', (user_id, user_id, user_id, conv_id)).fetchone()['count']
     conn.close()
     return jsonify({'success': True, 'messages': new_messages, 'total_unread': total_unread})
 
@@ -5335,10 +7185,12 @@ def messenger_unread_count():
     user_id = session['user_id']
     conn = get_db_connection()
     count = conn.execute('''
-        SELECT COUNT(*) as count FROM messages m
-        JOIN conversations c ON m.conversation_id = c.id
-        WHERE (c.user1_id = ? OR c.user2_id = ?) AND m.sender_id != ? AND m.is_read = 0
-    ''', (user_id, user_id, user_id)).fetchone()['count']
+                         SELECT COUNT(*) as count
+                         FROM messages m
+                             JOIN conversations c
+                         ON m.conversation_id = c.id
+                         WHERE (c.user1_id = ? OR c.user2_id = ?) AND m.sender_id != ? AND m.is_read = 0
+                         ''', (user_id, user_id, user_id)).fetchone()['count']
     conn.close()
     return jsonify({'count': count})
 
@@ -5354,15 +7206,16 @@ def messenger_search_users():
         return jsonify({'users': []})
     conn = get_db_connection()
     users = rows_to_dicts(conn.execute('''
-        SELECT u.id, u.username,
-               COALESCE(up.full_name, u.username) as full_name,
-               COALESCE(up.avatar, 'default_avatar.png') as avatar
-        FROM users u
-        LEFT JOIN user_profiles up ON up.user_id = u.id
-        WHERE (u.username LIKE ? OR up.full_name LIKE ?)
-          AND u.id != ? AND u.is_banned = 0
+                                       SELECT u.id,
+                                              u.username,
+                                              COALESCE(up.full_name, u.username)        as full_name,
+                                              COALESCE(up.avatar, 'default_avatar.png') as avatar
+                                       FROM users u
+                                                LEFT JOIN user_profiles up ON up.user_id = u.id
+                                       WHERE (u.username LIKE ? OR up.full_name LIKE ?)
+                                         AND u.id != ? AND u.is_banned = 0
         LIMIT 10
-    ''', (f'%{q}%', f'%{q}%', user_id)).fetchall())
+                                       ''', (f'%{q}%', f'%{q}%', user_id)).fetchall())
     conn.close()
     return jsonify({'users': users})
 
@@ -5441,6 +7294,26 @@ def messenger_unblock(partner_id):
     conn.commit()
     conn.close()
     return jsonify({'success': True})
+
+
+@app.route('/messenger/file/<path:filename>')
+def serve_message_file(filename):
+    """Отдаёт файл из мессенджера с правильными заголовками"""
+    if 'user_id' not in session:
+        return redirect('/login')
+    from flask import send_from_directory
+    MIME_TYPES = {
+        'pdf': 'application/pdf',
+        'png': 'image/png', 'jpg': 'image/jpeg', 'jpeg': 'image/jpeg',
+        'gif': 'image/gif', 'webp': 'image/webp',
+        'mp4': 'video/mp4', 'webm': 'video/webm', 'mov': 'video/quicktime',
+        'txt': 'text/plain; charset=utf-8',
+    }
+    ext = filename.rsplit('.', 1)[-1].lower() if '.' in filename else ''
+    mimetype = MIME_TYPES.get(ext, 'application/octet-stream')
+    response = send_from_directory(MSG_FILES_FOLDER, filename, mimetype=mimetype)
+    response.headers.pop('Content-Disposition', None)
+    return response
 
 
 if __name__ == '__main__':

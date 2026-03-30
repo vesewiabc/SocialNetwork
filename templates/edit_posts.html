@@ -40,8 +40,8 @@
 </head>
 <body>
     <div class="edit-post-container">
-        <a href="/my_posts" class="back-link">
-            <i class="fas fa-arrow-left"></i> Назад к моим постам
+        <a href="#" onclick="history.back(); return false;" class="back-link">
+            <i class="fas fa-arrow-left"></i> Назад
         </a>
         
         <h2 class="mb-4">Редактировать пост</h2>
@@ -68,5 +68,6 @@
     </div>
     
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="{{ url_for('static', filename='defaults/notifications.js') }}"></script>
 </body>
 </html>

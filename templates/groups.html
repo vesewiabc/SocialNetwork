@@ -7,33 +7,52 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <link rel="stylesheet" href="{{ url_for('static', filename='defaults/style.css') }}">
     <link rel="icon" type="image/png" href="{{ url_for('static', filename='uploads/favicon.png') }}">
+    <style>
+        .group-menu-wrap { position: relative; flex-shrink: 0; }
+        .group-menu-btn { width: 36px; height: 36px; border-radius: var(--radius-md); border: 1px solid var(--border-light); background: var(--bg-card); color: var(--text-muted); cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 16px; transition: background 0.15s, color 0.15s; }
+        .group-menu-btn:hover { background: var(--bg-hover); color: var(--text-primary); }
+        .group-dropdown { display: none; position: absolute; right: 0; top: calc(100% + 6px); background: var(--bg-card); border: 1px solid var(--border-light); border-radius: var(--radius-md); box-shadow: 0 4px 16px rgba(0,0,0,0.12); min-width: 210px; z-index: 200; overflow: visible; }
+        .group-dropdown.open { display: block; }
+        .group-dropdown a { display: flex; align-items: center; gap: 10px; padding: 10px 16px; font-size: 14px; font-weight: 600; color: var(--text-primary); text-decoration: none; transition: background 0.12s; }
+        .group-dropdown a:hover { background: var(--amber-50); color: var(--amber-700); }
+        .group-dropdown a.danger { color: #dc2626; }
+        .group-dropdown a.danger:hover { background: #fef2f2; color: #b91c1c; }
+        .group-dropdown a i { width: 18px; text-align: center; color: var(--amber-500); }
+        .group-dropdown a.danger i { color: #ef4444; }
+        .dd-divider { height: 1px; background: var(--border-light); margin: 4px 0; }
+    </style>
+
+        <style>
+        .sidebar-left > h3 { display: none; }
+        .sidebar-left::before { display: none !important; }
+        .sidebar-left { border-top: none !important; }
+        </style>
 </head>
 <body>
         <header>
         <div class="container">
             <div class="header-content">
-                <div class="logo">LinkA</div>
+                <a href="/home" class="logo" style="text-decoration:none;">LinkA</a>
                 <div class="user-menu-wrap">
-                    <button class="user-menu-btn" onclick="toggleUserMenu()" aria-label="Меню пользователя">
+                    <button class="user-menu-trigger" onclick="toggleUserMenu()" aria-label="Меню пользователя">
+                        <span class="user-menu-btn">
                         {% set _avatar = current_user_avatar() %}
                         {% if _avatar %}
                             <img src="{{ url_for('static', filename='uploads/avatars/' + _avatar) }}"
-                                 onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';"
+                                 onerror="this.src='/static/defaults/for_users.png';"
                                  alt="Аватар">
-                            <i class="fas fa-user" style="display:none;"></i>
                         {% else %}
-                            <i class="fas fa-user"></i>
+                            <img src="/static/defaults/for_users.png" alt="Аватар">
                         {% endif %}
+                        </span>
+                        <span class="user-menu-arrow"><i class="fas fa-chevron-up"></i></span>
                     </button>
                     <div class="user-dropdown" id="userDropdown">
                         {% set _uinfo = current_user_info() %}
                         {% if _uinfo %}
-                        <a href="/profile" style="text-decoration:none;color:inherit;display:block;padding:0;">
-                            <div class="user-dropdown-header">
-                                <div class="uname">{{ _uinfo.full_name }}</div>
-                                <div class="ulogin">@{{ _uinfo.username }}</div>
-                            </div>
-                        </a>
+                        <div class="user-dropdown-header">
+                            <div class="uname">{{ _uinfo.full_name }}</div>
+                        </div>
                         {% endif %}
                         <a href="/settings">
                             <i class="fas fa-cog"></i> Настройки
@@ -51,12 +70,14 @@
     <div class="container">
         <div class="main-content">
             <div class="sidebar-left">
-                <h3>Меню</h3>
                 <ul>
                     <li><a href="/profile"><i class="fas fa-user-circle"></i> Мой профиль</a></li>
-                    <li><a href="/friends"><i class="fas fa-users"></i> Друзья</a></li>
-                    <li><a href="/find_friends"><i class="fas fa-search"></i> Найти друзей</a></li>
-                    <li><a href="/my_posts"><i class="fas fa-newspaper"></i> Мои посты</a></li>
+                    <li>
+                        <a href="/friends">
+                            <i class="fas fa-users"></i> Друзья
+                            <span id="friendsBadge" style="display:none; background:#e53935; color:white; border-radius:10px; padding:1px 7px; font-size:11px; font-weight:700; margin-left:6px;"></span>
+                        </a>
+                    </li>
                     <li><a href="/groups"><i class="fas fa-layer-group"></i> Группы</a></li>
                     <li>
                         <a href="/messenger">
@@ -64,28 +85,10 @@
                             <span id="messengerBadge" style="display:none; background:#e53935; color:white; border-radius:10px; padding:1px 7px; font-size:11px; font-weight:700; margin-left:6px;"></span>
                         </a>
                     </li>
-                    <li><a href="/home"><i class="fas fa-home"></i> Главная</a></li>
                 </ul>
             </div>
 
             <div class="feed">
-                <!-- Поиск + создать -->
-                <div class="card" style="padding:20px;">
-                    <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
-                        <form method="GET" action="/groups" style="flex:1;display:flex;gap:8px;">
-                            <input type="text" name="search" placeholder="Поиск групп..."
-                                   value="{{ search_query }}" class="form-control">
-                            <input type="hidden" name="tab" value="{{ current_tab }}">
-                            <button type="submit" class="btn btn-secondary">
-                                <i class="fas fa-search"></i>
-                            </button>
-                        </form>
-                        <button class="btn btn-primary" onclick="openCreateGroupModal()">
-                            <i class="fas fa-plus"></i> Создать группу
-                        </button>
-                    </div>
-                </div>
-
                 <!-- Вкладки -->
                 <div style="display:flex;border-bottom:2px solid var(--border-light);background:var(--bg-card);border-radius:var(--radius-lg) var(--radius-lg) 0 0;padding:0 16px;">
                     <a href="/groups?tab=all"
@@ -96,12 +99,27 @@
                        style="padding:14px 20px;font-weight:700;font-size:14px;text-decoration:none;border-bottom:2px solid {{ 'var(--amber-500)' if current_tab == 'my' else 'transparent' }};color:{{ 'var(--amber-600)' if current_tab == 'my' else 'var(--text-muted)' }};margin-bottom:-2px;">
                         Мои группы
                     </a>
+                    <div style="flex:1;display:flex;justify-content:flex-end;align-items:center;padding-right:4px;">
+                        <button class="btn btn-primary btn-sm" onclick="openCreateGroupModal()">
+                            <i class="fas fa-plus"></i> Создать группу
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Поиск -->
+                <div class="card" style="padding:20px;">
+                    <form method="GET" action="/groups" style="display:flex;gap:8px;">
+                        <input type="text" name="search" placeholder="Поиск групп..."
+                               value="{{ search_query }}" class="form-control">
+                        <input type="hidden" name="tab" value="{{ current_tab }}">
+                        <button type="submit" class="btn btn-primary"><i class="fas fa-search"></i> Искать</button>
+                    </form>
                 </div>
 
                 <!-- Список групп -->
                 {% if groups %}
                     {% for group in groups %}
-                    <div class="group-card" style="display:flex;gap:16px;align-items:center;min-height:100px;padding:16px;">
+                    <div class="group-card" style="display:flex;gap:16px;align-items:center;min-height:100px;padding:16px;overflow:visible;position:relative;">
                         <a href="/group/{{ group.id }}" style="flex-shrink:0;">
                             <img src="{{ url_for('static', filename='uploads/groups/' + group.avatar) if group.avatar else '/static/defaults/for_groups.png' }}"
                                  style="width:80px;height:80px;border-radius:var(--radius-md);object-fit:cover;border:2px solid var(--amber-200);"
@@ -128,29 +146,29 @@
                             </div>
                         </div>
 
-                        <div style="display:flex;flex-direction:column;gap:8px;flex-shrink:0;width:130px;margin-right:4px;">
-                            {% if group.is_member %}
-                                <form method="POST" action="/leave_group/{{ group.id }}" class="leave-group-form"
-                                      data-is-creator="{{ '1' if group.role == 'admin' else '0' }}"
-                                      data-group-name="{{ group.name }}">
-                                    <button type="submit" class="btn btn-danger btn-sm" style="width:100%;justify-content:center;">
-                                        <i class="fas fa-sign-out-alt"></i> Отписаться
-                                    </button>
-                                </form>
-                            {% else %}
-                                {% if group.has_pending_request %}
-                                <span class="badge" style="padding:8px 12px;font-size:12px;">
-                                    <i class="fas fa-clock"></i> Заявка отправлена
-                                </span>
+                        <div class="group-menu-wrap">
+                            <button class="group-menu-btn" onclick="toggleGroupMenu(this)" type="button"><i class="fas fa-ellipsis-v"></i></button>
+                            <div class="group-dropdown">
+                                <a href="/group/{{ group.id }}"><i class="fas fa-eye"></i> Перейти в группу</a>
+                                {% if group.is_member %}
+                                <div class="dd-divider"></div>
+                                <a href="/group/{{ group.id }}/invite"><i class="fas fa-user-plus"></i> Пригласить друга</a>
+                                <div class="dd-divider"></div>
+                                <a href="#" onclick="document.getElementById('leaveForm{{ group.id }}').submit(); return false;"
+                                   class="danger"><i class="fas fa-sign-out-alt"></i> Отписаться</a>
+                                <form id="leaveForm{{ group.id }}" method="POST" action="/leave_group/{{ group.id }}" style="display:none;"></form>
                                 {% else %}
-                                <form method="POST" action="/join_group/{{ group.id }}">
-                                    <button type="submit" class="btn btn-primary btn-sm" style="width:100%;justify-content:center;">
-                                        <i class="fas fa-plus-circle"></i>
-                                        {% if group.is_public %}Подписаться{% else %}Подать заявку{% endif %}
-                                    </button>
-                                </form>
+                                <div class="dd-divider"></div>
+                                {% if group.has_pending_request %}
+                                <a style="color:var(--text-muted);cursor:default;pointer-events:none;"><i class="fas fa-clock"></i> Заявка отправлена</a>
+                                {% else %}
+                                <a href="#" onclick="document.getElementById('joinForm{{ group.id }}').submit(); return false;">
+                                    <i class="fas fa-plus-circle"></i> {% if group.is_public %}Подписаться{% else %}Подать заявку{% endif %}
+                                </a>
+                                <form id="joinForm{{ group.id }}" method="POST" action="/join_group/{{ group.id }}" style="display:none;"></form>
                                 {% endif %}
-                            {% endif %}
+                                {% endif %}
+                            </div>
                         </div>
                     </div>
                     {% endfor %}
@@ -397,8 +415,6 @@
         font-size:13px;
         color:var(--text-muted);">
         <div style="max-width:1200px; margin:0 auto; display:flex; align-items:center; justify-content:center; gap:20px; flex-wrap:wrap;">
-            <span style="font-family:var(--font-display);font-size:13px;background:var(--accent-gradient);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;">LinkA</span>
-            <span style="color:var(--border-medium);">·</span>
             <a href="/faq" style="color:var(--text-muted);font-weight:600;transition:color 0.2s;" onmouseover="this.style.color='var(--amber-600)'" onmouseout="this.style.color='var(--text-muted)'">
                 <i class="fas fa-question-circle"></i> FAQ
             </a>
@@ -407,22 +423,53 @@
                 <i class="fas fa-file-alt"></i> Соглашение
             </a>
             <span style="color:var(--border-medium);">·</span>
-            <span>© 2025 LinkA</span>
+            <span>© 2026 LinkA</span>
         </div>
     </footer>
 </body>
 
     <script>
         function toggleUserMenu() {
-            document.getElementById('userDropdown').classList.toggle('open');
+            const dd = document.getElementById('userDropdown');
+            const wrap = document.querySelector('.user-menu-wrap');
+            dd.classList.toggle('open');
+            wrap.classList.toggle('open');
         }
         document.addEventListener('click', function(e) {
             const wrap = document.querySelector('.user-menu-wrap');
             if (wrap && !wrap.contains(e.target)) {
                 const dd = document.getElementById('userDropdown');
                 if (dd) dd.classList.remove('open');
+                wrap.classList.remove('open');
+            }
+        });
+
+        function refreshFriendsBadge() {
+            fetch('/friends/pending_count')
+                .then(r => r.json())
+                .then(d => {
+                    const badge = document.getElementById('friendsBadge');
+                    if (badge) {
+                        badge.textContent = d.count || '';
+                        badge.style.display = d.count > 0 ? 'inline-block' : 'none';
+                    }
+                }).catch(() => {});
+        }
+        refreshFriendsBadge();
+        setInterval(refreshFriendsBadge, 10000);
+
+        function toggleGroupMenu(btn) {
+            const dropdown = btn.nextElementSibling;
+            const isOpen = dropdown.classList.contains('open');
+            document.querySelectorAll('.group-dropdown.open').forEach(d => d.classList.remove('open'));
+            if (!isOpen) dropdown.classList.add('open');
+        }
+        document.addEventListener('click', function(e) {
+            if (!e.target.closest('.group-menu-wrap')) {
+                document.querySelectorAll('.group-dropdown.open').forEach(d => d.classList.remove('open'));
             }
         });
     </script>
+    <script src="{{ url_for('static', filename='defaults/notifications.js') }}"></script>
 </body>
 </html>

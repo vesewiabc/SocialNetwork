@@ -3,45 +3,154 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Профиль - {{ user.username }}</title>
+    <title>Профиль — {{ user.username }}</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <link rel="stylesheet" href="{{ url_for('static', filename='defaults/style.css') }}">
     <link rel="icon" type="image/png" href="{{ url_for('static', filename='uploads/favicon.png') }}">
+    <style>
+        .sidebar-left > h3 { display: none; }
+        .sidebar-left::before { display: none !important; }
+        .sidebar-left { border-top: none !important; }
+
+        /* Плашки друзей и групп */
+        .social-plaque {
+            background: var(--bg-card);
+            border: 1px solid var(--border-light);
+            border-radius: var(--radius-lg);
+            padding: 20px;
+            margin-bottom: 24px;
+        }
+        .plaque-title {
+            font-family: var(--font-display);
+            font-size: 13px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--amber-600);
+            margin-bottom: 16px;
+        }
+        .items-grid {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 16px;
+        }
+        .item-card {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            width: 82px;
+            text-align: center;
+            text-decoration: none;
+            color: var(--text-primary);
+        }
+        .item-card img {
+            width: 64px;
+            height: 64px;
+            border-radius: 50%;
+            object-fit: cover;
+            border: 3px solid var(--amber-200);
+            margin-bottom: 8px;
+        }
+        .item-card span {
+            font-size: 13px;
+            font-weight: 600;
+            line-height: 1.3;
+        }
+
+        /* Меню действий */
+        .profile-menu-wrap { position: relative; }
+        .profile-menu-btn {
+            width: 38px; height: 38px;
+            border-radius: var(--radius-md);
+            border: 1px solid var(--border-light);
+            background: var(--bg-card);
+            color: var(--text-muted);
+            cursor: pointer;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 17px;
+        }
+        .profile-menu-btn:hover { background: var(--bg-hover); color: var(--text-primary); }
+
+        .profile-dropdown {
+            display: none;
+            position: absolute;
+            right: 0;
+            top: calc(100% + 8px);
+            background: var(--bg-card);
+            border: 1px solid var(--border-light);
+            border-radius: var(--radius-md);
+            box-shadow: 0 4px 16px rgba(0,0,0,0.12);
+            min-width: 220px;
+            z-index: 200;
+        }
+        .profile-dropdown.open { display: block; }
+        .profile-dropdown a {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 12px 16px;
+            font-size: 14.5px;
+            font-weight: 600;
+            color: var(--text-primary);
+            text-decoration: none;
+        }
+        .profile-dropdown a:hover { background: var(--bg-hover); }
+        .profile-dropdown a.danger { color: #e53935; }
+        .profile-dropdown a.danger:hover { background: #fff0f0; }
+        .dd-divider { height: 1px; background: var(--border-light); margin: 4px 0; }
+
+        /* Единый отступ 16px между блоками */
+        .feed > * { margin-bottom: 16px; }
+        .feed > *:last-child { margin-bottom: 0; }
+
+        /* Посты и медиа */
+        .post-media-grid { display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:8px;margin:12px 0; }
+        .post-media-grid img, .post-media-grid video { width:100%;height:180px;object-fit:cover;border-radius:var(--radius-md);cursor:pointer; }
+        .document-preview {
+            background: var(--gray-50); border: 1px solid var(--border-light);
+            border-radius: var(--radius-md); padding: 12px;
+            display: flex; flex-direction: column; align-items: center;
+            cursor: pointer; transition: all 0.2s;
+        }
+        .document-preview:hover { background: var(--amber-50); border-color: var(--amber-300); }
+        .document-icon { font-size: 32px; margin-bottom: 4px; }
+        .document-name { font-size: 11px; color: var(--text-secondary); text-align: center; word-break: break-all; }
+        .document-action { font-size: 11px; color: var(--amber-600); margin-top: 3px; }
+        .video-container { position: relative; cursor: pointer; }
+        .video-badge {
+            position: absolute; top: 8px; left: 8px;
+            background: rgba(0,0,0,0.7); color: #fff;
+            padding: 3px 8px; border-radius: var(--radius-sm); font-size: 11px;
+        }
+    </style>
 </head>
 <body>
-        <header>
+    <!-- Header остаётся без изменений -->
+    <header>
         <div class="container">
             <div class="header-content">
-                <div class="logo">LinkA</div>
+                <a href="/home" class="logo" style="text-decoration:none;">LinkA</a>
                 <div class="user-menu-wrap">
-                    <button class="user-menu-btn" onclick="toggleUserMenu()" aria-label="Меню пользователя">
+                    <button class="user-menu-trigger" onclick="toggleUserMenu()" aria-label="Меню пользователя">
+                        <span class="user-menu-btn">
                         {% set _avatar = current_user_avatar() %}
                         {% if _avatar %}
-                            <img src="{{ url_for('static', filename='uploads/avatars/' + _avatar) }}"
-                                 onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';"
-                                 alt="Аватар">
-                            <i class="fas fa-user" style="display:none;"></i>
+                            <img src="{{ url_for('static', filename='uploads/avatars/' + _avatar) }}" onerror="this.src='/static/defaults/for_users.png';" alt="Аватар">
                         {% else %}
-                            <i class="fas fa-user"></i>
+                            <img src="/static/defaults/for_users.png" alt="Аватар">
                         {% endif %}
+                        </span>
+                        <span class="user-menu-arrow"><i class="fas fa-chevron-up"></i></span>
                     </button>
                     <div class="user-dropdown" id="userDropdown">
                         {% set _uinfo = current_user_info() %}
                         {% if _uinfo %}
-                        <a href="/profile" style="text-decoration:none;color:inherit;display:block;padding:0;">
-                            <div class="user-dropdown-header">
-                                <div class="uname">{{ _uinfo.full_name }}</div>
-                                <div class="ulogin">@{{ _uinfo.username }}</div>
-                            </div>
-                        </a>
+                        <div class="user-dropdown-header">
+                            <div class="uname">{{ _uinfo.full_name }}</div>
+                        </div>
                         {% endif %}
-                        <a href="/settings">
-                            <i class="fas fa-cog"></i> Настройки
-                        </a>
+                        <a href="/settings"><i class="fas fa-cog"></i> Настройки</a>
                         <div class="divider"></div>
-                        <a href="/logout" class="logout-item">
-                            <i class="fas fa-sign-out-alt"></i> Выйти
-                        </a>
+                        <a href="/logout" class="logout-item"><i class="fas fa-sign-out-alt"></i> Выйти</a>
                     </div>
                 </div>
             </div>
@@ -50,142 +159,459 @@
 
     <div class="container">
         <div class="main-content">
-                        <div class="sidebar-left">
-                <h3>Меню</h3>
+            <div class="sidebar-left">
                 <ul>
-                    <li><a href="/home"><i class="fas fa-home"></i> Лента</a></li>
+                    <li><a href="/profile"><i class="fas fa-user-circle"></i> Мой профиль</a></li>
+                    <li><a href="/friends"><i class="fas fa-users"></i> Друзья</a></li>
+                    <li><a href="/groups"><i class="fas fa-layer-group"></i> Группы</a></li>
                     <li>
-                        <a href="/friends">
-                            <i class="fas fa-users"></i> Друзья
-                            {% if friend_requests_count and friend_requests_count > 0 %}
-                                <span style="background:var(--amber-400);color:#111;padding:2px 6px;border-radius:10px;font-size:12px;margin-left:4px;">{{ friend_requests_count }}</span>
-                            {% endif %}
+                        <a href="/messenger">
+                            <i class="fas fa-comment"></i> Мессенджер
+                            <span id="messengerBadge" style="display:none;background:#e53935;color:white;border-radius:10px;padding:1px 7px;font-size:11px;font-weight:700;margin-left:6px;"></span>
                         </a>
                     </li>
-                    <li><a href="/groups"><i class="fas fa-layer-group"></i> Группы</a></li>
                 </ul>
             </div>
 
             <div class="feed">
-                <div class="card" style="padding:28px;">
-                    <a href="javascript:history.back()" class="back-link" style="display:inline-flex;margin-bottom:20px;">
-                        <i class="fas fa-arrow-left"></i>&nbsp; Назад
+                {% if not can_view_profile %}
+                <div class="card" style="padding:40px;text-align:center;">
+                    <i class="fas fa-lock fa-3x" style="color:var(--amber-300);margin-bottom:16px;"></i>
+                    <h2>Профиль закрыт</h2>
+                    <p style="color:var(--text-muted);">Этот пользователь ограничил доступ к своему профилю.</p>
+                </div>
+                {% else %}
+
+                <!-- Карточка профиля -->
+                <div class="card" style="padding:28px;position:relative;">
+                    {% if not is_own_profile %}
+                    <!-- Кнопка "Написать" в нижнем правом углу -->
+                    <a href="/messenger/{{ user.id }}"
+                       style="position:absolute;bottom:24px;right:24px;"
+                       class="btn btn-secondary">
+                        <i class="fas fa-comment"></i> Написать
                     </a>
+
+                    <!-- Меню с тремя точками в верхнем правом углу -->
+                    <div style="position:absolute;top:20px;right:20px;">
+                        <div class="profile-menu-wrap">
+                            <button class="profile-menu-btn" onclick="toggleProfileMenu(this)" type="button">
+                                <i class="fas fa-ellipsis-v"></i>
+                            </button>
+                            <div class="profile-dropdown" id="profileDropdown">
+                                <a href="/messenger/{{ user.id }}"><i class="fas fa-comment"></i> Написать сообщение</a>
+                                <div class="dd-divider"></div>
+                                {% if friend_status == 'accepted' %}
+                                <a href="/remove_friend/{{ user.id }}" onclick="return confirm('Удалить из друзей?')">
+                                    <i class="fas fa-user-minus"></i> Удалить из друзей
+                                </a>
+                                <div class="dd-divider"></div>
+                                {% endif %}
+                                <a href="/add_friend_to_blacklist/{{ user.id }}" onclick="return confirm('Добавить в чёрный список?')" class="danger">
+                                    <i class="fas fa-ban"></i> Заблокировать
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
 
                     <div style="display:flex;align-items:center;gap:24px;flex-wrap:wrap;">
                         {% set avatar_filename = profile.avatar if profile and profile.avatar else 'default_avatar.png' %}
                         <img src="{{ url_for('static', filename='uploads/avatars/' + avatar_filename) }}"
-                             alt="Аватар"
                              style="width:110px;height:110px;border-radius:50%;object-fit:cover;border:3px solid var(--amber-300);"
-                             onerror="this.src='/static/defaults/for_users.png'">
+                             onerror="this.src='/static/defaults/for_users.png'" alt="Аватар">
 
-                        <div style="flex:1;">
-                            <h2 style="margin:0 0 6px;font-family:var(--font-display);font-size:22px;">
+                        <div style="flex:1;min-width:0;">
+                            <h2 style="margin:0 0 6px;font-size:22px;">
                                 {{ profile.full_name if profile and profile.full_name else user.username }}
                             </h2>
-                            <p style="margin:0 0 4px;color:var(--text-secondary);font-size:14px;">
+                            <p style="margin:0 0 4px;color:var(--text-secondary);">
                                 <i class="fas fa-at" style="color:var(--amber-500);"></i> {{ user.username }}
                             </p>
-                            {% if profile and profile.location %}
-                            <p style="margin:0 0 12px;color:var(--text-muted);font-size:14px;">
-                                <i class="fas fa-map-marker-alt" style="color:var(--amber-500);"></i> {{ profile.location }}
-                            </p>
-                            {% endif %}
-
-                            {% if not is_own_profile %}
-                            <div style="margin-top:16px;">
-                                {% if friend_status == 'accepted' %}
-                                    <span class="badge badge-success" style="font-size:13px;padding:6px 14px;">
-                                        <i class="fas fa-check"></i> У вас в друзьях
-                                    </span>
-                                {% elif friend_status == 'pending' %}
-                                    <span class="badge" style="font-size:13px;padding:6px 14px;background:var(--amber-100);color:var(--amber-700);">
-                                        <i class="fas fa-clock"></i> Заявка отправлена
-                                    </span>
-                                {% else %}
-                                    <form method="POST" action="{{ url_for('add_friend', friend_id=user.id) }}" style="display:inline;">
-                                        <button type="submit" class="btn btn-primary btn-sm">
-                                            <i class="fas fa-user-plus"></i> Добавить в друзья
-                                        </button>
-                                    </form>
-                                {% endif %}
-
-                                <!-- Значок приватности сообщений -->
-                                <div style="margin-top:10px;">
-                                    {% if message_privacy == 'nobody' %}
-                                        <span style="display:inline-flex;align-items:center;gap:6px;padding:5px 12px;background:#fee2e2;border-radius:999px;font-size:12px;font-weight:700;color:#dc2626;">
-                                            <i class="fas fa-ban"></i> Сообщения отключены
-                                        </span>
-                                    {% elif message_privacy == 'friends' %}
-                                        <span style="display:inline-flex;align-items:center;gap:6px;padding:5px 12px;background:var(--amber-100);border-radius:999px;font-size:12px;font-weight:700;color:var(--amber-700);">
-                                            <i class="fas fa-user-friends"></i> Пишет только друзьям
-                                        </span>
-                                    {% else %}
-                                        <a href="/messenger/{{ user.id }}" style="display:inline-flex;align-items:center;gap:6px;padding:5px 12px;background:#dbeafe;border-radius:999px;font-size:12px;font-weight:700;color:#2563eb;text-decoration:none;">
-                                            <i class="fas fa-comment"></i> Написать сообщение
-                                        </a>
-                                    {% endif %}
-                                </div>
-                            </div>
-                            {% else %}
-                            <a href="/profile/edit" class="btn btn-primary btn-sm" style="margin-top:16px;">
-                                <i class="fas fa-edit"></i> Редактировать профиль
-                            </a>
+                            {% if profile and profile.bio %}
+                            <p style="margin:8px 0 0;color:var(--text-primary);line-height:1.5;">{{ profile.bio }}</p>
                             {% endif %}
                         </div>
                     </div>
                 </div>
 
-                <div class="stat-box" style="text-align:center;">
-                    <div class="stat-number">{{ posts_count }}</div>
-                    <div class="stat-label">Публикации</div>
+                <!-- Друзья -->
+                <div class="social-plaque">
+                    <div class="plaque-title">Друзья</div>
+                    {% if user_friends and user_friends|length > 0 %}
+                    <div class="items-grid">
+                        {% for friend in user_friends %}
+                        <a href="/profile/{{ friend.id }}" class="item-card">
+                            <img src="{{ url_for('static', filename='uploads/avatars/' + (friend.avatar or 'default_avatar.png')) }}"
+                                 onerror="this.src='/static/defaults/for_users.png'">
+                            <span>{{ friend.full_name or friend.username }}</span>
+                        </a>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <div style="text-align:center;padding:30px 20px;color:var(--text-muted);">
+                        <i class="fas fa-user-friends fa-3x" style="color:var(--amber-200);margin-bottom:12px;display:block;"></i>
+                        <p>У пользователя пока нет друзей</p>
+                    </div>
+                    {% endif %}
                 </div>
 
-                {% if profile and profile.bio %}
-                <div class="card">
-                    <h3 style="font-family:var(--font-display);font-size:13px;text-transform:uppercase;letter-spacing:1px;color:var(--amber-600);margin-bottom:12px;">О себе</h3>
-                    <p style="white-space:pre-line;color:var(--text-primary);line-height:1.7;margin:0;">{{ profile.bio }}</p>
+                <!-- Группы (круглые аватарки) -->
+                {% if user_groups and user_groups|length > 0 %}
+                <div class="social-plaque">
+                    <div class="plaque-title">Группы</div>
+                    <div class="items-grid">
+                        {% for g in user_groups %}
+                        <a href="/group/{{ g.id }}" class="item-card">
+                            <img src="{{ url_for('static', filename='uploads/groups/' + (g.avatar if g.avatar else 'default_group.png')) }}"
+                                 onerror="this.src='/static/defaults/for_groups.png'">
+                            <span>{{ g.name }}</span>
+                        </a>
+                        {% endfor %}
+                    </div>
                 </div>
+                {% endif %}
+
+                <!-- Посты (без изменений) -->
+                {% if can_view_posts %}
+                    <div style="margin-top: 32px;">
+                        <div style="font-family:var(--font-display);font-size:13px;text-transform:uppercase;letter-spacing:1px;color:var(--amber-600);margin-bottom:12px;">
+                            Публикации
+                        </div>
+
+                        {% if user_posts %}
+                            {% for item in user_posts %}
+                            <div id="vp-post-{{ item.id }}" class="post" style="margin-bottom:16px;">
+                                <div class="post-header">
+                                    <a href="/profile/{{ user.id }}">
+                                        {% set avatar_fn = profile.avatar if profile and profile.avatar else 'default_avatar.png' %}
+                                        <img src="{{ url_for('static', filename='uploads/avatars/' + avatar_fn) }}"
+                                             class="author-avatar"
+                                             onerror="this.src='/static/defaults/for_users.png'">
+                                    </a>
+                                    <div class="post-info">
+                                        <strong class="post-author">
+                                            <a href="/profile/{{ user.id }}" style="text-decoration:none;color:var(--text-primary);">
+                                                {{ profile.full_name if profile and profile.full_name else user.username }}
+                                            </a>
+                                        </strong>
+                                        <small class="post-time">{{ datetime_format(item.created_at) }}</small>
+                                    </div>
+                                </div>
+
+                                <p class="post-content">{{ item.content }}</p>
+
+                                {% if item.media_files %}
+                                <div class="post-media-grid"
+                                     data-post-media="{{ item.media_files | selectattr('file_type', 'ne', 'document') | map(attribute='filename') | list | tojson | replace('"', '&quot;') }}"
+                                     data-post-types="{{ item.media_files | selectattr('file_type', 'ne', 'document') | map(attribute='file_type') | list | tojson | replace('"', '&quot;') }}">
+                                    {% for media in item.media_files %}
+                                        {% set ext = media.filename.rsplit('.', 1)[-1].lower() %}
+                                        {% if media.file_type == 'document' or ext in ['pdf','doc','docx','xls','xlsx','ppt','pptx','txt','zip','rar','7z'] %}
+                                            {% set doc_name = media.original_filename if media.original_filename else media.filename %}
+                                            <div class="document-preview" onclick="openDocViewer('{{ media.id }}','{{ ext }}','{{ doc_name }}')">
+                                                <span class="document-icon">{% if ext=='pdf' %}📄{% elif ext in ['doc','docx'] %}📝{% elif ext in ['xls','xlsx'] %}📊{% elif ext in ['ppt','pptx'] %}📑{% elif ext=='txt' %}📃{% elif ext in ['zip','rar','7z'] %}🗜️{% else %}📎{% endif %}</span>
+                                                <span class="document-name">{{ doc_name|truncate(20) }}</span>
+                                                <span class="document-action">{% if ext in ['zip','rar','7z'] %}Скачать{% else %}Открыть{% endif %}</span>
+                                            </div>
+                                        {% elif media.file_type == 'image' or ext in ['jpg','jpeg','png','gif','webp'] %}
+                                            <div style="border-radius:var(--radius-md);overflow:hidden;cursor:pointer;"
+                                                 data-media-src="{{ url_for('static', filename='uploads/posts/' + media.filename) }}"
+                                                 data-media-type="image" onclick="openMediaFromGrid(this)">
+                                                <img src="{{ url_for('static', filename='uploads/posts/' + media.filename) }}"
+                                                     style="width:100%;height:180px;object-fit:cover;"
+                                                     onerror="this.src='/static/defaults/for_users.png'">
+                                            </div>
+                                        {% elif media.file_type == 'video' or ext in ['mp4','avi','mov','wmv','webm'] %}
+                                            <div class="video-container"
+                                                 data-media-src="{{ url_for('static', filename='uploads/posts/' + media.filename) }}"
+                                                 data-media-type="video" onclick="openMediaFromGrid(this)">
+                                                <video style="width:100%;height:180px;object-fit:cover;">
+                                                    <source src="{{ url_for('static', filename='uploads/posts/' + media.filename) }}">
+                                                </video>
+                                                <div class="video-badge">▶ ВИДЕО</div>
+                                            </div>
+                                        {% endif %}
+                                    {% endfor %}
+                                </div>
+                                {% endif %}
+
+                                <div class="post-actions">
+                                    <button class="action-btn like-button {% if item.is_liked %}liked{% endif %}"
+                                            onclick="vpLikePost({{ item.id }}, this)">
+                                        <i class="{% if item.is_liked %}fas{% else %}far{% endif %} fa-heart"></i>
+                                        <span class="likes-count">{{ item.likes_count or 0 }}</span>
+                                    </button>
+                                    <button class="action-btn" onclick="vpToggleComments({{ item.id }})">
+                                        <i class="far fa-comment"></i>
+                                        <span class="vp-cmt-count-{{ item.id }}">{{ item.comments_count or 0 }}</span>
+                                    </button>
+                                </div>
+
+                                <!-- Комментарии -->
+                                <div class="comments-section" id="vp-comments-{{ item.id }}">
+                                    <div class="comments-list" id="vp-comments-list-{{ item.id }}">
+                                        <!-- Загружается через JS -->
+                                    </div>
+                                    <div class="comment-form">
+                                        {% set av = current_user_avatar() %}
+                                        <img src="{{ url_for('static', filename='uploads/avatars/' + av) if av else '/static/defaults/for_users.png' }}"
+                                             class="comment-avatar" onerror="this.src='/static/defaults/for_users.png'">
+                                        <textarea class="comment-input" id="vp-cmt-input-{{ item.id }}"
+                                                  placeholder="Написать комментарий..." rows="1"
+                                                  onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();vpSubmitComment({{ item.id }});}"></textarea>
+                                        <button class="comment-submit" onclick="vpSubmitComment({{ item.id }})">
+                                            <i class="fas fa-paper-plane"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        {% else %}
+                        <div style="text-align:center;padding:60px 20px;color:var(--text-muted);background:var(--bg-card);border-radius:var(--radius-lg);">
+                            <i class="fas fa-file-alt fa-3x" style="color:var(--amber-200);margin-bottom:16px;display:block;"></i>
+                            <h3 style="margin:0 0 8px;color:var(--text-primary);">Публикаций пока нет</h3>
+                            <p>Пользователь ещё ничего не опубликовал.</p>
+                        </div>
+                        {% endif %}
+                    </div>
+                {% else %}
+                <div class="card" style="padding:40px;text-align:center;">
+                    <i class="fas fa-eye-slash fa-3x" style="color:var(--amber-300);margin-bottom:16px;"></i>
+                    <p style="color:var(--text-muted);">Посты этого пользователя скрыты настройками приватности.</p>
+                </div>
+                {% endif %}
+
                 {% endif %}
             </div>
         </div>
     </div>
 
-    <!-- Футер -->
-    <footer style="
-        margin-top:auto; padding:20px 24px;
-        border-top:1px solid var(--border-light);
-        background:var(--bg-card);
-        text-align:center;
-        font-size:13px;
-        color:var(--text-muted);">
-        <div style="max-width:1200px; margin:0 auto; display:flex; align-items:center; justify-content:center; gap:20px; flex-wrap:wrap;">
-            <span style="font-family:var(--font-display);font-size:13px;background:var(--accent-gradient);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;">LinkA</span>
+    <footer style="margin-top:auto;padding:20px 24px;border-top:1px solid var(--border-light);background:var(--bg-card);text-align:center;font-size:13px;color:var(--text-muted);">
+        <div style="max-width:1200px;margin:0 auto;display:flex;align-items:center;justify-content:center;gap:20px;flex-wrap:wrap;">
+            <a href="/faq" style="color:var(--text-muted);font-weight:600;">FAQ</a>
             <span style="color:var(--border-medium);">·</span>
-            <a href="/faq" style="color:var(--text-muted);font-weight:600;transition:color 0.2s;" onmouseover="this.style.color='var(--amber-600)'" onmouseout="this.style.color='var(--text-muted)'">
-                <i class="fas fa-question-circle"></i> FAQ
-            </a>
+            <a href="/terms" style="color:var(--text-muted);font-weight:600;">Соглашение</a>
             <span style="color:var(--border-medium);">·</span>
-            <a href="/terms" style="color:var(--text-muted);font-weight:600;transition:color 0.2s;" onmouseover="this.style.color='var(--amber-600)'" onmouseout="this.style.color='var(--text-muted)'">
-                <i class="fas fa-file-alt"></i> Соглашение
-            </a>
-            <span style="color:var(--border-medium);">·</span>
-            <span>© 2025 LinkA</span>
+            <span>© 2026 LinkA</span>
         </div>
     </footer>
-</body>
 
     <script>
-        function toggleUserMenu() {
-            document.getElementById('userDropdown').classList.toggle('open');
+    function toggleUserMenu() {
+        const dd = document.getElementById('userDropdown');
+        const wrap = document.querySelector('.user-menu-wrap');
+        dd.classList.toggle('open'); wrap.classList.toggle('open');
+    }
+    document.addEventListener('click', function(e) {
+        const wrap = document.querySelector('.user-menu-wrap');
+        if (wrap && !wrap.contains(e.target)) {
+            document.getElementById('userDropdown').classList.remove('open');
+            wrap.classList.remove('open');
         }
-        document.addEventListener('click', function(e) {
-            const wrap = document.querySelector('.user-menu-wrap');
-            if (wrap && !wrap.contains(e.target)) {
-                const dd = document.getElementById('userDropdown');
-                if (dd) dd.classList.remove('open');
-            }
+    });
+
+    function toggleProfileMenu(btn) {
+        const dropdown = btn.nextElementSibling;
+        const isOpen = dropdown.classList.contains('open');
+        document.querySelectorAll('.profile-dropdown.open').forEach(d => d.classList.remove('open'));
+        if (!isOpen) dropdown.classList.add('open');
+    }
+    document.addEventListener('click', function(e) {
+        if (!e.target.closest('.profile-menu-wrap')) {
+            document.querySelectorAll('.profile-dropdown.open').forEach(d => d.classList.remove('open'));
+        }
+    });
+
+    // Медиа-вьюер со стрелками
+    let _viewerItems=[], _viewerIndex=0, _activeViewer=null;
+
+    function openMediaFromGrid(el) {
+        const grid   = el.closest('.post-media-grid');
+        const all    = Array.from(grid.querySelectorAll('[data-media-src]'));
+        _viewerItems = all.map(m=>({src:m.dataset.mediaSrc, type:m.dataset.mediaType}));
+        _viewerIndex = all.indexOf(el);
+        _buildViewer();
+    }
+
+    function openDocViewer(mediaId, ext, filename) {
+        if (['zip','rar','7z'].includes(ext)) {
+            const a = document.createElement('a');
+            a.href='/view_document/'+mediaId; a.download=filename;
+            document.body.appendChild(a); a.click(); document.body.removeChild(a);
+            return;
+        }
+        document.body.style.overflow = 'hidden';
+        const overlay = document.createElement('div');
+        overlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.92);z-index:2000;display:flex;flex-direction:column;';
+        const iconMap = {pdf:'📄',doc:'📝',docx:'📝',xls:'📊',xlsx:'📊',ppt:'📑',pptx:'📑',txt:'📃'};
+        const toolbar = document.createElement('div');
+        toolbar.style.cssText = 'display:flex;align-items:center;gap:14px;padding:0 20px;height:60px;background:var(--bg-card);border-bottom:1px solid var(--border-light);flex-shrink:0;';
+        toolbar.innerHTML = `<span style="font-size:20px;">${iconMap[ext]||'📎'}</span>
+            <span style="font-size:15px;font-weight:600;color:var(--text-primary);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${filename}</span>
+            <a href="/view_document/${mediaId}" download="${filename}" style="display:flex;align-items:center;gap:6px;padding:7px 16px;background:var(--amber-500);color:#111;border-radius:var(--radius-md);font-size:13px;font-weight:600;text-decoration:none;">
+            <i class="fas fa-download"></i> Скачать</a>`;
+        const close = document.createElement('button');
+        close.style.cssText = 'position:absolute;top:72px;right:20px;background:#fff;color:#000;border:none;border-radius:50%;width:42px;height:42px;font-size:22px;cursor:pointer;z-index:10;box-shadow:0 2px 8px rgba(0,0,0,.4);';
+        close.innerHTML = '×';
+        const cv = ()=>{ document.body.removeChild(overlay); document.body.style.overflow=''; };
+        close.onclick = cv;
+        const iw = document.createElement('div');
+        iw.style.cssText = 'flex:1;display:flex;align-items:center;justify-content:center;padding:20px;overflow:hidden;';
+        const iframe = document.createElement('iframe');
+        iframe.src = '/view_document/'+mediaId;
+        iframe.style.cssText = 'width:100%;height:100%;border:none;border-radius:12px;background:#fff;';
+        iw.appendChild(iframe);
+        overlay.appendChild(toolbar); overlay.appendChild(iw); overlay.appendChild(close);
+        const esc = e=>{ if(e.key==='Escape'){ cv(); document.removeEventListener('keydown',esc); } };
+        document.addEventListener('keydown', esc);
+        document.body.appendChild(overlay);
+    }
+
+    function _buildViewer() {
+        if (_activeViewer) { document.body.removeChild(_activeViewer); _activeViewer=null; }
+        const viewer = document.createElement('div');
+        viewer.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.92);z-index:2000;display:flex;flex-direction:column;align-items:center;justify-content:center;';
+        document.body.style.overflow = 'hidden';
+        const content = document.createElement('div');
+        content.style.cssText = 'display:flex;align-items:center;justify-content:center;width:100%;flex:1;position:relative;';
+        viewer.appendChild(content);
+        const close = document.createElement('button');
+        close.style.cssText = 'position:absolute;top:16px;right:20px;background:#fff;color:#000;border:none;border-radius:50%;width:42px;height:42px;font-size:22px;cursor:pointer;z-index:10;box-shadow:0 2px 8px rgba(0,0,0,.4);';
+        close.innerHTML = '×'; close.onclick = _closeViewer; viewer.appendChild(close);
+        const mkArrow = (left) => {
+            const b = document.createElement('button');
+            b.style.cssText = `position:absolute;${left?'left':'right'}:16px;top:50%;transform:translateY(-50%);background:rgba(255,255,255,0.15);color:#fff;border:2px solid rgba(255,255,255,0.4);border-radius:50%;width:48px;height:48px;font-size:22px;cursor:pointer;z-index:10;display:flex;align-items:center;justify-content:center;`;
+            b.innerHTML = left?'‹':'›';
+            b.onclick = e=>{ e.stopPropagation(); _viewerIndex+=left?-1:1; _renderViewerItem(); };
+            content.appendChild(b); return b;
+        };
+        mkArrow(true); mkArrow(false);
+        const counter = document.createElement('div');
+        counter.id = '__vc';
+        counter.style.cssText = 'position:absolute;bottom:16px;left:50%;transform:translateX(-50%);color:rgba(255,255,255,0.7);font-size:13px;font-weight:600;';
+        viewer.appendChild(counter);
+        const mw = document.createElement('div');
+        mw.id = '__vm';
+        mw.style.cssText = 'display:flex;align-items:center;justify-content:center;max-width:88%;max-height:80vh;';
+        content.appendChild(mw);
+        viewer.onclick = e=>{ if(e.target===viewer||e.target===content) _closeViewer(); };
+        viewer._kh = e=>{
+            if(e.key==='Escape') _closeViewer();
+            if(e.key==='ArrowLeft'&&_viewerIndex>0){ _viewerIndex--; _renderViewerItem(); }
+            if(e.key==='ArrowRight'&&_viewerIndex<_viewerItems.length-1){ _viewerIndex++; _renderViewerItem(); }
+        };
+        document.addEventListener('keydown', viewer._kh);
+        _activeViewer = viewer; document.body.appendChild(viewer); _renderViewerItem();
+    }
+
+    function _renderViewerItem() {
+        const mw      = document.getElementById('__vm');
+        const counter = document.getElementById('__vc');
+        const btns    = _activeViewer.querySelector('div').querySelectorAll('button');
+        const total   = _viewerItems.length;
+        const item    = _viewerItems[_viewerIndex];
+        btns[0].style.display = _viewerIndex>0 ? 'flex' : 'none';
+        btns[1].style.display = _viewerIndex<total-1 ? 'flex' : 'none';
+        counter.textContent   = total>1 ? `${_viewerIndex+1} / ${total}` : '';
+        mw.innerHTML = '';
+        if (item.type==='image') {
+            const img = document.createElement('img');
+            img.src = item.src;
+            img.style.cssText = 'max-width:100%;max-height:80vh;border-radius:8px;object-fit:contain;box-shadow:0 4px 24px rgba(0,0,0,.5);';
+            mw.appendChild(img);
+        } else if (item.type==='video') {
+            const vid = document.createElement('video');
+            vid.src = item.src; vid.controls=true; vid.autoplay=true;
+            vid.style.cssText = 'max-width:100%;max-height:80vh;border-radius:8px;';
+            mw.appendChild(vid);
+        }
+    }
+
+    function _closeViewer() {
+        if (!_activeViewer) return;
+        document.removeEventListener('keydown', _activeViewer._kh);
+        document.body.removeChild(_activeViewer);
+        document.body.style.overflow = '';
+        _activeViewer=null; _viewerItems=[];
+    }
+
+    // Лайки
+    function vpLikePost(postId, btn) {
+        fetch(`/like_post_action/${postId}`, {method:'POST', headers:{'Content-Type':'application/json'}})
+            .then(r => r.json())
+            .then(d => {
+                if (!d.success) return;
+                const icon = btn.querySelector('i');
+                const cnt  = btn.querySelector('.likes-count');
+                if (d.action === 'liked') { icon.className='fas fa-heart'; btn.classList.add('liked'); }
+                else { icon.className='far fa-heart'; btn.classList.remove('liked'); }
+                cnt.textContent = d.likes_count;
+            });
+    }
+
+    // Комментарии
+    const vpLoadedComments = new Set();
+    function vpToggleComments(postId) {
+        const section = document.getElementById(`vp-comments-${postId}`);
+        const isOpen  = section.style.display === 'block';
+        if (isOpen) { section.style.display = 'none'; return; }
+        section.style.display = 'block';
+        if (!vpLoadedComments.has(postId)) {
+            vpLoadedComments.add(postId);
+            vpFetchComments(postId);
+        }
+    }
+    function vpFetchComments(postId) {
+        fetch(`/post_comments/${postId}`)
+            .then(r => r.json())
+            .then(d => { vpRenderComments(postId, d.success ? d.comments : []); })
+            .catch(() => vpRenderComments(postId, []));
+    }
+    function vpRenderComments(postId, comments) {
+        const list = document.getElementById(`vp-comments-list-${postId}`);
+        list.innerHTML = '';
+        if (!comments || comments.length === 0) {
+            list.innerHTML = '<p style="font-size:13px;color:var(--text-muted);margin:0 0 8px;">Комментариев пока нет.</p>';
+            return;
+        }
+        comments.forEach(c => list.insertAdjacentHTML('beforeend', vpBuildComment(c)));
+    }
+    function vpBuildComment(c) {
+        const avatarSrc = (c.avatar && c.avatar !== 'default_avatar.png')
+            ? `/static/uploads/avatars/${c.avatar}`
+            : '/static/defaults/for_users.png';
+        const name = c.full_name || c.username;
+        const time = (c.created_at||'').toString().slice(0,16);
+        return `<div class="comment-item" id="cmt-${c.id}">
+            <img src="${avatarSrc}" class="comment-avatar" onerror="this.src='/static/defaults/for_users.png'">
+            <div class="comment-bubble">
+                <span class="comment-author">${name}</span>
+                <span class="comment-time">${time}</span>
+                <div class="comment-text">${c.content.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</div>
+            </div>
+        </div>`;
+    }
+    function vpSubmitComment(postId) {
+        const input   = document.getElementById(`vp-cmt-input-${postId}`);
+        const content = input.value.trim();
+        if (!content) return;
+        fetch(`/add_comment/${postId}`, {
+            method:'POST', headers:{'Content-Type':'application/json'},
+            body: JSON.stringify({content})
+        })
+        .then(r => r.json())
+        .then(d => {
+            if (!d.success) { alert('Ошибка: '+d.error); return; }
+            input.value = '';
+            const list = document.getElementById(`vp-comments-list-${postId}`);
+            if (list.querySelector('p')) list.innerHTML = '';
+            list.insertAdjacentHTML('beforeend', vpBuildComment(d.comment));
+            const cnt = document.querySelector(`.vp-cmt-count-${postId}`);
+            if (cnt) cnt.textContent = d.comments_count;
         });
+    }
     </script>
+    <script src="{{ url_for('static', filename='defaults/notifications.js') }}"></script>
 </body>
 </html>

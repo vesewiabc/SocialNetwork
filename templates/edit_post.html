@@ -7,33 +7,38 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <link rel="stylesheet" href="{{ url_for('static', filename='defaults/style.css') }}">
     <link rel="icon" type="image/png" href="{{ url_for('static', filename='uploads/favicon.png') }}">
+
+        <style>
+        .sidebar-left > h3 { display: none; }
+        .sidebar-left::before { display: none !important; }
+        .sidebar-left { border-top: none !important; }
+        </style>
 </head>
 <body>
         <header>
         <div class="container">
             <div class="header-content">
-                <div class="logo">LinkA</div>
+                <a href="/home" class="logo" style="text-decoration:none;">LinkA</a>
                 <div class="user-menu-wrap">
-                    <button class="user-menu-btn" onclick="toggleUserMenu()" aria-label="Меню пользователя">
+                    <button class="user-menu-trigger" onclick="toggleUserMenu()" aria-label="Меню пользователя">
+                        <span class="user-menu-btn">
                         {% set _avatar = current_user_avatar() %}
                         {% if _avatar %}
                             <img src="{{ url_for('static', filename='uploads/avatars/' + _avatar) }}"
-                                 onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';"
+                                 onerror="this.src='/static/defaults/for_users.png';"
                                  alt="Аватар">
-                            <i class="fas fa-user" style="display:none;"></i>
                         {% else %}
-                            <i class="fas fa-user"></i>
+                            <img src="/static/defaults/for_users.png" alt="Аватар">
                         {% endif %}
+                        </span>
+                        <span class="user-menu-arrow"><i class="fas fa-chevron-up"></i></span>
                     </button>
                     <div class="user-dropdown" id="userDropdown">
                         {% set _uinfo = current_user_info() %}
                         {% if _uinfo %}
-                        <a href="/profile" style="text-decoration:none;color:inherit;display:block;padding:0;">
-                            <div class="user-dropdown-header">
-                                <div class="uname">{{ _uinfo.full_name }}</div>
-                                <div class="ulogin">@{{ _uinfo.username }}</div>
-                            </div>
-                        </a>
+                        <div class="user-dropdown-header">
+                            <div class="uname">{{ _uinfo.full_name }}</div>
+                        </div>
                         {% endif %}
                         <a href="/settings">
                             <i class="fas fa-cog"></i> Настройки
@@ -51,7 +56,6 @@
     <div class="container">
         <div class="main-content">
                         <div class="sidebar-left">
-                <h3>Меню</h3>
                 <ul>
                     <li><a href="/home"><i class="fas fa-home"></i> Лента</a></li>
                     <li>
@@ -68,8 +72,8 @@
 
             <div class="feed">
                 <div class="post">
-                    <a href="/my_posts" class="back-link" style="display:inline-flex;margin-bottom:20px;">
-                        <i class="fas fa-arrow-left"></i>&nbsp; Назад к моим постам
+                    <a href="#" onclick="history.back(); return false;" class="back-link" style="display:inline-flex;margin-bottom:20px;">
+                        <i class="fas fa-arrow-left"></i>&nbsp; Назад
                     </a>
 
                     <h2 style="font-family:var(--font-display);font-size:18px;margin-bottom:20px;">
@@ -149,8 +153,6 @@
         font-size:13px;
         color:var(--text-muted);">
         <div style="max-width:1200px; margin:0 auto; display:flex; align-items:center; justify-content:center; gap:20px; flex-wrap:wrap;">
-            <span style="font-family:var(--font-display);font-size:13px;background:var(--accent-gradient);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;">LinkA</span>
-            <span style="color:var(--border-medium);">·</span>
             <a href="/faq" style="color:var(--text-muted);font-weight:600;transition:color 0.2s;" onmouseover="this.style.color='var(--amber-600)'" onmouseout="this.style.color='var(--text-muted)'">
                 <i class="fas fa-question-circle"></i> FAQ
             </a>
@@ -159,22 +161,55 @@
                 <i class="fas fa-file-alt"></i> Соглашение
             </a>
             <span style="color:var(--border-medium);">·</span>
-            <span>© 2025 LinkA</span>
+            <span>© 2026 LinkA</span>
         </div>
     </footer>
 </body>
 
     <script>
         function toggleUserMenu() {
-            document.getElementById('userDropdown').classList.toggle('open');
+            const dd = document.getElementById('userDropdown');
+            const wrap = document.querySelector('.user-menu-wrap');
+            dd.classList.toggle('open');
+            wrap.classList.toggle('open');
         }
         document.addEventListener('click', function(e) {
             const wrap = document.querySelector('.user-menu-wrap');
             if (wrap && !wrap.contains(e.target)) {
                 const dd = document.getElementById('userDropdown');
                 if (dd) dd.classList.remove('open');
+                wrap.classList.remove('open');
             }
         });
+
+        function showFriendNotif(name, avatar, userId) {
+            const container = document.getElementById('notif-container');
+            const el = document.createElement('div');
+            el.className = 'friend-notif';
+            el.innerHTML = `
+                <img src="/static/uploads/avatars/${avatar}" onerror="this.src='/static/defaults/for_users.png'">
+                <div class="friend-notif-text">
+                    <strong>${name}</strong> принял(а) вашу заявку в друзья 🎉
+                </div>
+                <a href="/friends?tab=my" class="friend-notif-link">Перейти</a>
+            `;
+            container.appendChild(el);
+            setTimeout(() => el.remove(), 6000);
+        }
+
+        function checkFriendNotifications() {
+            fetch('/friends/accepted_notifications')
+                .then(r => r.json())
+                .then(d => {
+                    (d.notifications || []).forEach(n => {
+                        showFriendNotif(n.full_name || n.username, n.avatar, n.id);
+                    });
+                }).catch(() => {});
+        }
+
+        checkFriendNotifications();
+        setInterval(checkFriendNotifications, 15000);
     </script>
+    <script src="{{ url_for('static', filename='defaults/notifications.js') }}"></script>
 </body>
 </html>

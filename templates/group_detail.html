@@ -7,33 +7,38 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <link rel="stylesheet" href="{{ url_for('static', filename='defaults/style.css') }}">
     <link rel="icon" type="image/png" href="{{ url_for('static', filename='uploads/favicon.png') }}">
+
+        <style>
+        .sidebar-left > h3 { display: none; }
+        .sidebar-left::before { display: none !important; }
+        .sidebar-left { border-top: none !important; }
+        </style>
 </head>
 <body>
         <header>
         <div class="container">
             <div class="header-content">
-                <div class="logo">LinkA</div>
+                <a href="/home" class="logo" style="text-decoration:none;">LinkA</a>
                 <div class="user-menu-wrap">
-                    <button class="user-menu-btn" onclick="toggleUserMenu()" aria-label="Меню пользователя">
+                    <button class="user-menu-trigger" onclick="toggleUserMenu()" aria-label="Меню пользователя">
+                        <span class="user-menu-btn">
                         {% set _avatar = current_user_avatar() %}
                         {% if _avatar %}
                             <img src="{{ url_for('static', filename='uploads/avatars/' + _avatar) }}"
-                                 onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';"
+                                 onerror="this.src='/static/defaults/for_users.png';"
                                  alt="Аватар">
-                            <i class="fas fa-user" style="display:none;"></i>
                         {% else %}
-                            <i class="fas fa-user"></i>
+                            <img src="/static/defaults/for_users.png" alt="Аватар">
                         {% endif %}
+                        </span>
+                        <span class="user-menu-arrow"><i class="fas fa-chevron-up"></i></span>
                     </button>
                     <div class="user-dropdown" id="userDropdown">
                         {% set _uinfo = current_user_info() %}
                         {% if _uinfo %}
-                        <a href="/profile" style="text-decoration:none;color:inherit;display:block;padding:0;">
-                            <div class="user-dropdown-header">
-                                <div class="uname">{{ _uinfo.full_name }}</div>
-                                <div class="ulogin">@{{ _uinfo.username }}</div>
-                            </div>
-                        </a>
+                        <div class="user-dropdown-header">
+                            <div class="uname">{{ _uinfo.full_name }}</div>
+                        </div>
                         {% endif %}
                         <a href="/settings">
                             <i class="fas fa-cog"></i> Настройки
@@ -51,9 +56,8 @@
     <div class="container">
         <div class="main-content">
                         <div class="sidebar-left">
-                <h3>Меню</h3>
                 <ul>
-                    <li><a href="/home"><i class="fas fa-home"></i> Лента</a></li>
+                <li><a href="/profile"><i class="fas fa-user-circle"></i> Мой профиль</a></li>
                     <li>
                         <a href="/friends">
                             <i class="fas fa-users"></i> Друзья
@@ -63,13 +67,16 @@
                         </a>
                     </li>
                     <li><a href="/groups"><i class="fas fa-layer-group"></i> Группы</a></li>
+                    <li>
+                        <a href="/messenger">
+                            <i class="fas fa-comment"></i> Мессенджер
+                            <span id="messengerBadge" style="display:none; background:#e53935; color:white; border-radius:10px; padding:1px 7px; font-size:11px; font-weight:700; margin-left:6px;"></span>
+                        </a>
+                    </li>
                 </ul>
             </div>
 
             <div class="feed">
-                <a href="/groups" class="back-link" style="display:inline-flex;margin-bottom:4px;">
-                    <i class="fas fa-arrow-left"></i>&nbsp; Назад к группам
-                </a>
 
                 <!-- Шапка группы -->
                 <div class="card" style="padding:24px;position:relative;">
@@ -102,14 +109,7 @@
                                 </button>
                                 <div style="height:1px;background:var(--border-light);"></div>
                                 {% endif %}
-                                <form method="POST" action="/leave_group/{{ group.id }}"
-                                      class="leave-group-form"
-                                      data-is-creator="{{ '1' if role == 'admin' else '0' }}"
-                                      data-group-name="{{ group.name }}">
-                                    <button type="submit" style="display:flex;align-items:center;gap:10px;padding:11px 16px;font-size:14px;font-weight:600;color:#dc2626;background:none;border:none;width:100%;text-align:left;cursor:pointer;transition:background var(--transition);" onmouseover="this.style.background='#fef2f2'" onmouseout="this.style.background='none'">
-                                        <i class="fas fa-sign-out-alt" style="width:18px;text-align:center;"></i> Отписаться
-                                    </button>
-                                </form>
+                                
                             {% endif %}
                             {% if has_pending_request %}
                                 <div style="padding:11px 16px;font-size:14px;font-weight:600;color:var(--amber-700);">
@@ -147,8 +147,6 @@
                             <p style="color:var(--text-secondary);font-size:14px;margin:0 0 12px;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;word-break:break-word;">{{ group.description or 'Нет описания' }}</p>
                             <div style="display:flex;gap:16px;font-size:13px;color:var(--text-muted);flex-wrap:wrap;">
                                 <span><i class="fas fa-users" style="color:var(--amber-500);"></i> {{ group.members_count }} участников</span>
-                                <span><i class="fas fa-file-alt" style="color:var(--amber-500);"></i> {{ group.posts_count }} постов</span>
-                                <span><i class="fas fa-calendar" style="color:var(--amber-500);"></i> {{ group.created_at[:10]|replace('-', '.') }}</span>
                             </div>
                         </div>
                     </div>
@@ -245,12 +243,16 @@
                         {% for post in posts %}
                         <div id="post-{{ post.id }}" class="post">
                             <div class="post-header">
-                                <img src="{{ url_for('static', filename='uploads/avatars/' + post.author_avatar) if post.author_avatar else '/static/defaults/for_users.png' }}"
-                                     class="author-avatar"
-                                     onerror="this.src='/static/defaults/for_users.png'">
+                                <a href="/profile/{{ post.author_id }}" style="display:inline-block;flex-shrink:0;">
+                                    <img src="{{ url_for('static', filename='uploads/avatars/' + post.author_avatar) if post.author_avatar else '/static/defaults/for_users.png' }}"
+                                         class="author-avatar" style="cursor:pointer;"
+                                         onerror="this.src='/static/defaults/for_users.png'">
+                                </a>
                                 <div class="post-info">
                                     <strong class="post-author">
-                                        {{ post.author_name or post.author_username }}
+                                        <a href="/profile/{{ post.author_id }}" style="text-decoration:none;color:var(--text-primary);">
+                                            {{ post.author_name or post.author_username }}
+                                        </a>
                                         {% if post.author_role == 'admin' %}
                                         <span class="badge badge-danger" style="font-size:10px;">Админ</span>
                                         {% elif post.author_role == 'moderator' %}
@@ -303,7 +305,7 @@
                                         {% set doc_ext = media.filename.rsplit('.', 1)[-1].lower() %}
                                         {% set doc_name = media.original_filename if media.original_filename else media.filename %}
                                         <div style="background:var(--gray-50);border:1px solid var(--border-light);border-radius:var(--radius-md);padding:14px;display:flex;flex-direction:column;align-items:center;cursor:pointer;"
-                                             onclick="openDocViewer('{{ media.id }}', '{{ doc_ext }}', '{{ doc_name }}')">
+                                             onclick="openDocViewer('{{ media.id }}', '{{ doc_ext }}', '{{ doc_name }}', '{{ media.filename }}')">
                                             <span style="font-size:36px;">
                                                 {% if doc_ext == 'pdf' %}📄{% elif doc_ext in ['doc','docx'] %}📝{% elif doc_ext in ['xls','xlsx'] %}📊{% elif doc_ext in ['ppt','pptx'] %}📑{% elif doc_ext == 'txt' %}📃{% elif doc_ext in ['zip','rar','7z'] %}🗜️{% else %}📎{% endif %}
                                             </span>
@@ -335,44 +337,38 @@
                             {% endif %}
 
                             <div class="post-actions">
-                                <button type="button" class="action-btn like-post-btn"
+                                <button class="action-btn like-post-btn {% if post.is_liked %}liked{% endif %}"
                                         onclick="likeGroupPost(this.dataset.postId)"
-                                        data-post-id="{{ post.id }}">
-                                    <i class="fas fa-thumbs-up"></i> {{ post.likes_count or 0 }}
+                                        data-post-id="{{ post.id }}"
+                                        style="{% if post.is_liked %}color:#e53935;border-color:#fca5a5;{% endif %}">
+                                    <i class="{% if post.is_liked %}fas{% else %}far{% endif %} fa-heart"></i>
+                                    <span class="gp-likes-{{ post.id }}">{{ post.likes_count or 0 }}</span>
                                 </button>
-                                <button type="button" class="action-btn"
-                                        onclick="toggleComments({{ post.id }})"
-                                        id="comment-btn-{{ post.id }}">
-                                    <i class="fas fa-comment"></i>
-                                    <span id="comments-count-{{ post.id }}">{{ post.comments_count or 0 }}</span>
+                                <button class="action-btn" onclick="toggleGroupComments({{ post.id }})">
+                                    <i class="far fa-comment"></i>
+                                    <span class="gp-cmts-{{ post.id }}">{{ post.comments_count or 0 }}</span>
                                 </button>
+                                {% if is_member %}
+                                {% endif %}
                             </div>
 
-                            <!-- Секция комментариев (скрыта по умолчанию) -->
-                            <div id="comments-section-{{ post.id }}" style="display:none;margin-top:12px;border-top:1px solid var(--border-light);padding-top:14px;">
-                                <div id="comments-list-{{ post.id }}" style="display:flex;flex-direction:column;gap:10px;margin-bottom:12px;"></div>
+                            <!-- Комментарии к посту группы -->
+                            <div id="gp-comments-{{ post.id }}" style="display:none;margin-top:10px;padding-top:10px;border-top:1px solid var(--border-light);">
+                                <div id="gp-comments-list-{{ post.id }}" style="margin-bottom:8px;"></div>
                                 {% if is_member %}
-                                <div style="display:flex;flex-direction:column;gap:8px;">
-                                    <textarea class="form-control" id="comment-text-{{ post.id }}"
-                                              placeholder="Напишите комментарий..." rows="2"
-                                              style="font-size:13px;"></textarea>
-                                    <div id="comment-photo-preview-{{ post.id }}" style="display:none;position:relative;width:fit-content;">
-                                        <img id="comment-photo-img-{{ post.id }}" src=""
-                                             style="max-height:100px;max-width:200px;border-radius:var(--radius-md);border:2px solid var(--amber-200);object-fit:cover;">
-                                        <button type="button" onclick="removeGroupCommentPhoto({{ post.id }})"
-                                                style="position:absolute;top:-8px;right:-8px;width:22px;height:22px;border-radius:50%;background:#dc2626;color:#fff;border:none;cursor:pointer;font-size:13px;line-height:1;display:flex;align-items:center;justify-content:center;">×</button>
-                                    </div>
-                                    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
-                                        <button type="button" class="btn btn-primary btn-sm" onclick="addGroupComment({{ post.id }})">
-                                            <i class="fas fa-paper-plane"></i> Отправить
-                                        </button>
-                                        <label for="comment-photo-input-{{ post.id }}" class="btn btn-secondary btn-sm" style="cursor:pointer;margin:0;">
-                                            <i class="fas fa-image"></i> Фото
-                                        </label>
-                                        <input type="file" id="comment-photo-input-{{ post.id }}" accept="image/*"
-                                               style="display:none;"
-                                               onchange="previewGroupCommentPhoto({{ post.id }}, this)">
-                                    </div>
+                                <div style="display:flex;gap:8px;align-items:flex-start;">
+                                    {% set av = current_user_avatar() %}
+                                    <img src="{{ url_for('static', filename='uploads/avatars/' + av) if av else '/static/defaults/for_users.png' }}"
+                                         style="width:32px;height:32px;border-radius:50%;object-fit:cover;flex-shrink:0;"
+                                         onerror="this.src='/static/defaults/for_users.png'">
+                                    <textarea id="gp-cmt-input-{{ post.id }}"
+                                              style="flex:1;padding:8px 12px;border:1px solid var(--border-light);border-radius:var(--radius-md);font-size:13px;font-family:inherit;resize:none;background:var(--bg-card);color:var(--text-primary);"
+                                              placeholder="Написать комментарий..." rows="1"
+                                              onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();submitGroupComment({{ post.id }});}"></textarea>
+                                    <button onclick="submitGroupComment({{ post.id }})"
+                                            style="background:var(--amber-500);color:#111;border:none;border-radius:var(--radius-md);padding:8px 14px;font-weight:700;font-size:13px;cursor:pointer;flex-shrink:0;">
+                                        <i class="fas fa-paper-plane"></i>
+                                    </button>
                                 </div>
                                 {% endif %}
                             </div>
@@ -493,6 +489,14 @@
     </div>
 
     <script>
+        function confirmLeaveGroup(form) {
+            const isCreator = form.dataset.isCreator === '1';
+            const name = form.dataset.groupName || '';
+            const msg = isCreator
+                ? `ВНИМАНИЕ! Вы создатель группы "${name}".\n\nГруппа будет УДАЛЕНА вместе со всеми данными!\n\nВы уверены?`
+                : `Покинуть группу "${name}"?`;
+            return confirm(msg);
+        }
         // Вкладки
         function toggleGroupMenu() {
             const dd = document.getElementById('groupMenuDropdown');
@@ -623,7 +627,7 @@
             const btn = document.getElementById('invSendBtn');
             btn.disabled = true;
             btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Отправка...';
-            fetch('/group/{{ group.id }}/invite', {
+            fetch('/group/{{ group.id }}/invite_message', {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify({user_ids: ids})
@@ -631,8 +635,7 @@
             .then(r => r.json())
             .then(data => {
                 if (data.success) {
-                    invShowToast(`✅ Приглашения отправлены: ${data.sent_count}`);
-                    if (data.sent_ids) invMemberIds = [...invMemberIds, ...data.sent_ids];
+                    invShowToast(`✅ ${data.message}`);
                     invRenderFriends();
                     closeGroupInviteModal();
                 } else {
@@ -677,19 +680,6 @@
             document.querySelectorAll('.tab-content').forEach(c => c.style.display = 'none');
             document.getElementById(`tab-${tabName}`).style.display = 'block';
         }
-
-        // Выход из группы
-        document.querySelectorAll('.leave-group-form').forEach(form => {
-            form.addEventListener('submit', function(e) {
-                e.stopPropagation();
-                const isCreator = this.dataset.isCreator === '1';
-                const name = this.dataset.groupName || '';
-                const msg = isCreator
-                    ? `ВНИМАНИЕ! Вы создатель группы "${name}".\n\nГруппа будет УДАЛЕНА вместе со всеми данными!\n\nВы уверены?`
-                    : `Покинуть группу "${name}"?`;
-                if (!confirm(msg)) e.preventDefault();
-            });
-        });
 
         // Накопительный выбор файлов
         let selectedFiles = [];
@@ -817,13 +807,111 @@
             document.getElementById(`post-content-${postId}`).style.display = 'block';
         }
 
-        // Лайк
+        // Лайк (с переключением иконки)
         function likeGroupPost(postId) {
             fetch(`/like_post/${postId}?type=group`, {method:'POST', headers:{'Content-Type':'application/json'}})
                 .then(r => r.json())
                 .then(d => {
-                    if (d.success) document.querySelectorAll(`button.like-post-btn[data-post-id="${postId}"]`)
-                        .forEach(b => b.innerHTML = `<i class="fas fa-thumbs-up"></i> ${d.likes_count}`);
+                    if (!d.success) return;
+                    document.querySelectorAll(`button.like-post-btn[data-post-id="${postId}"]`).forEach(b => {
+                        const icon = b.querySelector('i');
+                        const cnt  = b.querySelector(`.gp-likes-${postId}`);
+                        if (d.action === 'liked') {
+                            if (icon) { icon.className='fas fa-heart'; }
+                            b.classList.add('liked'); b.style.color='#e53935'; b.style.borderColor='#fca5a5';
+                        } else {
+                            if (icon) { icon.className='far fa-heart'; }
+                            b.classList.remove('liked'); b.style.color=''; b.style.borderColor='';
+                        }
+                        if (cnt) cnt.textContent = d.likes_count;
+                    });
+                });
+        }
+
+        // ── Комментарии к постам группы ────────────────────────────────────
+        const gpLoadedComments = new Set();
+
+        function toggleGroupComments(postId) {
+            const section = document.getElementById(`gp-comments-${postId}`);
+            const isOpen  = section.style.display === 'block';
+            if (isOpen) { section.style.display = 'none'; return; }
+            section.style.display = 'block';
+            if (!gpLoadedComments.has(postId)) {
+                gpLoadedComments.add(postId);
+                fetchGroupComments(postId);
+            }
+        }
+
+        function fetchGroupComments(postId) {
+            fetch(`/group_post/${postId}/comments`)
+                .then(r => r.json())
+                .then(d => {
+                    if (d.success) renderGroupComments(postId, d.comments);
+                    else renderGroupComments(postId, []);
+                }).catch(() => renderGroupComments(postId, []));
+        }
+
+        function renderGroupComments(postId, comments) {
+            const list = document.getElementById(`gp-comments-list-${postId}`);
+            list.innerHTML = '';
+            if (!comments || comments.length === 0) {
+                list.innerHTML = '<p style="font-size:13px;color:var(--text-muted);margin:0 0 8px;">Комментариев пока нет. Будьте первым!</p>';
+                return;
+            }
+            comments.forEach(c => list.insertAdjacentHTML('beforeend', buildGroupComment(postId, c)));
+        }
+
+        function buildGroupComment(postId, c) {
+            const avatarSrc = (c.avatar && c.avatar !== 'default_avatar.png')
+                ? `/static/uploads/avatars/${c.avatar}`
+                : '/static/defaults/for_users.png';
+            const name = c.full_name || c.username;
+            const time = (c.created_at||'').toString().slice(0,16);
+            const safeContent = c.content.replace(/</g,'&lt;').replace(/>/g,'&gt;');
+            return `<div style="display:flex;gap:10px;margin-bottom:10px;align-items:flex-start;" id="gpc-${c.id}">
+                <img src="${avatarSrc}" style="width:32px;height:32px;border-radius:50%;object-fit:cover;flex-shrink:0;" onerror="this.src='/static/defaults/for_users.png'">
+                <div style="background:var(--gray-50);border-radius:var(--radius-md);padding:8px 12px;flex:1;">
+                    <span style="font-size:13px;font-weight:700;color:var(--text-primary);">${name}</span>
+                    <span style="font-size:11px;color:var(--text-muted);margin-left:6px;">${time}</span>
+                    <div style="font-size:13px;color:var(--text-primary);margin-top:2px;line-height:1.5;word-break:break-word;">${safeContent}</div>
+                </div>
+                <button onclick="deleteGroupComment(${c.id},${postId})"
+                        style="background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:12px;padding:4px;flex-shrink:0;"
+                        title="Удалить"><i class="fas fa-times"></i></button>
+            </div>`;
+        }
+
+        function submitGroupComment(postId) {
+            const input   = document.getElementById(`gp-cmt-input-${postId}`);
+            const content = input.value.trim();
+            if (!content) return;
+            fetch(`/group_post/${postId}/add_comment`, {
+                method:'POST', headers:{'Content-Type':'application/json'},
+                body: JSON.stringify({content})
+            })
+            .then(r => r.json())
+            .then(d => {
+                if (!d.success) { alert('Ошибка: '+d.error); return; }
+                input.value = '';
+                const list = document.getElementById(`gp-comments-list-${postId}`);
+                if (list.querySelector('p')) list.innerHTML = '';
+                list.insertAdjacentHTML('beforeend', buildGroupComment(postId, d.comment));
+                const cnt = document.querySelector(`.gp-cmts-${postId}`);
+                if (cnt) cnt.textContent = d.comments_count;
+            });
+        }
+
+        function deleteGroupComment(commentId, postId) {
+            if (!confirm('Удалить комментарий?')) return;
+            fetch(`/group_post_comment/${commentId}/delete`, {method:'POST'})
+                .then(r => r.json())
+                .then(d => {
+                    if (d.success) {
+                        const el = document.getElementById(`gpc-${commentId}`);
+                        if (el) el.remove();
+                        const cnt = document.querySelector(`.gp-cmts-${postId}`);
+                        if (cnt) cnt.textContent = d.comments_count;
+                    }
                 });
         }
 
@@ -962,11 +1050,15 @@
             openMediaViewerFromPost(items, index);
         }
 
-        function openDocViewer(mediaId, ext, filename) {
+        function openDocViewer(mediaId, ext, originalName, serverFilename) {
+            // Архивы — скачать через маршрут download_file
             if (['zip','rar','7z'].includes(ext)) {
                 const a = document.createElement('a');
-                a.href = '/view_document/' + mediaId; a.download = filename;
-                document.body.appendChild(a); a.click(); document.body.removeChild(a);
+                a.href = '/download_file/' + mediaId;
+                a.download = originalName;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
                 return;
             }
 
@@ -986,17 +1078,15 @@
             fileIcon.style.cssText = 'font-size:20px;flex-shrink:0;';
 
             const fileLabel = document.createElement('span');
-            fileLabel.textContent = filename;
+            fileLabel.textContent = originalName;
             fileLabel.style.cssText = 'font-size:15px;font-weight:600;color:var(--text-primary,#111);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;';
 
             // Кнопка скачать
             const dlBtn = document.createElement('a');
-            dlBtn.href = '/static/uploads/posts/' + mediaId;
-            dlBtn.setAttribute('download', filename);
-            // правильный href получим из src iframe
+            dlBtn.href = '/download_file/' + mediaId;
+            dlBtn.setAttribute('download', originalName);
             dlBtn.style.cssText = 'display:flex;align-items:center;gap:6px;padding:7px 16px;background:var(--amber-500,#f59e0b);color:#111;border-radius:var(--radius-md,8px);font-size:13px;font-weight:600;text-decoration:none;flex-shrink:0;';
             dlBtn.innerHTML = '<i class="fas fa-download"></i> Скачать';
-            dlBtn.onclick = () => { dlBtn.href = '/view_document/' + mediaId; dlBtn.download = filename; };
 
             toolbar.appendChild(fileIcon);
             toolbar.appendChild(fileLabel);
@@ -1014,7 +1104,12 @@
             iframeWrap.style.cssText = 'flex:1;display:flex;align-items:center;justify-content:center;padding:20px;overflow:hidden;';
 
             const iframe = document.createElement('iframe');
-            iframe.src = '/view_document/' + mediaId;
+            // PDF отдаём напрямую через serve_post_file, остальные через view_document
+            if (ext === 'pdf') {
+                iframe.src = '/post_file/' + serverFilename;
+            } else {
+                iframe.src = '/view_document/' + mediaId;
+            }
             iframe.style.cssText = 'width:100%;height:100%;border:none;border-radius:var(--radius-lg,12px);background:#fff;';
 
             iframeWrap.appendChild(iframe);
@@ -1031,132 +1126,39 @@
 
         // Заявки
         function approveRequest(requestId, username) {
-            if (!confirm(`Принять ${username} в группу?`)) return;
-            fetch(`/group_request/${requestId}/approve`, {method:'POST', headers:{'Content-Type':'application/json'}})
-                .then(r => r.json())
-                .then(d => { if (d.success) location.reload(); else alert('Ошибка: ' + d.error); });
+    if (!confirm(`Принять ${username} в группу?`)) return;
+    fetch(`/group_request/${requestId}/approve`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'}
+    })
+    .then(r => r.json())
+    .then(d => {
+        if (d.success) {
+            location.reload();
+        } else {
+            alert('Ошибка: ' + d.error);
         }
+    })
+    .catch(err => alert('Ошибка: ' + err));
+}
 
-        function rejectRequest(requestId, username) {
-            if (!confirm(`Отклонить заявку от ${username}?`)) return;
-            fetch(`/group_request/${requestId}/reject`, {method:'POST', headers:{'Content-Type':'application/json'}})
-                .then(r => r.json())
-                .then(d => { if (d.success) location.reload(); else alert('Ошибка: ' + d.error); });
+function rejectRequest(requestId, username) {
+    if (!confirm(`Отклонить заявку от ${username}?`)) return;
+    fetch(`/group_request/${requestId}/reject`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'}
+    })
+    .then(r => r.json())
+    .then(d => {
+        if (d.success) {
+            location.reload();
+        } else {
+            alert('Ошибка: ' + d.error);
         }
+    })
+    .catch(err => alert('Ошибка: ' + err));
+}
 
-        // ===== КОММЕНТАРИИ =====
-        const loadedComments = {}; // постID -> уже загружены?
-
-        function toggleComments(postId) {
-            const section = document.getElementById(`comments-section-${postId}`);
-            const isHidden = section.style.display === 'none';
-            section.style.display = isHidden ? 'block' : 'none';
-            if (isHidden && !loadedComments[postId]) {
-                loadGroupComments(postId);
-            }
-        }
-
-        function loadGroupComments(postId) {
-            fetch(`/group_post/${postId}/comments`)
-                .then(r => r.json())
-                .then(data => {
-                    if (!data.success) return;
-                    loadedComments[postId] = true;
-                    const list = document.getElementById(`comments-list-${postId}`);
-                    list.innerHTML = '';
-                    if (!data.comments.length) {
-                        list.innerHTML = '<div style="color:var(--text-muted);font-size:13px;text-align:center;padding:8px 0;">Комментариев пока нет</div>';
-                        return;
-                    }
-                    data.comments.forEach(c => {
-                        list.appendChild(buildCommentEl(postId, c, {{ session_user_id }}));
-                    });
-                });
-        }
-
-        function buildCommentEl(postId, c, currentUserId) {
-            const div = document.createElement('div');
-            div.id = `gcomment-${c.id}`;
-            div.style.cssText = 'background:var(--gray-50);border-radius:var(--radius-md);padding:10px 12px;border:1px solid var(--border-light);';
-            const avatarUrl = c.avatar ? `/static/uploads/avatars/${c.avatar}` : '/static/defaults/for_users.png';
-            const photoHtml = c.photo
-                ? `<div style="margin-top:6px;"><img src="/static/uploads/posts/${c.photo}" style="max-height:180px;max-width:100%;border-radius:var(--radius-md);border:1px solid var(--border-light);cursor:pointer;" onclick="this.style.maxHeight=this.style.maxHeight==='none'?'180px':'none'"></div>`
-                : '';
-            const canDelete = c.user_id === currentUserId;
-            const deleteBtn = canDelete
-                ? `<button onclick="deleteGroupComment(${c.id}, ${postId})" style="margin-left:auto;background:none;border:none;cursor:pointer;color:var(--text-muted);font-size:12px;padding:2px 4px;" title="Удалить"><i class="fas fa-trash"></i></button>`
-                : '';
-            div.innerHTML = `
-                <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
-                    <img src="${avatarUrl}" onerror="this.src='/static/defaults/for_users.png'"
-                         style="width:28px;height:28px;border-radius:50%;object-fit:cover;border:1px solid var(--amber-200);flex-shrink:0;">
-                    <span style="font-weight:700;font-size:13px;">${c.full_name || c.username}</span>
-                    <span style="font-size:11px;color:var(--text-muted);">${c.created_at ? c.created_at.substring(0,16) : 'только что'}</span>
-                    ${deleteBtn}
-                </div>
-                <div style="font-size:13px;line-height:1.5;word-break:break-word;">${c.content}</div>
-                ${photoHtml}`;
-            return div;
-        }
-
-        function previewGroupCommentPhoto(postId, input) {
-            if (input.files && input.files[0]) {
-                const reader = new FileReader();
-                reader.onload = e => {
-                    document.getElementById(`comment-photo-img-${postId}`).src = e.target.result;
-                    document.getElementById(`comment-photo-preview-${postId}`).style.display = 'block';
-                };
-                reader.readAsDataURL(input.files[0]);
-            }
-        }
-
-        function removeGroupCommentPhoto(postId) {
-            document.getElementById(`comment-photo-input-${postId}`).value = '';
-            document.getElementById(`comment-photo-preview-${postId}`).style.display = 'none';
-            document.getElementById(`comment-photo-img-${postId}`).src = '';
-        }
-
-        function addGroupComment(postId) {
-            const textarea = document.getElementById(`comment-text-${postId}`);
-            const content = textarea.value.trim();
-            const photoInput = document.getElementById(`comment-photo-input-${postId}`);
-            const hasPhoto = photoInput.files && photoInput.files[0];
-            if (!content && !hasPhoto) { alert('Введите текст или прикрепите фото'); return; }
-
-            const formData = new FormData();
-            formData.append('content', content);
-            if (hasPhoto) formData.append('photo', photoInput.files[0]);
-
-            fetch(`/group_post/${postId}/add_comment`, { method: 'POST', body: formData })
-                .then(r => r.json())
-                .then(data => {
-                    if (!data.success) { alert('Ошибка: ' + data.error); return; }
-                    textarea.value = '';
-                    removeGroupCommentPhoto(postId);
-                    loadedComments[postId] = true;
-                    const list = document.getElementById(`comments-list-${postId}`);
-                    const noMsg = list.querySelector('div[style*="color:var(--text-muted)"]');
-                    if (noMsg) noMsg.remove();
-                    list.appendChild(buildCommentEl(postId, data.comment, {{ session_user_id }}));
-                    document.getElementById(`comments-count-${postId}`).textContent = data.comments_count;
-                })
-                .catch(() => alert('Ошибка сервера'));
-        }
-
-        function deleteGroupComment(commentId, postId) {
-            if (!confirm('Удалить комментарий?')) return;
-            fetch(`/group_post_comment/${commentId}/delete`, { method: 'POST' })
-                .then(r => r.json())
-                .then(data => {
-                    if (!data.success) { alert('Ошибка: ' + data.error); return; }
-                    document.getElementById(`gcomment-${commentId}`)?.remove();
-                    document.getElementById(`comments-count-${postId}`).textContent = data.comments_count;
-                    const list = document.getElementById(`comments-list-${postId}`);
-                    if (list && !list.children.length) {
-                        list.innerHTML = '<div style="color:var(--text-muted);font-size:13px;text-align:center;padding:8px 0;">Комментариев пока нет</div>';
-                    }
-                });
-        }
     </script>
 
 
@@ -1219,8 +1221,6 @@
         font-size:13px;
         color:var(--text-muted);">
         <div style="max-width:1200px; margin:0 auto; display:flex; align-items:center; justify-content:center; gap:20px; flex-wrap:wrap;">
-            <span style="font-family:var(--font-display);font-size:13px;background:var(--accent-gradient);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;">LinkA</span>
-            <span style="color:var(--border-medium);">·</span>
             <a href="/faq" style="color:var(--text-muted);font-weight:600;transition:color 0.2s;" onmouseover="this.style.color='var(--amber-600)'" onmouseout="this.style.color='var(--text-muted)'">
                 <i class="fas fa-question-circle"></i> FAQ
             </a>
@@ -1229,7 +1229,7 @@
                 <i class="fas fa-file-alt"></i> Соглашение
             </a>
             <span style="color:var(--border-medium);">·</span>
-            <span>© 2025 LinkA</span>
+            <span>© 2026 LinkA</span>
         </div>
     </footer>
 </body>
@@ -1248,15 +1248,37 @@
         });
 
         function toggleUserMenu() {
-            document.getElementById('userDropdown').classList.toggle('open');
+            const dd = document.getElementById('userDropdown');
+            const wrap = document.querySelector('.user-menu-wrap');
+            dd.classList.toggle('open');
+            wrap.classList.toggle('open');
         }
         document.addEventListener('click', function(e) {
             const wrap = document.querySelector('.user-menu-wrap');
             if (wrap && !wrap.contains(e.target)) {
                 const dd = document.getElementById('userDropdown');
                 if (dd) dd.classList.remove('open');
+                wrap.classList.remove('open');
             }
         });
+
+        function repostToFeed(groupId, postId) {
+            if (!confirm('Поделиться этим постом в вашу главную ленту?')) return;
+            fetch(`/group/${groupId}/repost/${postId}`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'}
+            })
+            .then(r => r.json())
+            .then(d => {
+                const div = document.createElement('div');
+                div.style.cssText = `position:fixed;top:20px;right:20px;background:${d.success ? 'var(--accent-gradient)' : '#dc2626'};color:${d.success ? '#111' : '#fff'};padding:14px 22px;border-radius:var(--radius-lg);box-shadow:var(--shadow-md);z-index:9999;font-weight:700;font-size:14px;`;
+                div.textContent = d.success ? ('✅ ' + d.message) : ('❌ ' + (d.error || 'Ошибка'));
+                document.body.appendChild(div);
+                setTimeout(() => div.remove(), 3000);
+            })
+            .catch(() => alert('Ошибка сети'));
+        }
     </script>
+    <script src="{{ url_for('static', filename='defaults/notifications.js') }}"></script>
 </body>
 </html>

@@ -288,213 +288,39 @@
             border-bottom: 1px solid var(--border-light);
         }
         .site-news-item:last-child { border-bottom: none; }
-
-        /* Блок новостей платформы */
-        .platform-news-block {
-            background: var(--bg-card, #fff);
-            border: 1px solid var(--border-light, #e5e7eb);
-            border-radius: var(--radius-lg, 12px);
-            padding: 18px 20px;
-            margin-bottom: 18px;
-            box-shadow: var(--shadow-sm, 0 1px 4px rgba(0,0,0,0.06));
-        }
-        .platform-news-header {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            margin-bottom: 14px;
-        }
-        .platform-news-title {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            font-size: 15px;
-            font-weight: 700;
-            color: var(--text-primary, #111);
-        }
-        .platform-news-title i {
-            color: var(--amber-500, #f59e0b);
-            font-size: 16px;
-        }
-        .news-add-btn {
-            display: inline-flex;
-            align-items: center;
-            gap: 6px;
-            background: var(--amber-500, #f59e0b);
-            color: #fff;
-            border: none;
-            padding: 6px 14px;
-            border-radius: var(--radius-md, 8px);
-            font-size: 12px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: background 0.2s;
-        }
-        .news-add-btn:hover { background: var(--amber-600, #d97706); }
-        .news-add-form {
-            display: none;
-            background: var(--gray-50, #f9fafb);
-            border: 1px solid var(--border-light, #e5e7eb);
-            border-radius: var(--radius-md, 8px);
-            padding: 14px;
-            margin-bottom: 14px;
-        }
-        .news-add-form input,
-        .news-add-form textarea {
-            width: 100%;
-            box-sizing: border-box;
-            border: 1px solid var(--border-light, #e5e7eb);
-            border-radius: var(--radius-md, 8px);
-            padding: 8px 12px;
-            font-family: inherit;
-            font-size: 13px;
-            margin-bottom: 8px;
-            background: #fff;
-            color: var(--text-primary, #111);
-        }
-        .news-add-form textarea { height: 80px; resize: vertical; }
-        .news-form-actions { display: flex; gap: 8px; justify-content: flex-end; }
-        .news-submit-btn {
-            background: var(--amber-500, #f59e0b);
-            color: #fff;
-            border: none;
-            padding: 7px 18px;
-            border-radius: var(--radius-md, 8px);
-            font-size: 13px;
-            font-weight: 600;
-            cursor: pointer;
-        }
-        .news-cancel-btn {
-            background: var(--gray-200, #e5e7eb);
-            color: var(--text-primary, #111);
-            border: none;
-            padding: 7px 14px;
-            border-radius: var(--radius-md, 8px);
-            font-size: 13px;
-            cursor: pointer;
-        }
-        .news-entry {
-            padding: 10px 0;
-            border-bottom: 1px solid var(--border-light, #f3f4f6);
-        }
-        .news-entry:last-child { border-bottom: none; }
-        .news-entry-title {
-            font-weight: 700;
-            font-size: 13px;
-            color: var(--text-primary, #111);
-            margin-bottom: 3px;
-        }
-        .news-entry-body {
-            font-size: 13px;
-            color: var(--text-secondary, #555);
-            line-height: 1.5;
-        }
-        .news-entry-meta {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            margin-top: 5px;
-        }
-        .news-entry-date {
-            font-size: 11px;
-            color: var(--text-muted, #9ca3af);
-        }
-        .news-delete-btn {
-            background: none;
-            border: none;
-            color: #dc2626;
-            cursor: pointer;
-            font-size: 12px;
-            padding: 2px 6px;
-            border-radius: 4px;
-            opacity: 0.7;
-            transition: opacity 0.2s;
-        }
-        .news-delete-btn:hover { opacity: 1; background: #fee2e2; }
-        .news-empty {
-            text-align: center;
-            padding: 18px 0 4px;
-            color: var(--text-muted, #9ca3af);
-            font-size: 13px;
-        }
-
-        /* Закреплённый пост */
-        .pinned-post {
-            background: linear-gradient(135deg, #fff8e1 0%, #fffde7 100%);
-            border: 2px solid var(--amber-300, #fcd34d);
-            border-radius: var(--radius-lg, 12px);
-            padding: 18px 20px;
-            margin-bottom: 18px;
-            box-shadow: 0 4px 18px rgba(251,191,36,0.15);
-            position: relative;
-        }
-        .pinned-badge {
-            display: inline-flex;
-            align-items: center;
-            gap: 5px;
-            background: var(--amber-500, #f59e0b);
-            color: #fff;
-            font-size: 11px;
-            font-weight: 700;
-            padding: 3px 10px;
-            border-radius: 20px;
-            margin-bottom: 12px;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-        }
-        .pinned-post .post-author-name {
-            font-weight: 700;
-            font-size: 15px;
-            color: var(--text-primary, #111);
-        }
-        .pinned-post .pinned-avatar {
-            width: 42px;
-            height: 42px;
-            border-radius: 50%;
-            background: linear-gradient(135deg, #667eea, #764ba2);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 20px;
-            flex-shrink: 0;
-        }
-        .pinned-post .post-content-text {
-            font-size: 14px;
-            line-height: 1.65;
-            color: var(--text-primary, #222);
-            white-space: pre-line;
-        }
-        .pinned-post .post-content-text .emoji-line {
-            display: block;
-        }
     </style>
+
+        <style>
+        .sidebar-left > h3 { display: none; }
+        .sidebar-left::before { display: none !important; }
+        .sidebar-left { border-top: none !important; }
+        </style>
 </head>
 <body>
     <header>
         <div class="container">
             <div class="header-content">
-                <div class="logo">LinkA</div>
+                <a href="/home" class="logo" style="text-decoration:none;">LinkA</a>
                 <div class="user-menu-wrap">
-                    <button class="user-menu-btn" onclick="toggleUserMenu()" aria-label="Меню пользователя">
+                    <button class="user-menu-trigger" onclick="toggleUserMenu()" aria-label="Меню пользователя">
+                        <span class="user-menu-btn">
                         {% set _avatar = current_user_avatar() %}
                         {% if _avatar %}
                             <img src="{{ url_for('static', filename='uploads/avatars/' + _avatar) }}"
-                                 onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';"
+                                 onerror="this.src='/static/defaults/for_users.png';"
                                  alt="Аватар">
-                            <i class="fas fa-user" style="display:none;"></i>
                         {% else %}
-                            <i class="fas fa-user"></i>
+                            <img src="/static/defaults/for_users.png" alt="Аватар">
                         {% endif %}
+                        </span>
+                        <span class="user-menu-arrow"><i class="fas fa-chevron-up"></i></span>
                     </button>
                     <div class="user-dropdown" id="userDropdown">
                         {% set _uinfo = current_user_info() %}
                         {% if _uinfo %}
-                        <a href="/profile" style="text-decoration:none;color:inherit;display:block;padding:0;">
-                            <div class="user-dropdown-header">
-                                <div class="uname">{{ _uinfo.full_name }}</div>
-                                <div class="ulogin">@{{ _uinfo.username }}</div>
-                            </div>
-                        </a>
+                        <div class="user-dropdown-header">
+                            <div class="uname">{{ _uinfo.full_name }}</div>
+                        </div>
                         {% endif %}
                         <a href="/settings">
                             <i class="fas fa-cog"></i> Настройки
@@ -513,12 +339,14 @@
         <div class="main-content">
             <!-- Левая панель - только меню -->
             <div class="sidebar-left">
-                <h3>Меню</h3>
                 <ul>
                     <li><a href="/profile"><i class="fas fa-user-circle"></i> Мой профиль</a></li>
-                    <li><a href="/friends"><i class="fas fa-users"></i> Друзья</a></li>
-                    <li><a href="/find_friends"><i class="fas fa-search"></i> Найти друзей</a></li>
-                    <li><a href="/my_posts"><i class="fas fa-newspaper"></i> Мои посты</a></li>
+                    <li>
+                        <a href="/friends">
+                            <i class="fas fa-users"></i> Друзья
+                            <span id="friendsBadge" style="display:none; background:#e53935; color:white; border-radius:10px; padding:1px 7px; font-size:11px; font-weight:700; margin-left:6px;"></span>
+                        </a>
+                    </li>
                     <li><a href="/groups"><i class="fas fa-layer-group"></i> Группы</a></li>
                     <li>
                         <a href="/messenger">
@@ -529,7 +357,6 @@
                     
                 </ul>
             
-                <!-- Блок новостей в левой панели -->
                 
             </div>
 
@@ -609,71 +436,47 @@
 
                 <!-- ЛЕНТА ПОСТОВ (ТОЛЬКО ПОСТЫ ПОЛЬЗОВАТЕЛЕЙ, БЕЗ НОВОСТЕЙ) -->
                 <div id="posts-feed">
-
-                    <!-- ═══════════════ ЗАКРЕПЛЁННЫЙ ПОСТ ═══════════════ -->
-                    <div class="pinned-post">
-                        <div class="pinned-badge">
-                            <i class="fas fa-thumbtack"></i> Закреплено
-                        </div>
-                        <div class="post-header">
-                            <div class="pinned-avatar">🔗</div>
-                            <div class="post-info" style="margin-left:12px;">
-                                <span class="post-author-name">Команда LinkA</span><br>
-                                <small class="post-time">Официальное объявление</small>
-                            </div>
-                        </div>
-                        <div class="post-content-text" style="margin-top:12px;">
-<strong>🔗 LinkA — социальная сеть, которую ты ждал</strong>
-
-Устал от перегруженных платформ? Мы создали <strong>LinkA</strong> — простую, быструю и живую соцсеть, где главное — это люди и связи между ними.
-
-<strong>Что внутри:</strong>
-📰 Лента постов с фото, видео и документами
-💬 Встроенный мессенджер
-👥 Группы и сообщества по интересам
-🔍 Поиск и добавление друзей
-🛡️ Двухфакторная защита аккаунта
-📌 Новости платформы прямо в ленте
-
-<strong>Почему LinkA?</strong>
-Никакой лишней рекламы. Никакого шума. Только ты и твои связи.
-
-<em>«Создаём связи, а не просто аккаунты»</em>
-
-🚀 Проект активно развивается — самое время стать частью сообщества с самого начала!
-                        </div>
-                    </div>
-                    <!-- ══════════════════════════════════════════════════ -->
-
-                    
-                    
-
                     {% if feed_items and feed_items|length > 0 %}
                         {% for item in feed_items %}
                             {% if item.type == 'post' %}
                                 <!-- Пост пользователя -->
                                 <div id="post-{{ item.id }}" class="post">
                                     <div class="post-header">
-                                        <img src="{{ url_for('static', filename='uploads/avatars/' + item.author_avatar) if item.author_avatar else '/static/defaults/for_users.png' }}"
-                                             class="author-avatar"
-                                             onerror="this.src='/static/defaults/for_users.png'">
+                                        <a href="/profile/{{ item.user_id }}" style="display:inline-block;flex-shrink:0;">
+                                            <img src="{{ url_for('static', filename='uploads/avatars/' + item.author_avatar) if item.author_avatar else '/static/defaults/for_users.png' }}"
+                                                 class="author-avatar"
+                                                 onerror="this.src='/static/defaults/for_users.png'"
+                                                 style="cursor:pointer;">
+                                        </a>
                                         <div class="post-info">
                                             <strong class="post-author">
                                                 <a href="/profile/{{ item.user_id }}" style="text-decoration:none;color:var(--text-primary);">
                                                     {{ item.author_name or item.username }}
                                                 </a>
                                             </strong>
+                                            {% if item.post_kind == 'group_post' and item.group_name %}
+                                            <span style="font-size:12px;color:var(--text-muted);display:flex;align-items:center;gap:4px;margin-top:2px;">
+                                                <i class="fas fa-layer-group" style="color:var(--amber-500);font-size:11px;"></i>
+                                                в группе <a href="/group/{{ item.group_id }}" style="color:var(--amber-600);font-weight:600;">{{ item.group_name }}</a>
+                                            </span>
+                                            {% elif item.source_group_name %}
+                                            <span style="font-size:12px;color:var(--text-muted);display:flex;align-items:center;gap:4px;margin-top:2px;">
+                                                <i class="fas fa-share" style="color:var(--amber-500);font-size:11px;"></i>
+                                                поделился из <a href="/group/{{ item.source_group_id }}" style="color:var(--amber-600);font-weight:600;">{{ item.source_group_name }}</a>
+                                            </span>
+                                            {% endif %}
                                             <small class="post-time">{{ datetime_format(item.created_at) }}</small>
                                         </div>
 
-                                        <!-- Кнопки редактирования/удаления для своих постов -->
                                         {% if item.user_id == session.user_id %}
                                         <div class="post-actions" style="margin-left:auto;padding:0;border:none;">
+                                            {% if item.post_kind != 'group_post' %}
                                             <button onclick="editPost({{ item.id }})"
                                                     class="action-btn" style="padding:4px 10px;">
                                                 <i class="fas fa-edit"></i>
                                             </button>
-                                            <button onclick="deletePost({{ item.id }})"
+                                            {% endif %}
+                                            <button onclick="{% if item.post_kind == 'group_post' %}deleteGroupPostFromFeed({{ item.id }}){% else %}deletePost({{ item.id }}){% endif %}"
                                                     class="action-btn" style="padding:4px 10px;color:#dc2626;border-color:#fca5a5;">
                                                 <i class="fas fa-trash"></i>
                                             </button>
@@ -683,38 +486,36 @@
 
                                     <p id="post-content-{{ item.id }}" class="post-content">{{ item.content }}</p>
 
-                                    <!-- Медиафайлы поста -->
                                     {% if item.media_files and item.media_files|length > 0 %}
-                                    <div class="post-media-grid">
+                                    <div class="post-media-grid"
+                                         data-post-media="{{ item.media_files | selectattr('file_type', 'ne', 'document') | map(attribute='filename') | list | tojson | replace('"', '&quot;') }}"
+                                         data-post-types="{{ item.media_files | selectattr('file_type', 'ne', 'document') | map(attribute='file_type') | list | tojson | replace('"', '&quot;') }}">
                                         {% for media in item.media_files %}
                                             {% if media.file_type == 'document' or media.filename.split('.')[-1].lower() in ['pdf','doc','docx','xls','xlsx','ppt','pptx','txt','zip','rar','7z'] %}
                                                 {% set doc_ext = media.filename.rsplit('.', 1)[-1].lower() %}
                                                 {% set doc_name = media.original_filename if media.original_filename else media.filename %}
                                                 <div class="document-preview"
-                                                     onclick="openDocViewer('{{ media.id }}', '{{ doc_ext }}', '{{ doc_name }}')">
+                                                     onclick="openDocViewer('{{ media.id }}', '{{ doc_ext }}', '{{ doc_name }}', '{{ media.filename }}')">
                                                     <span class="document-icon">
-                                                        {% if doc_ext == 'pdf' %}📄
-                                                        {% elif doc_ext in ['doc','docx'] %}📝
-                                                        {% elif doc_ext in ['xls','xlsx'] %}📊
-                                                        {% elif doc_ext in ['ppt','pptx'] %}📑
-                                                        {% elif doc_ext == 'txt' %}📃
-                                                        {% elif doc_ext in ['zip','rar','7z'] %}🗜️
-                                                        {% else %}📎
-                                                        {% endif %}
+                                                        {% if doc_ext == 'pdf' %}📄{% elif doc_ext in ['doc','docx'] %}📝{% elif doc_ext in ['xls','xlsx'] %}📊{% elif doc_ext in ['ppt','pptx'] %}📑{% elif doc_ext == 'txt' %}📃{% elif doc_ext in ['zip','rar','7z'] %}🗜️{% else %}📎{% endif %}
                                                     </span>
                                                     <span class="document-name">{{ doc_name|truncate(20) }}</span>
                                                     <span class="document-action">{% if doc_ext in ['zip','rar','7z'] %}Скачать{% else %}Открыть{% endif %}</span>
                                                 </div>
                                             {% elif media.file_type == 'image' or media.filename.split('.')[-1].lower() in ['jpg','jpeg','png','gif','webp'] %}
                                                 <div style="border-radius:var(--radius-md);overflow:hidden;cursor:pointer;"
-                                                     onclick="openMediaViewer('{{ url_for('static', filename='uploads/posts/' + media.filename) }}', 'image')">
+                                                     data-media-src="{{ url_for('static', filename='uploads/posts/' + media.filename) }}"
+                                                     data-media-type="image"
+                                                     onclick="openMediaFromPost(this)">
                                                     <img src="{{ url_for('static', filename='uploads/posts/' + media.filename) }}"
                                                          style="width:100%;height:200px;object-fit:cover;"
                                                          onerror="this.src='/static/defaults/for_groups.png'">
                                                 </div>
                                             {% elif media.file_type == 'video' or media.filename.split('.')[-1].lower() in ['mp4','avi','mov','wmv','webm'] %}
                                                 <div class="video-container"
-                                                     onclick="openMediaViewer('{{ url_for('static', filename='uploads/posts/' + media.filename) }}', 'video')">
+                                                     data-media-src="{{ url_for('static', filename='uploads/posts/' + media.filename) }}"
+                                                     data-media-type="video"
+                                                     onclick="openMediaFromPost(this)">
                                                     <video style="width:100%;height:200px;object-fit:cover;">
                                                         <source src="{{ url_for('static', filename='uploads/posts/' + media.filename) }}">
                                                     </video>
@@ -726,16 +527,41 @@
                                     {% endif %}
 
                                     <div class="post-actions">
-                                        <button class="action-btn like-post-btn"
-                                                onclick="likePost({{ item.id }}, this)"
-                                                data-post-id="{{ item.id }}">
-                                            <i class="{% if item.liked %}fas{% else %}far{% endif %} fa-thumbs-up"></i> 
+                                        <button class="action-btn like-post-btn {% if item.is_liked %}liked{% endif %}"
+                                                onclick="{% if item.post_kind == 'group_post' %}likeGroupPostInFeed({{ item.id }}, this){% else %}likePost({{ item.id }}, this){% endif %}"
+                                                data-post-id="{{ item.id }}"
+                                                style="{% if item.is_liked %}color:#e53935;border-color:#fca5a5;{% endif %}">
+                                            <i class="{% if item.is_liked %}fas{% else %}far{% endif %} fa-heart"></i>
                                             <span class="likes-count">{{ item.likes_count or 0 }}</span>
                                         </button>
-                                        <a href="/post/{{ item.id }}#comments" class="action-btn" style="text-decoration: none; color: inherit;">
-                                            <i class="far fa-comment"></i> Комментировать
-                                            <span class="comments-count">({{ item.comments_count or 0 }})</span>
+                                        <button class="action-btn" onclick="{% if item.post_kind == 'group_post' %}toggleGroupCommentsInFeed({{ item.id }}, this){% else %}toggleHomeComments({{ item.id }}, this){% endif %}">
+                                            <i class="far fa-comment"></i>
+                                            <span class="cmt-count-{{ item.id }}">{{ item.comments_count or 0 }}</span>
+                                        </button>
+                                        {% if item.post_kind == 'group_post' %}
+                                        <a href="/group/{{ item.group_id }}" class="action-btn" style="text-decoration:none;margin-left:auto;" title="Открыть группу">
+                                            <i class="fas fa-external-link-alt"></i>
                                         </a>
+                                        {% endif %}
+                                    </div>
+
+                                    <!-- Секция комментариев -->
+                                    <div id="home-comments-{{ item.id }}" style="display:none;margin-top:10px;padding-top:10px;border-top:1px solid var(--border-light);">
+                                        <div id="home-comments-list-{{ item.id }}" style="margin-bottom:8px;"></div>
+                                        <div style="display:flex;gap:8px;align-items:flex-start;">
+                                            {% set av = current_user_avatar() %}
+                                            <img src="{{ url_for('static', filename='uploads/avatars/' + av) if av else '/static/defaults/for_users.png' }}"
+                                                 style="width:32px;height:32px;border-radius:50%;object-fit:cover;flex-shrink:0;"
+                                                 onerror="this.src='/static/defaults/for_users.png'">
+                                            <textarea id="home-cmt-input-{{ item.id }}"
+                                                      style="flex:1;padding:8px 12px;border:1px solid var(--border-light);border-radius:var(--radius-md);font-size:13px;font-family:inherit;resize:none;background:var(--bg-card);color:var(--text-primary);"
+                                                      placeholder="Написать комментарий..." rows="1"
+                                                      onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();{% if item.post_kind == 'group_post' %}submitGroupCommentFromFeed({{ item.id }}){% else %}submitHomeComment({{ item.id }}){% endif %};}"></textarea>
+                                            <button onclick="{% if item.post_kind == 'group_post' %}submitGroupCommentFromFeed({{ item.id }}){% else %}submitHomeComment({{ item.id }}){% endif %}"
+                                                    style="background:var(--amber-500);color:#111;border:none;border-radius:var(--radius-md);padding:8px 14px;font-weight:700;font-size:13px;cursor:pointer;flex-shrink:0;">
+                                                <i class="fas fa-paper-plane"></i>
+                                            </button>
+                                        </div>
                                     </div>
                                 </div>
                             {% endif %}
@@ -761,92 +587,7 @@
 
             <!-- Правая панель - только статистика -->
             <div class="sidebar-right">
-                <!-- ══════════ НОВОСТИ ПЛАТФОРМЫ ══════════ -->
-                <div class="card" style="padding:18px 20px;">
-                    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
-                        <h3 style="margin:0;font-size:15px;font-weight:700;display:flex;align-items:center;gap:8px;">
-                            <span style="background:linear-gradient(135deg,#667eea,#764ba2);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;">
-                                📣 Новости платформы
-                            </span>
-                        </h3>
-                        {% if is_admin %}
-                        <button onclick="toggleAddNews()"
-                                title="Добавить новость"
-                                style="background:var(--amber-500);color:#fff;border:none;border-radius:50%;width:28px;height:28px;cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
-                            <i class="fas fa-plus"></i>
-                        </button>
-                        {% endif %}
-                    </div>
-
-                    {% if is_admin %}
-                    <!-- Форма добавления/редактирования новости (только для админа) -->
-                    <div id="addNewsForm" style="display:none;margin-bottom:16px;background:var(--gray-50,#f9fafb);border:1px solid var(--border-light);border-radius:var(--radius-md);padding:14px;">
-                        <input type="hidden" id="editNewsId" value="">
-                        <div style="margin-bottom:8px;">
-                            <input id="newsTitleInput" type="text" placeholder="Заголовок новости…"
-                                   style="width:100%;padding:8px 10px;border:1px solid var(--border-light);border-radius:var(--radius-md);font-size:13px;font-family:inherit;box-sizing:border-box;">
-                        </div>
-                        <div style="margin-bottom:10px;">
-                            <textarea id="newsBodyInput" placeholder="Текст новости…" rows="4"
-                                      style="width:100%;padding:8px 10px;border:1px solid var(--border-light);border-radius:var(--radius-md);font-size:13px;font-family:inherit;resize:vertical;box-sizing:border-box;"></textarea>
-                        </div>
-                        <div style="display:flex;gap:8px;">
-                            <button onclick="submitNews()"
-                                    style="flex:1;background:var(--amber-500);color:#fff;border:none;padding:8px;border-radius:var(--radius-md);font-size:13px;font-weight:600;cursor:pointer;">
-                                <i class="fas fa-paper-plane"></i> <span id="newsSubmitLabel">Опубликовать</span>
-                            </button>
-                            <button onclick="cancelEditNews()"
-                                    style="background:var(--gray-200,#e5e7eb);color:var(--text-primary);border:none;padding:8px 12px;border-radius:var(--radius-md);font-size:13px;cursor:pointer;">
-                                Отмена
-                            </button>
-                        </div>
-                    </div>
-                    {% endif %}
-
-                    <!-- Список новостей -->
-                    <div id="siteNewsList">
-                        {% if site_news %}
-                            {% for news in site_news %}
-                            <div class="site-news-item" id="news-item-{{ news.id }}">
-                                <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:6px;">
-                                    <div style="flex:1;min-width:0;">
-                                        <div style="font-weight:700;font-size:13px;color:var(--text-primary);margin-bottom:3px;">
-                                            {{ news.title }}
-                                        </div>
-                                        <div style="font-size:12px;color:var(--text-secondary);line-height:1.5;word-break:break-word;">
-                                            {{ news.body }}
-                                        </div>
-                                        <div style="font-size:11px;color:var(--text-muted);margin-top:5px;">
-                                            <i class="fas fa-clock" style="margin-right:3px;"></i>
-                                            {{ news.created_at[:16] if news.created_at else '' }}
-                                        </div>
-                                    </div>
-                                    {% if is_admin %}
-                                    <div style="display:flex;flex-direction:column;gap:4px;flex-shrink:0;">
-                                        <button onclick="startEditNews({{ news.id }}, {{ news.title|tojson }}, {{ news.body|tojson }})"
-                                                title="Редактировать"
-                                                style="background:none;border:1px solid var(--border-light);border-radius:var(--radius-sm);padding:3px 7px;cursor:pointer;font-size:11px;color:var(--amber-600);">
-                                            <i class="fas fa-edit"></i>
-                                        </button>
-                                        <button onclick="deleteNews({{ news.id }})"
-                                                title="Удалить"
-                                                style="background:none;border:1px solid #fca5a5;border-radius:var(--radius-sm);padding:3px 7px;cursor:pointer;font-size:11px;color:#dc2626;">
-                                            <i class="fas fa-trash"></i>
-                                        </button>
-                                    </div>
-                                    {% endif %}
-                                </div>
-                            </div>
-                            {% endfor %}
-                        {% else %}
-                            <div id="noNewsMsg" style="text-align:center;padding:20px 0;color:var(--text-muted);font-size:13px;">
-                                <i class="fas fa-newspaper" style="font-size:24px;display:block;margin-bottom:8px;opacity:0.4;"></i>
-                                Новостей пока нет
-                            </div>
-                        {% endif %}
-                    </div>
-                </div>
-                <!-- ════════════════════════════════════════ -->
+                <!-- Здесь может быть статистика -->
             </div>
         </div>
     </div>
@@ -870,8 +611,6 @@
         font-size:13px;
         color:var(--text-muted);">
         <div style="max-width:1200px; margin:0 auto; display:flex; align-items:center; justify-content:center; gap:20px; flex-wrap:wrap;">
-            <span style="font-family:var(--font-display);font-size:13px;background:var(--accent-gradient);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;">LinkA</span>
-            <span style="color:var(--border-medium);">·</span>
             <a href="/faq" style="color:var(--text-muted);font-weight:600;transition:color 0.2s;" onmouseover="this.style.color='var(--amber-600)'" onmouseout="this.style.color='var(--text-muted)'">
                 <i class="fas fa-question-circle"></i> FAQ
             </a>
@@ -880,7 +619,7 @@
                 <i class="fas fa-file-alt"></i> Соглашение
             </a>
             <span style="color:var(--border-medium);">·</span>
-            <span>© 2025 LinkA</span>
+            <span>© 2026 LinkA</span>
         </div>
     </footer>
 
@@ -913,7 +652,7 @@
             modalImage.style.display = 'none';
             modalVideo.style.display = 'none';
             modalDocument.style.display = 'none';
-            
+
             if (type === 'image') {
                 modalImage.src = src;
                 modalImage.style.display = 'block';
@@ -922,28 +661,117 @@
                 modalVideo.style.display = 'block';
                 modalVideo.play();
             }
-            
+
             currentModal.style.display = 'block';
         }
 
-        function openDocViewer(mediaId, ext, filename) {
+        // Просмотрщик с навигацией (для медиа-сеток)
+        let _viewerItems = [], _viewerIndex = 0, _activeViewer = null;
+        function openMediaViewerList(items, startIndex) {
+            _viewerItems = items; _viewerIndex = startIndex; _buildViewer();
+        }
+        function _buildViewer() {
+            if (_activeViewer) { document.body.removeChild(_activeViewer); _activeViewer = null; }
+            const viewer = document.createElement('div');
+            viewer.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.92);z-index:2000;display:flex;flex-direction:column;align-items:center;justify-content:center;';
+            document.body.style.overflow = 'hidden';
+            const content = document.createElement('div');
+            content.style.cssText = 'display:flex;align-items:center;justify-content:center;width:100%;flex:1;position:relative;';
+            viewer.appendChild(content);
+            const close = document.createElement('button');
+            close.style.cssText = 'position:absolute;top:16px;right:20px;background:#fff;color:#000;border:none;border-radius:50%;width:42px;height:42px;font-size:22px;cursor:pointer;z-index:10;';
+            close.innerHTML = '×'; close.onclick = _closeViewer;
+            viewer.appendChild(close);
+            const btnPrev = document.createElement('button');
+            btnPrev.style.cssText = 'position:absolute;left:16px;top:50%;transform:translateY(-50%);background:rgba(255,255,255,0.15);color:#fff;border:2px solid rgba(255,255,255,0.4);border-radius:50%;width:48px;height:48px;font-size:22px;cursor:pointer;z-index:10;display:flex;align-items:center;justify-content:center;';
+            btnPrev.innerHTML = '‹'; btnPrev.onclick = e => { e.stopPropagation(); _viewerIndex--; _renderViewerItem(); };
+            content.appendChild(btnPrev);
+            const btnNext = document.createElement('button');
+            btnNext.style.cssText = 'position:absolute;right:16px;top:50%;transform:translateY(-50%);background:rgba(255,255,255,0.15);color:#fff;border:2px solid rgba(255,255,255,0.4);border-radius:50%;width:48px;height:48px;font-size:22px;cursor:pointer;z-index:10;display:flex;align-items:center;justify-content:center;';
+            btnNext.innerHTML = '›'; btnNext.onclick = e => { e.stopPropagation(); _viewerIndex++; _renderViewerItem(); };
+            content.appendChild(btnNext);
+            const counter = document.createElement('div');
+            counter.id = '__viewerCounter2';
+            counter.style.cssText = 'position:absolute;bottom:16px;left:50%;transform:translateX(-50%);color:rgba(255,255,255,0.7);font-size:13px;font-weight:600;';
+            viewer.appendChild(counter);
+            const mediaWrap = document.createElement('div');
+            mediaWrap.id = '__viewerMedia2';
+            mediaWrap.style.cssText = 'display:flex;align-items:center;justify-content:center;max-width:88%;max-height:80vh;';
+            content.appendChild(mediaWrap);
+            viewer.onclick = e => { if (e.target === viewer || e.target === content) _closeViewer(); };
+            viewer._keyHandler = e => {
+                if (e.key === 'Escape') _closeViewer();
+                if (e.key === 'ArrowLeft' && _viewerIndex > 0) { _viewerIndex--; _renderViewerItem(); }
+                if (e.key === 'ArrowRight' && _viewerIndex < _viewerItems.length-1) { _viewerIndex++; _renderViewerItem(); }
+            };
+            document.addEventListener('keydown', viewer._keyHandler);
+            _activeViewer = viewer;
+            document.body.appendChild(viewer);
+            _renderViewerItem();
+        }
+        function _renderViewerItem() {
+            const mediaWrap = document.getElementById('__viewerMedia2');
+            const counter   = document.getElementById('__viewerCounter2');
+            const content   = _activeViewer.querySelector('div');
+            const allBtns   = content.querySelectorAll('button');
+            allBtns[0].style.display = _viewerIndex > 0 ? 'flex' : 'none';
+            allBtns[1].style.display = _viewerIndex < _viewerItems.length-1 ? 'flex' : 'none';
+            counter.textContent = _viewerItems.length > 1 ? `${_viewerIndex+1} / ${_viewerItems.length}` : '';
+            mediaWrap.innerHTML = '';
+            const item = _viewerItems[_viewerIndex];
+            if (item.type === 'image') {
+                const img = document.createElement('img');
+                img.src = item.src;
+                img.style.cssText = 'max-width:100%;max-height:80vh;border-radius:8px;object-fit:contain;';
+                mediaWrap.appendChild(img);
+            } else {
+                const vid = document.createElement('video');
+                vid.src = item.src; vid.controls = true; vid.autoplay = true;
+                vid.style.cssText = 'max-width:100%;max-height:80vh;border-radius:8px;';
+                mediaWrap.appendChild(vid);
+            }
+        }
+        function _closeViewer() {
+            if (!_activeViewer) return;
+            document.removeEventListener('keydown', _activeViewer._keyHandler);
+            document.body.removeChild(_activeViewer);
+            document.body.style.overflow = '';
+            _activeViewer = null; _viewerItems = [];
+        }
+
+        function openDocViewer(mediaId, ext, originalName, serverFilename) {
+            // Архивы — скачать напрямую
+            if (['zip','rar','7z'].includes(ext)) {
+                const a = document.createElement('a');
+                a.href = '/download_file/' + mediaId;
+                a.download = originalName;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                return;
+            }
+
             modalImage.style.display = 'none';
             modalVideo.style.display = 'none';
             modalDocument.style.display = 'block';
-            
+
             if (ext === 'pdf') {
-                // PDF открываем напрямую
-                modalDocument.src = `/static/uploads/posts/${filename}`;
+                // PDF открываем напрямую по реальному имени файла на сервере
+                modalDocument.src = `/static/uploads/posts/${serverFilename}`;
             } else if (['doc','docx','xls','xlsx','ppt','pptx','txt'].includes(ext)) {
                 // Документы через просмотрщик
                 modalDocument.src = `/view_document/${mediaId}`;
             } else {
-                // Остальные файлы - скачивание
-                window.location.href = `/static/uploads/posts/${filename}`;
-                closeModal();
+                // Остальные файлы — скачивание
+                const a = document.createElement('a');
+                a.href = '/download_file/' + mediaId;
+                a.download = originalName;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
                 return;
             }
-            
+
             currentModal.style.display = 'block';
         }
 
@@ -997,7 +825,7 @@
             if (!confirm('Вы уверены, что хотите удалить этот пост?')) {
                 return;
             }
-            
+
             $.ajax({
                 url: `/delete_post_route/${postId}`,
                 type: 'POST',
@@ -1006,7 +834,7 @@
                         $(`#post-${postId}`).fadeOut(300, function() {
                             $(this).remove();
                             if ($('.post').length === 0) {
-                                location.reload(); // Перезагружаем если лента пуста
+                                location.reload();
                             }
                         });
                     } else {
@@ -1019,137 +847,293 @@
             });
         }
 
-        function editPost(postId) {
-            const postElement = $(`#post-${postId}`);
-            const contentElement = $(`#post-content-${postId}`);
-            const currentContent = contentElement.text();
-            
-            // Создаем форму редактирования
-            const editHtml = `
-                <div class="edit-mode">
-                    <textarea id="edit-content-${postId}" rows="3">${currentContent}</textarea>
-                    <div class="edit-actions">
-                        <button class="save-btn" onclick="savePost(${postId})">Сохранить</button>
-                        <button class="cancel-btn" onclick="cancelEdit(${postId}, '${currentContent}')">Отмена</button>
-                    </div>
-                </div>
-            `;
-            
-            contentElement.replaceWith(editHtml);
+        // Лайк группового поста из ленты
+        function likeGroupPostInFeed(postId, btn) {
+            fetch(`/like_post/${postId}?type=group`, {method:'POST', headers:{'Content-Type':'application/json'}})
+                .then(r => r.json())
+                .then(d => {
+                    if (!d.success) return;
+                    const icon = btn.querySelector('i');
+                    const cnt  = btn.querySelector('.likes-count');
+                    if (d.action === 'liked') {
+                        if (icon) icon.className = 'fas fa-heart';
+                        btn.classList.add('liked'); btn.style.color='#e53935'; btn.style.borderColor='#fca5a5';
+                    } else {
+                        if (icon) icon.className = 'far fa-heart';
+                        btn.classList.remove('liked'); btn.style.color=''; btn.style.borderColor='';
+                    }
+                    if (cnt) cnt.textContent = d.likes_count;
+                });
         }
 
-        function savePost(postId) {
-            const newContent = $(`#edit-content-${postId}`).val();
-            
-            if (!newContent.trim()) {
-                alert('Пост не может быть пустым');
-                return;
+        // Удаление группового поста из ленты
+        function deleteGroupPostFromFeed(postId) {
+            if (!confirm('Удалить этот пост?')) return;
+            fetch(`/group_post/delete/${postId}`, {method:'POST', headers:{'Content-Type':'application/json'}})
+                .then(r => r.json())
+                .then(d => {
+                    if (d.success) {
+                        const el = document.getElementById(`post-${postId}`);
+                        if (el) el.remove();
+                    } else alert('Ошибка: ' + d.error);
+                });
+        }
+
+        // Комментарии к групповым постам в ленте (переиспользуем логику из group_detail)
+        const gpFeedLoaded = new Set();
+        function toggleGroupCommentsInFeed(postId) {
+            const section = document.getElementById(`home-comments-${postId}`);
+            const isOpen  = section.style.display === 'block';
+            if (isOpen) { section.style.display = 'none'; return; }
+            section.style.display = 'block';
+            if (!gpFeedLoaded.has(postId)) {
+                gpFeedLoaded.add(postId);
+                fetch(`/group_post/${postId}/comments`)
+                    .then(r => r.json())
+                    .then(d => {
+                        const list = document.getElementById(`home-comments-list-${postId}`);
+                        if (!list) return;
+                        if (d.success && d.comments.length) {
+                            d.comments.forEach(c => list.insertAdjacentHTML('beforeend', buildHomeComment(c, postId, true)));
+                        } else {
+                            list.innerHTML = '<p style="font-size:13px;color:var(--text-muted);margin:0 0 8px;">Комментариев пока нет.</p>';
+                        }
+                    });
             }
-            
-            $.ajax({
-                url: `/edit_post/${postId}`,
-                type: 'POST',
-                data: { content: newContent },
-                success: function(response) {
-                    if (response.success) {
-                        const editDiv = $(`#edit-content-${postId}`).parent();
-                        editDiv.replaceWith(`<p id="post-content-${postId}" class="post-content">${newContent}</p>`);
-                    } else {
-                        alert('Ошибка: ' + response.error);
-                    }
-                },
-                error: function() {
-                    alert('Ошибка сервера');
+        }
+
+        function submitGroupCommentFromFeed(postId) {
+            const input = document.getElementById(`home-cmt-input-${postId}`);
+            const content = input.value.trim();
+            if (!content) return;
+            fetch(`/group_post/${postId}/add_comment`, {
+                method:'POST', headers:{'Content-Type':'application/json'},
+                body: JSON.stringify({content})
+            })
+            .then(r => r.json())
+            .then(d => {
+                if (!d.success) { alert('Ошибка: '+d.error); return; }
+                input.value = '';
+                const list = document.getElementById(`home-comments-list-${postId}`);
+                if (list.querySelector('p')) list.innerHTML = '';
+                list.insertAdjacentHTML('beforeend', buildHomeComment(d.comment, postId, true));
+                const cnt = document.querySelector(`.cmt-count-${postId}`);
+                if (cnt) cnt.textContent = d.comments_count;
+            });
+        }
+
+        // Открытие медиа из сетки с data-атрибутами
+        function openMediaFromPost(el) {
+            const grid = el.closest('.post-media-grid');
+            if (!grid) { openMediaViewer(el.dataset.mediaSrc, el.dataset.mediaType); return; }
+            const allMedia = Array.from(grid.querySelectorAll('[data-media-src]'));
+            const items = allMedia.map(m => ({ src: m.dataset.mediaSrc, type: m.dataset.mediaType }));
+            const index = allMedia.indexOf(el);
+            openMediaViewerList(items, index);
+        }
+
+
+const originalContentCache = {};
+
+        function editPost(postId) {
+    // Проверяем, не открыта ли уже форма редактирования
+    const existingEditMode = document.getElementById(`edit-mode-${postId}`);
+    if (existingEditMode) {
+        existingEditMode.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        return;
+    }
+
+    const contentElement = document.getElementById(`post-content-${postId}`);
+    const currentContent = contentElement.textContent;
+
+    // Сохраняем оригинальный контент
+    originalContentCache[postId] = currentContent;
+
+    // Создаем форму редактирования
+    const editHtml = `
+        <div class="edit-mode" id="edit-mode-${postId}" style="margin: 10px 0;">
+            <textarea id="edit-content-${postId}" rows="3" style="width:100%; padding:8px; border-radius:8px; border:1px solid #ddd; font-family:inherit;">${escapeHtml(currentContent)}</textarea>
+            <div class="edit-actions" style="display:flex; gap:8px; margin-top:8px;">
+                <button class="save-btn" onclick="savePost(${postId})" style="background:#f59e0b; color:#000; border:none; padding:6px 16px; border-radius:6px; cursor:pointer;">Сохранить</button>
+                <button class="cancel-btn" onclick="cancelEdit(${postId})" style="background:#e5e7eb; border:none; padding:6px 16px; border-radius:6px; cursor:pointer;">Отмена</button>
+            </div>
+        </div>
+    `;
+
+    // Скрываем оригинальный контент и вставляем форму
+    contentElement.style.display = 'none';
+    contentElement.insertAdjacentHTML('afterend', editHtml);
+
+    // Фокусируемся на textarea
+    const textarea = document.getElementById(`edit-content-${postId}`);
+    if (textarea) {
+        textarea.focus();
+        // Устанавливаем курсор в конец текста
+        textarea.setSelectionRange(textarea.value.length, textarea.value.length);
+    }
+}
+
+function savePost(postId) {
+    const textarea = document.getElementById(`edit-content-${postId}`);
+    if (!textarea) return;
+
+    const newContent = textarea.value.trim();
+
+    if (!newContent) {
+        alert('Пост не может быть пустым');
+        return;
+    }
+
+    // Блокируем кнопку сохранения
+    const saveBtn = document.querySelector(`#edit-mode-${postId} .save-btn`);
+    if (saveBtn) {
+        saveBtn.disabled = true;
+        saveBtn.textContent = 'Сохранение...';
+    }
+
+    fetch(`/api/edit_post/${postId}`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({content: newContent})
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Удаляем форму редактирования
+            const editMode = document.getElementById(`edit-mode-${postId}`);
+            if (editMode) editMode.remove();
+
+            // Обновляем содержимое поста
+            const contentElement = document.getElementById(`post-content-${postId}`);
+            if (contentElement) {
+                contentElement.textContent = newContent;
+                contentElement.style.display = 'block';
+            }
+
+            // Очищаем кэш
+            delete originalContentCache[postId];
+        } else {
+            alert('Ошибка: ' + data.error);
+            // Восстанавливаем кнопку
+            if (saveBtn) {
+                saveBtn.disabled = false;
+                saveBtn.textContent = 'Сохранить';
+            }
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Ошибка сервера');
+        if (saveBtn) {
+            saveBtn.disabled = false;
+            saveBtn.textContent = 'Сохранить';
+        }
+    });
+}
+
+function cancelEdit(postId) {
+    // Получаем сохраненный оригинальный контент
+    const originalContent = originalContentCache[postId];
+
+    // Удаляем форму редактирования
+    const editMode = document.getElementById(`edit-mode-${postId}`);
+    if (editMode) editMode.remove();
+
+    // Восстанавливаем оригинальный контент
+    const contentElement = document.getElementById(`post-content-${postId}`);
+    if (contentElement) {
+        if (originalContent !== undefined) {
+            contentElement.textContent = originalContent;
+        }
+        contentElement.style.display = 'block';
+    }
+
+    // Очищаем кэш
+    delete originalContentCache[postId];
+}
+
+// Функция для экранирования HTML
+function escapeHtml(text) {
+    if (!text) return '';
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+
+
+        // Накопительный выбор файлов (надёжный способ)
+        let selectedFiles = [];
+        const HOME_FILE_ICONS = {pdf:'📄',doc:'📝',docx:'📝',xls:'📊',xlsx:'📊',ppt:'📑',pptx:'📑',txt:'📃',zip:'🗜️',rar:'🗜️','7z':'🗜️'};
+
+        function renderHomePreviews() {
+            const container = document.getElementById('media-preview');
+            const counter = document.getElementById('files-count');
+            container.innerHTML = '';
+            counter.textContent = selectedFiles.length ? `Выбрано: ${selectedFiles.length}` : '';
+            selectedFiles.forEach((file, index) => {
+                const type = file.type.split('/')[0];
+                const item = document.createElement('div');
+                item.style.cssText = 'position:relative;width:100px;height:100px;border-radius:var(--radius-md);overflow:hidden;border:2px solid var(--amber-200);display:flex;flex-direction:column;align-items:center;justify-content:center;background:var(--gray-50);';
+                if (type === 'image') {
+                    const img = document.createElement('img');
+                    img.src = URL.createObjectURL(file);
+                    img.style.cssText = 'width:100%;height:80px;object-fit:cover;';
+                    item.appendChild(img);
+                } else if (type === 'video') {
+                    const vid = document.createElement('video');
+                    vid.src = URL.createObjectURL(file);
+                    vid.style.cssText = 'width:100%;height:80px;object-fit:cover;';
+                    item.appendChild(vid);
+                } else {
+                    const icon = document.createElement('div');
+                    icon.style.cssText = 'font-size:32px;';
+                    const ext = file.name.split('.').pop().toLowerCase();
+                    icon.textContent = HOME_FILE_ICONS[ext] || '📎';
+                    item.appendChild(icon);
+                }
+                const name = document.createElement('div');
+                name.style.cssText = 'font-size:10px;color:var(--text-muted);padding:2px 4px;text-align:center;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;width:96px;';
+                name.textContent = file.name.length > 12 ? file.name.slice(0,10)+'…' : file.name;
+                item.appendChild(name);
+                const btn = document.createElement('button');
+                btn.type = 'button';
+                btn.style.cssText = 'position:absolute;top:3px;right:3px;background:var(--orange-500);color:#fff;border:none;border-radius:50%;width:20px;height:20px;cursor:pointer;font-size:13px;line-height:1;';
+                btn.innerHTML = '×';
+                btn.onclick = () => { selectedFiles.splice(index, 1); renderHomePreviews(); };
+                item.appendChild(btn);
+                container.appendChild(item);
+            });
+        }
+
+        document.getElementById('media-files').addEventListener('change', function() {
+            Array.from(this.files).forEach(f => {
+                if (!selectedFiles.some(s => s.name === f.name && s.size === f.size)) {
+                    if (selectedFiles.length < 10) selectedFiles.push(f);
+                    else alert('Максимум 10 файлов.');
                 }
             });
-        }
+            renderHomePreviews();
+            this.value = '';
+        });
 
-        function cancelEdit(postId, originalContent) {
-            $(`#edit-content-${postId}`).parent().replaceWith(`<p id="post-content-${postId}" class="post-content">${originalContent}</p>`);
-        }
-
-        // Предпросмотр загружаемых файлов
-        document.getElementById('media-files').addEventListener('change', function(e) {
-            const preview = document.getElementById('media-preview');
-            const filesCount = document.getElementById('files-count');
-            preview.innerHTML = '';
-
-            const files = Array.from(e.target.files);
-            
-            if (files.length > 10) {
-                alert('Максимум 10 файлов за раз');
-                this.value = '';
-                filesCount.textContent = '';
-                return;
+        document.getElementById('create-post-form').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const content = this.querySelector('textarea[name="content"]').value.trim();
+            if (!content && selectedFiles.length === 0) { alert('Пост не может быть пустым.'); return; }
+            for (const f of selectedFiles) {
+                if (f.size > 50 * 1024 * 1024) { alert(`Файл "${f.name}" слишком большой. Макс. 50МБ.`); return; }
             }
-            
-            filesCount.textContent = `Выбрано: ${files.length}`;
-
-            files.forEach((file, index) => {
-                const reader = new FileReader();
-                const previewItem = document.createElement('div');
-                previewItem.className = 'preview-item';
-                previewItem.style.position = 'relative';
-                previewItem.style.display = 'inline-block';
-                previewItem.style.margin = '5px';
-
-                reader.onload = function(e) {
-                    const fileExt = file.name.split('.').pop().toLowerCase();
-                    
-                    if (file.type.startsWith('image/')) {
-                        const img = document.createElement('img');
-                        img.src = e.target.result;
-                        img.style.width = '80px';
-                        img.style.height = '80px';
-                        img.style.objectFit = 'cover';
-                        img.style.borderRadius = '4px';
-                        previewItem.appendChild(img);
-                    } else if (file.type.startsWith('video/')) {
-                        previewItem.innerHTML = `
-                            <div style="width:80px;height:80px;background:#f0f0f0;display:flex;flex-direction:column;align-items:center;justify-content:center;border-radius:4px;">
-                                <i class="fas fa-video" style="font-size:24px;color:#666;"></i>
-                                <span style="font-size:10px;margin-top:4px;">видео</span>
-                            </div>
-                        `;
-                    } else {
-                        previewItem.innerHTML = `
-                            <div style="width:80px;height:80px;background:#f0f0f0;display:flex;flex-direction:column;align-items:center;justify-content:center;border-radius:4px;">
-                                <i class="fas fa-file" style="font-size:24px;color:#666;"></i>
-                                <span style="font-size:10px;margin-top:4px;">${fileExt}</span>
-                            </div>
-                        `;
-                    }
-                };
-
-                reader.readAsDataURL(file);
-
-                const removeBtn = document.createElement('button');
-                removeBtn.className = 'remove-file';
-                removeBtn.innerHTML = '<i class="fas fa-times"></i>';
-                removeBtn.style.position = 'absolute';
-                removeBtn.style.top = '-5px';
-                removeBtn.style.right = '-5px';
-                removeBtn.style.background = '#dc2626';
-                removeBtn.style.color = 'white';
-                removeBtn.style.border = 'none';
-                removeBtn.style.borderRadius = '50%';
-                removeBtn.style.width = '20px';
-                removeBtn.style.height = '20px';
-                removeBtn.style.cursor = 'pointer';
-                removeBtn.onclick = function() {
-                    const dt = new DataTransfer();
-                    const input = document.getElementById('media-files');
-                    const files = Array.from(input.files);
-                    files.splice(index, 1);
-                    files.forEach(file => dt.items.add(file));
-                    input.files = dt.files;
-                    previewItem.remove();
-                    filesCount.textContent = files.length ? `Выбрано: ${files.length}` : '';
-                };
-
-                previewItem.appendChild(removeBtn);
-                preview.appendChild(previewItem);
-            });
+            const fd = new FormData();
+            fd.append('content', content);
+            selectedFiles.forEach(f => fd.append('media_files', f));
+            const btn = this.querySelector('button[type="submit"]');
+            btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Публикация...';
+            fetch('/home', {method:'POST', body: fd})
+                .then(r => { window.location.href = r.url; })
+                .catch(err => { alert('Ошибка: ' + err); btn.disabled = false; btn.innerHTML = '<i class="fas fa-paper-plane"></i> Опубликовать'; });
         });
 
         // Функции для фильтра и меню
@@ -1157,7 +1141,7 @@
             const dd = document.getElementById('filterDropdown');
             dd.style.display = dd.style.display === 'none' ? 'block' : 'none';
         }
-        
+
         document.addEventListener('click', function(e) {
             const wrap = document.getElementById('filterWrap');
             if (wrap && !wrap.contains(e.target)) {
@@ -1167,14 +1151,18 @@
         });
 
         function toggleUserMenu() {
-            document.getElementById('userDropdown').classList.toggle('open');
+            const dd = document.getElementById('userDropdown');
+            const wrap = document.querySelector('.user-menu-wrap');
+            dd.classList.toggle('open');
+            wrap.classList.toggle('open');
         }
-        
+
         document.addEventListener('click', function(e) {
             const wrap = document.querySelector('.user-menu-wrap');
             if (wrap && !wrap.contains(e.target)) {
                 const dd = document.getElementById('userDropdown');
                 if (dd) dd.classList.remove('open');
+                wrap.classList.remove('open');
             }
         });
     </script>
@@ -1216,10 +1204,16 @@
                             </div>`;
                 } else {
                     const nm = m.original_filename || m.filename;
-                    return `<div class="document-preview">
-                              <span class="document-icon">📄</span>
+                    const ext = m.filename.split('.').pop().toLowerCase();
+                    const icons = {pdf:'📄',doc:'📝',docx:'📝',xls:'📊',xlsx:'📊',ppt:'📑',pptx:'📑',txt:'📃',zip:'🗜️',rar:'🗜️','7z':'🗜️'};
+                    const icon = icons[ext] || '📎';
+                    const action = ['zip','rar','7z'].includes(ext) ? 'Скачать' : 'Открыть';
+                    return `<div class="document-preview" onclick="openDocViewer(${m.id},'${ext}','${nm.replace(/'/g,"\\'")}','${m.filename.replace(/'/g,"\\'")}')">
+                              <span class="document-icon">${icon}</span>
                               <span class="document-name">${nm.substring(0,20)}</span>
+                              <span class="document-action">${action}</span>
                             </div>`;
+                }
                 }
             }).join('');
             return `<div class="post-media-grid">${inner}</div>`;
@@ -1312,6 +1306,166 @@
     })();
     </script>
 
+    <script>
+        function toggleAddNews() {
+            const form = document.getElementById('addNewsForm');
+            if (form) form.style.display = form.style.display === 'none' ? 'block' : 'none';
+        }
+        async function submitNews() {
+            const title = document.getElementById('newsTitle').value.trim();
+            const body  = document.getElementById('newsBody').value.trim();
+            if (!title || !body) { alert('Заполните заголовок и текст'); return; }
+            const r = await fetch('/admin/news/add', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({title, body})
+            });
+            const d = await r.json();
+            if (d.success) {
+                const n = d.news;
+                const noMsg = document.getElementById('noNewsMsg');
+                if (noMsg) noMsg.remove();
+                const list = document.getElementById('newsList');
+                const el = document.createElement('div');
+                el.className = 'site-news-item';
+                el.id = 'news-item-' + n.id;
+                el.innerHTML = `
+                    <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:6px;">
+                        <div style="font-size:13px;font-weight:700;color:var(--text-primary);line-height:1.3;">${n.title}</div>
+                        <button onclick="deleteNews(${n.id})" title="Удалить"
+                            style="flex-shrink:0;background:none;border:none;color:#dc2626;cursor:pointer;font-size:13px;padding:0 2px;line-height:1;">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                    <div style="font-size:12px;color:var(--text-secondary);margin-top:4px;line-height:1.4;">${n.body}</div>
+                    <div style="font-size:11px;color:var(--text-muted);margin-top:4px;">${(n.created_at||'').slice(0,16)}</div>
+                `;
+                list.insertAdjacentElement('afterbegin', el);
+                document.getElementById('newsTitle').value = '';
+                document.getElementById('newsBody').value = '';
+                toggleAddNews();
+            } else {
+                alert('Ошибка: ' + (d.error || 'неизвестная'));
+            }
+        }
+        async function deleteNews(newsId) {
+            if (!confirm('Удалить новость?')) return;
+            const r = await fetch('/admin/news/delete/' + newsId, {method: 'POST'});
+            const d = await r.json();
+            if (d.success) {
+                const el = document.getElementById('news-item-' + newsId);
+                if (el) el.remove();
+                if (!document.querySelector('.site-news-item')) {
+                    document.getElementById('newsList').innerHTML =
+                        '<div id="noNewsMsg" style="font-size:13px;color:var(--text-muted);text-align:center;padding:16px 0;">' +
+                        '<i class="fas fa-newspaper" style="font-size:24px;color:var(--amber-200);display:block;margin-bottom:8px;"></i>' +
+                        'Новостей пока нет</div>';
+                }
+            } else {
+                alert('Ошибка: ' + (d.error || 'неизвестная'));
+            }
+        }
 
+        function refreshFriendsBadge() {
+            fetch('/friends/pending_count')
+                .then(r => r.json())
+                .then(d => {
+                    const badge = document.getElementById('friendsBadge');
+                    if (badge) {
+                        badge.textContent = d.count || '';
+                        badge.style.display = d.count > 0 ? 'inline-block' : 'none';
+                    }
+                }).catch(() => {});
+        }
+        refreshFriendsBadge();
+        setInterval(refreshFriendsBadge, 10000);
+    </script>
+
+    <script>
+    // ── Комментарии на главной (аналог группы) ─────────────────────────────
+    const homeLoadedComments = new Set();
+
+    function toggleHomeComments(postId) {
+        const section = document.getElementById(`home-comments-${postId}`);
+        const isOpen  = section.style.display === 'block';
+        if (isOpen) { section.style.display = 'none'; return; }
+        section.style.display = 'block';
+        if (!homeLoadedComments.has(postId)) {
+            homeLoadedComments.add(postId);
+            fetchHomeComments(postId);
+        }
+    }
+
+    function fetchHomeComments(postId) {
+        fetch(`/post_comments/${postId}`)
+            .then(r => r.json())
+            .then(d => renderHomeComments(postId, d.success ? d.comments : []))
+            .catch(() => renderHomeComments(postId, []));
+    }
+
+    function renderHomeComments(postId, comments) {
+        const list = document.getElementById(`home-comments-list-${postId}`);
+        list.innerHTML = '';
+        if (!comments || !comments.length) {
+            list.innerHTML = '<p style="font-size:13px;color:var(--text-muted);margin:0 0 8px;">Комментариев пока нет.</p>';
+            return;
+        }
+        comments.forEach(c => list.insertAdjacentHTML('beforeend', buildHomeComment(postId, c)));
+    }
+
+    function buildHomeComment(postId, c) {
+        const av = (c.avatar && c.avatar !== 'default_avatar.png')
+            ? `/static/uploads/avatars/${c.avatar}` : '/static/defaults/for_users.png';
+        const name = c.full_name || c.username;
+        const time = (c.created_at||'').toString().slice(0,16);
+        return `<div style="display:flex;gap:10px;margin-bottom:10px;align-items:flex-start;" id="hcmt-${c.id}">
+            <a href="/profile/${c.user_id || ''}">
+                <img src="${av}" style="width:32px;height:32px;border-radius:50%;object-fit:cover;"
+                     onerror="this.src='/static/defaults/for_users.png'">
+            </a>
+            <div style="background:var(--gray-50);border-radius:var(--radius-md);padding:8px 12px;flex:1;">
+                <a href="/profile/${c.user_id || ''}" style="font-size:13px;font-weight:700;color:var(--text-primary);text-decoration:none;">${name}</a>
+                <span style="font-size:11px;color:var(--text-muted);margin-left:6px;">${time}</span>
+                <div style="font-size:13px;color:var(--text-primary);margin-top:2px;">${c.content.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</div>
+            </div>
+            <button onclick="deleteHomeComment(${c.id},${postId})"
+                    style="background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:12px;padding:4px;">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>`;
+    }
+
+    function submitHomeComment(postId) {
+        const input = document.getElementById(`home-cmt-input-${postId}`);
+        const content = input.value.trim();
+        if (!content) return;
+        fetch(`/add_comment/${postId}`, {
+            method:'POST', headers:{'Content-Type':'application/json'},
+            body: JSON.stringify({content})
+        }).then(r => r.json()).then(d => {
+            if (!d.success) { alert('Ошибка: '+d.error); return; }
+            input.value = '';
+            const list = document.getElementById(`home-comments-list-${postId}`);
+            if (list.querySelector('p')) list.innerHTML = '';
+            list.insertAdjacentHTML('beforeend', buildHomeComment(postId, d.comment));
+            const cnt = document.querySelector(`.cmt-count-${postId}`);
+            if (cnt) cnt.textContent = d.comments_count;
+        });
+    }
+
+    function deleteHomeComment(commentId, postId) {
+        if (!confirm('Удалить комментарий?')) return;
+        fetch(`/delete_comment/${commentId}`, {method:'POST'})
+            .then(r => r.json()).then(d => {
+                if (d.success) {
+                    const el = document.getElementById(`hcmt-${commentId}`);
+                    if (el) el.remove();
+                    const cnt = document.querySelector(`.cmt-count-${postId}`);
+                    if (cnt) cnt.textContent = d.comments_count;
+                }
+            });
+    }
+    </script>
+    <script src="{{ url_for('static', filename='defaults/notifications.js') }}"></script>
 </body>
 </html>

@@ -60,22 +60,7 @@ LinkA/
 ├── main.py                # основной файл приложения
 ├── users.db               # база данных SQLite (создаётся автоматически)
 │
-├── requirements.txt
 ├── templates/             # все HTML-файлы
-│   ├── 2fa_setup.html
-│   ├── 2fa_verify.html
-│   ├── add_to_blacklist.html
-│   ├── admin_banned.html
-│   ├── admin_base.html
-│   ├── admin_users.html
-│   ├── edit_post.html
-│   ├── edit_posts.html
-│   ├── fuq.html
-│   ├── linka-promo.html
-│   ├── messenger.html
-│   ├── settings.html
-│   ├── terms.html
-│   ├── view_post.html
 │   ├── edit_profile.html
 │   ├── feed.html
 │   ├── find_friends.html
@@ -93,13 +78,12 @@ LinkA/
 │   ├── techadmin_reports.html
 │   ├── view_profile.html
 │   ├── blacklist.html
-│   └── group_detail2.html
+│   └── add_to_blacklist.html
 │
 ├── static/                 # стили, скрипты, изображения
 │   ├── defaults/           
 │   │   ├── for_groups.png
 │   │   └── for_users.png
-│   │   └── style.css
 │   └── uploads/
 │       ├── avatars/  
 │       ├── groups/
@@ -112,22 +96,22 @@ LinkA/
 ## 🗄️ **Работа с базой данных**
 
 🔸 При первом запуске:
-- если базы данных нет, она создаётся автоматически
+ • если базы данных нет, она создаётся автоматически
 
 🔸 При последующих запусках:
-- если база уже существует, используется старая база данных. Данные не удаляются
+ • если база уже существует,
+➜ используется старая база данных
+➜ данные не удаляются
 
 Это позволяет безопасно перезапускать приложение без потери информации.
 
 ---
 
 ## ▶️ Запуск проекта
-```
 pip install flask
-```
-```
-python main.py
-```
+python app.py
+После запуска открой в браузере:
+👉 http://127.0.0.1:5000
 
 ---
 
@@ -138,6 +122,12 @@ python main.py
 
 ---
 
+## 🤝 Вклад
+
+Идеи, улучшения и pull request’ы приветствуются 🚀
+Проект открыт для развития.
+
+---
 
 ## LinkA 🔗
 Cоздаём связи,а не просто ленты.

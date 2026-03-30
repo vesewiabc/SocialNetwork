@@ -3,220 +3,270 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Подтверждение входа</title>
+    <title>Подтверждение входа — LinkA</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='defaults/style.css') }}">
+    <link rel="icon" type="image/png" href="{{ url_for('static', filename='uploads/favicon.png') }}">
     <style>
-        * { box-sizing: border-box; margin: 0; padding: 0; }
-
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-            background: linear-gradient(135deg, #1877f2 0%, #42b2f5 100%);
-            min-height: 100vh;
+            background: var(--bg-page);
+        }
+        .verify-page {
             display: flex;
+            flex-direction: column;
             align-items: center;
-            justify-content: center;
-            padding: 20px;
+            min-height: calc(100vh - 60px);
+            padding: 40px 16px 60px;
         }
 
-        .card {
-            background: #fff;
-            border-radius: 16px;
-            box-shadow: 0 8px 32px rgba(0,0,0,.18);
-            max-width: 420px;
+        .verify-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-light);
+            border-radius: var(--radius-xl);
+            box-shadow: var(--shadow-lg);
+            max-width: 800px;
             width: 100%;
-            padding: 40px 36px;
+            overflow: hidden;
+            position: relative;
+        }
+        .verify-card::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0;
+            height: 4px;
+            background: var(--accent-gradient);
+        }
+
+        .verify-header {
+            padding: 36px 36px 24px;
             text-align: center;
+            border-bottom: 1px solid var(--border-light);
         }
 
-        .shield-icon {
-            width: 72px;
-            height: 72px;
-            background: linear-gradient(135deg, #1877f2, #42b2f5);
+        .verify-icon-wrap {
+            width: 72px; height: 72px;
+            background: var(--amber-100);
             border-radius: 50%;
-            display: flex;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 30px;
+            margin: 0 auto 18px;
+            border: 3px solid var(--amber-300);
+            color: var(--amber-600);
+        }
+
+        .verify-title {
+            font-family: var(--font-display);
+            font-size: 18px; font-weight: 700;
+            color: var(--text-primary);
+            margin-bottom: 8px;
+        }
+
+        .verify-subtitle {
+            font-size: 13px;
+            color: var(--text-muted);
+            line-height: 1.6;
+        }
+        .verify-subtitle strong { color: var(--amber-700); }
+
+        .verify-body { padding: 28px 36px 32px; }
+
+        /* Таймер */
+        .timer-badge {
+            display: inline-flex;
             align-items: center;
-            justify-content: center;
-            font-size: 36px;
-            margin: 0 auto 20px;
-            box-shadow: 0 4px 14px rgba(24,119,242,.3);
+            gap: 6px;
+            background: var(--amber-50);
+            color: var(--amber-700);
+            border: 1px solid var(--amber-300);
+            border-radius: var(--radius-full);
+            padding: 5px 14px;
+            font-size: 13px; font-weight: 700;
+            margin-bottom: 22px;
         }
 
-        h1 {
-            font-size: 22px;
-            font-weight: 700;
-            color: #1c1e21;
-            margin-bottom: 10px;
+        /* Ошибка */
+        .error-msg {
+            background: #fef2f2;
+            border: 1px solid #fca5a5;
+            color: #dc2626;
+            border-radius: var(--radius-md);
+            padding: 10px 14px;
+            font-size: 13px;
+            margin-bottom: 18px;
+            display: flex; align-items: center; gap: 8px;
         }
 
-        .subtitle {
-            font-size: 14px;
-            color: #65676b;
-            line-height: 1.5;
-            margin-bottom: 28px;
-        }
-        .subtitle strong {
-            color: #2AABEE;
-        }
-
-        /* Поле ввода кода */
+        /* Поля ввода цифр */
         .code-input-wrapper {
             display: flex;
             gap: 8px;
             justify-content: center;
-            margin-bottom: 20px;
+            margin-bottom: 22px;
         }
-
         .code-input-wrapper input {
-            width: 48px;
-            height: 56px;
-            border: 2px solid #ddd;
-            border-radius: 10px;
-            font-size: 24px;
-            font-weight: 700;
+            width: 46px; height: 54px;
+            border: 1.5px solid var(--border-medium);
+            border-radius: var(--radius-md);
+            font-size: 22px; font-weight: 700;
             text-align: center;
             outline: none;
-            transition: border-color .2s, box-shadow .2s;
-            color: #1c1e21;
+            color: var(--text-primary);
+            background: var(--bg-page);
+            transition: border-color var(--transition), box-shadow var(--transition);
+            font-family: var(--font-body);
         }
         .code-input-wrapper input:focus {
-            border-color: #1877f2;
-            box-shadow: 0 0 0 3px rgba(24,119,242,.15);
+            border-color: var(--amber-500);
+            box-shadow: 0 0 0 3px rgba(245,158,11,0.15);
         }
         .code-input-wrapper input.filled {
-            border-color: #42b72a;
-            background: #f0faf0;
+            border-color: var(--amber-400);
+            background: var(--amber-50);
         }
 
-        /* Скрытое общее поле (fallback) */
-        #hidden-code {
-            display: none;
-        }
+        #hidden-code { display: none; }
 
-        .btn-primary {
-            width: 100%;
-            padding: 13px;
-            background: #1877f2;
-            color: #fff;
-            border: none;
-            border-radius: 10px;
-            font-size: 16px;
-            font-weight: 600;
+        /* Кнопка подтвердить */
+        .btn-confirm {
+            display: flex; align-items: center; justify-content: center; gap: 8px;
+            width: 100%; padding: 13px 20px;
+            background: var(--accent-gradient);
+            color: #111;
+            border: none; border-radius: var(--radius-full);
+            font-family: var(--font-body);
+            font-size: 15px; font-weight: 700;
             cursor: pointer;
-            transition: background .15s, transform .1s;
-            margin-bottom: 14px;
-        }
-        .btn-primary:hover { background: #1558b0; }
-        .btn-primary:active { transform: scale(.97); }
-        .btn-primary:disabled { background: #a0b4f5; cursor: not-allowed; }
-
-        .error-msg {
-            background: #fdecea;
-            color: #c0392b;
-            border: 1px solid #f5c6cb;
-            border-radius: 8px;
-            padding: 10px 14px;
-            font-size: 14px;
+            box-shadow: 0 2px 10px rgba(245,158,11,0.3);
+            transition: all var(--transition);
             margin-bottom: 16px;
         }
+        .btn-confirm:hover { transform: translateY(-1px); box-shadow: 0 4px 16px rgba(245,158,11,0.4); }
+        .btn-confirm:active { transform: scale(.97); }
+        .btn-confirm:disabled {
+            background: var(--gray-200);
+            color: var(--text-muted);
+            box-shadow: none;
+            cursor: not-allowed;
+            transform: none;
+        }
 
+        /* Повторная отправка */
         .resend-section {
             font-size: 13px;
-            color: #65676b;
-            margin-bottom: 16px;
+            color: var(--text-muted);
+            text-align: center;
+            margin-bottom: 6px;
         }
-
         #resend-btn {
-            background: none;
-            border: none;
-            color: #1877f2;
-            font-size: 13px;
-            cursor: pointer;
-            font-weight: 600;
-            padding: 0;
+            background: none; border: none;
+            color: var(--amber-600);
+            font-size: 13px; font-weight: 700;
+            cursor: pointer; padding: 0;
+            font-family: var(--font-body);
+            transition: color var(--transition);
         }
-        #resend-btn:hover { text-decoration: underline; }
-        #resend-btn:disabled { color: #aaa; cursor: not-allowed; text-decoration: none; }
+        #resend-btn:hover { color: var(--amber-700); text-decoration: underline; }
+        #resend-btn:disabled { color: var(--text-muted); cursor: not-allowed; text-decoration: none; }
 
         #resend-status {
-            font-size: 13px;
-            margin-top: 4px;
-            min-height: 18px;
+            font-size: 13px; text-align: center;
+            min-height: 18px; margin-bottom: 6px;
         }
-        #resend-status.ok   { color: #1a6e22; }
-        #resend-status.fail { color: #c0392b; }
+        #resend-status.ok   { color: #15803d; }
+        #resend-status.fail { color: #dc2626; }
 
-        .logout-link {
-            font-size: 13px;
-            color: #65676b;
+        .back-wrap {
+            width: 100%;
+            max-width: 800px;
+            margin-bottom: 16px;
         }
-        .logout-link a {
-            color: #c0392b;
+        .back-to-home {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            color: var(--text-secondary);
             text-decoration: none;
-        }
-        .logout-link a:hover { text-decoration: underline; }
-
-        .timer-badge {
-            display: inline-block;
-            background: #fff3cd;
-            color: #856404;
-            border: 1px solid #ffc107;
-            border-radius: 20px;
-            padding: 4px 12px;
-            font-size: 13px;
             font-weight: 600;
-            margin-bottom: 18px;
+            font-size: 14px;
+            transition: color var(--transition);
         }
+        .back-to-home:hover { color: var(--amber-600); }
     </style>
 </head>
 <body>
-<div class="card">
-    <div class="shield-icon">🔐</div>
-    <h1>Подтверждение входа</h1>
-    <p class="subtitle">
-        Мы отправили 6-значный код в ваш <strong>Telegram</strong>.<br>
-        Введите его ниже для входа.
-    </p>
 
-    <div class="timer-badge" id="timer">⏱ Код действует 5 минут</div>
+  <header>
+    <div class="container">
+      <div class="header-content">
+        <a href="/home" class="logo" style="text-decoration:none;">LinkA</a>
+      </div>
+    </div>
+  </header>
 
-    {% if error %}
-    <div class="error-msg">{{ error }}</div>
-    {% endif %}
+  <div class="verify-page">
 
-    <form method="POST" action="/2fa/verify" id="verify-form">
-        <!-- Отображаемые одиночные поля -->
-        <div class="code-input-wrapper" id="digit-boxes">
-            <input type="text" maxlength="1" class="digit" inputmode="numeric" pattern="[0-9]" autocomplete="off">
-            <input type="text" maxlength="1" class="digit" inputmode="numeric" pattern="[0-9]" autocomplete="off">
-            <input type="text" maxlength="1" class="digit" inputmode="numeric" pattern="[0-9]" autocomplete="off">
-            <input type="text" maxlength="1" class="digit" inputmode="numeric" pattern="[0-9]" autocomplete="off">
-            <input type="text" maxlength="1" class="digit" inputmode="numeric" pattern="[0-9]" autocomplete="off">
-            <input type="text" maxlength="1" class="digit" inputmode="numeric" pattern="[0-9]" autocomplete="off">
+    <div class="back-wrap">
+        <a href="/login" class="back-to-home">
+            <i class="fas fa-arrow-left"></i> Назад
+        </a>
+    </div>
+
+    <div class="verify-card">
+        <div class="verify-header">
+            <div class="verify-icon-wrap">
+                <i class="fas fa-shield-alt"></i>
+            </div>
+            <div class="verify-title">Подтверждение входа</div>
+            <div class="verify-subtitle">
+                Мы отправили 6-значный код в ваш <strong>Telegram</strong>.<br>
+                Введите его ниже для входа.
+            </div>
         </div>
-        <!-- Скрытое поле, куда собирается полный код -->
-        <input type="hidden" name="code" id="hidden-code">
-        <button type="submit" class="btn-primary" id="submit-btn" disabled>Подтвердить</button>
-    </form>
 
-    <div class="resend-section">
-        Не получили код?
-        <button id="resend-btn" onclick="resendCode()">Отправить снова</button>
+        <div class="verify-body">
+            <div style="text-align:center;">
+                <div class="timer-badge" id="timer">
+                    <i class="fas fa-clock"></i> Код действует 5 минут
+                </div>
+            </div>
+
+            {% if error %}
+            <div class="error-msg"><i class="fas fa-exclamation-circle"></i> {{ error }}</div>
+            {% endif %}
+
+            <form method="POST" action="/2fa/verify" id="verify-form">
+                <div class="code-input-wrapper" id="digit-boxes">
+                    <input type="text" maxlength="1" class="digit" inputmode="numeric" pattern="[0-9]" autocomplete="off">
+                    <input type="text" maxlength="1" class="digit" inputmode="numeric" pattern="[0-9]" autocomplete="off">
+                    <input type="text" maxlength="1" class="digit" inputmode="numeric" pattern="[0-9]" autocomplete="off">
+                    <input type="text" maxlength="1" class="digit" inputmode="numeric" pattern="[0-9]" autocomplete="off">
+                    <input type="text" maxlength="1" class="digit" inputmode="numeric" pattern="[0-9]" autocomplete="off">
+                    <input type="text" maxlength="1" class="digit" inputmode="numeric" pattern="[0-9]" autocomplete="off">
+                </div>
+                <input type="hidden" name="code" id="hidden-code">
+                <button type="submit" class="btn-confirm" id="submit-btn" disabled>
+                    <i class="fas fa-check"></i> Подтвердить
+                </button>
+            </form>
+
+            <div class="resend-section">
+                Не получили код?
+                <button id="resend-btn" onclick="resendCode()">Отправить снова</button>
+            </div>
+            <div id="resend-status"></div>
+
+        </div>
     </div>
-    <div id="resend-status"></div>
-    <br>
-    <div class="logout-link">
-        <a href="/login">← Вернуться к странице входа</a>
-    </div>
-</div>
+
+  </div><!-- /verify-page -->
 
 <script>
 const digits = document.querySelectorAll('.digit');
 const hiddenCode = document.getElementById('hidden-code');
 const submitBtn = document.getElementById('submit-btn');
 
-// Автопереход между ячейками
 digits.forEach((input, i) => {
-    input.addEventListener('input', (e) => {
-        // Оставляем только цифры
+    input.addEventListener('input', () => {
         input.value = input.value.replace(/\D/g, '').slice(-1);
         if (input.value) {
             input.classList.add('filled');
@@ -226,7 +276,6 @@ digits.forEach((input, i) => {
         }
         updateHidden();
     });
-
     input.addEventListener('keydown', (e) => {
         if (e.key === 'Backspace' && !input.value && i > 0) {
             digits[i - 1].focus();
@@ -235,8 +284,6 @@ digits.forEach((input, i) => {
             updateHidden();
         }
     });
-
-    // Вставка из буфера (6 цифр сразу)
     input.addEventListener('paste', (e) => {
         e.preventDefault();
         const pasted = (e.clipboardData || window.clipboardData).getData('text').replace(/\D/g, '');
@@ -257,23 +304,23 @@ function updateHidden() {
     submitBtn.disabled = code.length !== 6;
 }
 
-// Таймер обратного отсчёта
-let seconds = 300; // 5 минут
+// Таймер
+let seconds = 300;
 const timerEl = document.getElementById('timer');
 const interval = setInterval(() => {
     seconds--;
     if (seconds <= 0) {
         clearInterval(interval);
-        timerEl.textContent = '⏱ Код истёк';
-        timerEl.style.background = '#fdecea';
-        timerEl.style.color = '#c0392b';
-        timerEl.style.borderColor = '#e74c3c';
+        timerEl.innerHTML = '<i class="fas fa-times-circle"></i> Код истёк';
+        timerEl.style.background = '#fef2f2';
+        timerEl.style.color = '#dc2626';
+        timerEl.style.borderColor = '#fca5a5';
         submitBtn.disabled = true;
         return;
     }
     const m = Math.floor(seconds / 60);
     const s = seconds % 60;
-    timerEl.textContent = `⏱ Осталось ${m}:${s.toString().padStart(2,'0')}`;
+    timerEl.innerHTML = `<i class="fas fa-clock"></i> Осталось ${m}:${s.toString().padStart(2,'0')}`;
 }, 1000);
 
 // Повторная отправка
@@ -284,14 +331,12 @@ async function resendCode() {
     const status = document.getElementById('resend-status');
     btn.disabled = true;
     status.textContent = '';
-
     try {
         const resp = await fetch('/2fa/resend', { method: 'POST' });
         const data = await resp.json();
         if (data.success) {
             status.textContent = '✅ Код отправлен повторно!';
             status.className = 'ok';
-            // Сбрасываем таймер
             seconds = 300;
         } else {
             status.textContent = '❌ ' + (data.error || 'Не удалось отправить');
@@ -301,21 +346,16 @@ async function resendCode() {
         status.textContent = 'Ошибка соединения';
         status.className = 'fail';
     }
-
-    // Кулдаун 30 секунд
     resendCooldown = 30;
     const coolTimer = setInterval(() => {
         resendCooldown--;
         btn.textContent = resendCooldown > 0 ? `Отправить снова (${resendCooldown}с)` : 'Отправить снова';
-        if (resendCooldown <= 0) {
-            clearInterval(coolTimer);
-            btn.disabled = false;
-        }
+        if (resendCooldown <= 0) { clearInterval(coolTimer); btn.disabled = false; }
     }, 1000);
 }
 
-// Фокус на первое поле при загрузке
 digits[0].focus();
 </script>
+<script src="{{ url_for('static', filename='defaults/notifications.js') }}"></script>
 </body>
 </html>

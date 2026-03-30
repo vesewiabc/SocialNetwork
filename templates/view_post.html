@@ -7,33 +7,38 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <link rel="stylesheet" href="{{ url_for('static', filename='defaults/style.css') }}">
     <link rel="icon" type="image/png" href="{{ url_for('static', filename='uploads/favicon.png') }}">
+
+        <style>
+        .sidebar-left > h3 { display: none; }
+        .sidebar-left::before { display: none !important; }
+        .sidebar-left { border-top: none !important; }
+        </style>
 </head>
 <body>
         <header>
         <div class="container">
             <div class="header-content">
-                <div class="logo">LinkA</div>
+                <a href="/home" class="logo" style="text-decoration:none;">LinkA</a>
                 <div class="user-menu-wrap">
-                    <button class="user-menu-btn" onclick="toggleUserMenu()" aria-label="Меню пользователя">
+                    <button class="user-menu-trigger" onclick="toggleUserMenu()" aria-label="Меню пользователя">
+                        <span class="user-menu-btn">
                         {% set _avatar = current_user_avatar() %}
                         {% if _avatar %}
                             <img src="{{ url_for('static', filename='uploads/avatars/' + _avatar) }}"
-                                 onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';"
+                                 onerror="this.src='/static/defaults/for_users.png';"
                                  alt="Аватар">
-                            <i class="fas fa-user" style="display:none;"></i>
                         {% else %}
-                            <i class="fas fa-user"></i>
+                            <img src="/static/defaults/for_users.png" alt="Аватар">
                         {% endif %}
+                        </span>
+                        <span class="user-menu-arrow"><i class="fas fa-chevron-up"></i></span>
                     </button>
                     <div class="user-dropdown" id="userDropdown">
                         {% set _uinfo = current_user_info() %}
                         {% if _uinfo %}
-                        <a href="/profile" style="text-decoration:none;color:inherit;display:block;padding:0;">
-                            <div class="user-dropdown-header">
-                                <div class="uname">{{ _uinfo.full_name }}</div>
-                                <div class="ulogin">@{{ _uinfo.username }}</div>
-                            </div>
-                        </a>
+                        <div class="user-dropdown-header">
+                            <div class="uname">{{ _uinfo.full_name }}</div>
+                        </div>
                         {% endif %}
                         <a href="/settings">
                             <i class="fas fa-cog"></i> Настройки
@@ -51,7 +56,6 @@
     <div class="container">
         <div class="main-content">
                         <div class="sidebar-left">
-                <h3>Меню</h3>
                 <ul>
                     <li><a href="/home"><i class="fas fa-home"></i> Лента</a></li>
                     <li>
@@ -67,8 +71,8 @@
             </div>
 
             <div class="feed">
-                <a href="/home" class="back-link" style="display:inline-flex;margin-bottom:4px;">
-                    <i class="fas fa-arrow-left"></i>&nbsp; Назад к ленте
+                <a href="#" onclick="history.back(); return false;" class="back-link" style="display:inline-flex;margin-bottom:4px;">
+                    <i class="fas fa-arrow-left"></i>&nbsp; Назад
                 </a>
 
                 <!-- Пост -->
@@ -114,19 +118,10 @@
                     <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:20px;">
                         <textarea class="form-control" id="comment-text"
                                   placeholder="Напишите комментарий..." rows="3"></textarea>
-                        <!-- Превью фото -->
-                        <div id="comment-photo-preview" style="display:none;position:relative;width:fit-content;">
-                            <img id="comment-photo-img" src="" style="max-height:120px;max-width:240px;border-radius:var(--radius-md);border:2px solid var(--amber-200);object-fit:cover;">
-                            <button onclick="removeCommentPhoto()" style="position:absolute;top:-8px;right:-8px;width:22px;height:22px;border-radius:50%;background:#dc2626;color:#fff;border:none;cursor:pointer;font-size:13px;line-height:1;display:flex;align-items:center;justify-content:center;">×</button>
-                        </div>
-                        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+                        <div>
                             <button class="btn btn-primary btn-sm" onclick="addComment({{ post.id }})">
                                 <i class="fas fa-paper-plane"></i> Отправить
                             </button>
-                            <label for="comment-photo-input" class="btn btn-secondary btn-sm" style="cursor:pointer;margin:0;">
-                                <i class="fas fa-image"></i> Фото
-                            </label>
-                            <input type="file" id="comment-photo-input" accept="image/*" style="display:none;" onchange="previewCommentPhoto(this)">
                         </div>
                     </div>
 
@@ -148,14 +143,6 @@
                                 {% endif %}
                             </div>
                             <div class="comment-content">{{ comment.content }}</div>
-                            {% if comment.photo %}
-                            <div style="margin-top:8px;">
-                                <img src="{{ url_for('static', filename='uploads/posts/' + comment.photo) }}"
-                                     style="max-height:200px;max-width:100%;border-radius:var(--radius-md);border:1px solid var(--border-light);cursor:pointer;"
-                                     onclick="this.style.maxHeight=this.style.maxHeight==='none'?'200px':'none'"
-                                     onerror="this.style.display='none'">
-                            </div>
-                            {% endif %}
                         </div>
                         {% else %}
                         <div style="text-align:center;color:var(--text-muted);padding:20px 0;" id="no-comments">
@@ -171,49 +158,20 @@
 
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script>
-        function previewCommentPhoto(input) {
-            if (input.files && input.files[0]) {
-                const reader = new FileReader();
-                reader.onload = e => {
-                    document.getElementById('comment-photo-img').src = e.target.result;
-                    document.getElementById('comment-photo-preview').style.display = 'block';
-                };
-                reader.readAsDataURL(input.files[0]);
-            }
-        }
-
-        function removeCommentPhoto() {
-            document.getElementById('comment-photo-input').value = '';
-            document.getElementById('comment-photo-preview').style.display = 'none';
-            document.getElementById('comment-photo-img').src = '';
-        }
-
         function addComment(postId) {
             const content = $('#comment-text').val().trim();
-            const photoInput = document.getElementById('comment-photo-input');
-            const hasPhoto = photoInput.files && photoInput.files[0];
-            if (!content && !hasPhoto) { alert('Введите текст или прикрепите фото'); return; }
-
-            const formData = new FormData();
-            formData.append('content', content);
-            if (hasPhoto) formData.append('photo', photoInput.files[0]);
-
+            if (!content) { alert('Введите текст комментария'); return; }
             $.ajax({
                 url: `/add_comment/${postId}`,
                 type: 'POST',
-                data: formData,
-                processData: false,
-                contentType: false,
+                contentType: 'application/json',
+                data: JSON.stringify({ content }),
                 success: function(response) {
                     if (response.success) {
                         $('#comment-text').val('');
-                        removeCommentPhoto();
                         $('#comments-count').text(response.comments_count);
                         $('#no-comments').remove();
                         const c = response.comment;
-                        const photoHtml = c.photo
-                            ? `<div style="margin-top:8px;"><img src="/static/uploads/posts/${c.photo}" style="max-height:200px;max-width:100%;border-radius:var(--radius-md);border:1px solid var(--border-light);cursor:pointer;" onclick="this.style.maxHeight=this.style.maxHeight==='none'?'200px':'none'"></div>`
-                            : '';
                         const html = `
                             <div class="comment-item" id="comment-${c.id}">
                                 <div class="comment-header">
@@ -226,7 +184,6 @@
                                     </button>
                                 </div>
                                 <div class="comment-content">${c.content}</div>
-                                ${photoHtml}
                             </div>`;
                         $('#comments-list').prepend(html);
                     } else { alert('Ошибка: ' + response.error); }
@@ -282,8 +239,6 @@
         font-size:13px;
         color:var(--text-muted);">
         <div style="max-width:1200px; margin:0 auto; display:flex; align-items:center; justify-content:center; gap:20px; flex-wrap:wrap;">
-            <span style="font-family:var(--font-display);font-size:13px;background:var(--accent-gradient);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;">LinkA</span>
-            <span style="color:var(--border-medium);">·</span>
             <a href="/faq" style="color:var(--text-muted);font-weight:600;transition:color 0.2s;" onmouseover="this.style.color='var(--amber-600)'" onmouseout="this.style.color='var(--text-muted)'">
                 <i class="fas fa-question-circle"></i> FAQ
             </a>
@@ -292,20 +247,24 @@
                 <i class="fas fa-file-alt"></i> Соглашение
             </a>
             <span style="color:var(--border-medium);">·</span>
-            <span>© 2025 LinkA</span>
+            <span>© 2026 LinkA</span>
         </div>
     </footer>
 </body>
 
     <script>
         function toggleUserMenu() {
-            document.getElementById('userDropdown').classList.toggle('open');
+            const dd = document.getElementById('userDropdown');
+            const wrap = document.querySelector('.user-menu-wrap');
+            dd.classList.toggle('open');
+            wrap.classList.toggle('open');
         }
         document.addEventListener('click', function(e) {
             const wrap = document.querySelector('.user-menu-wrap');
             if (wrap && !wrap.contains(e.target)) {
                 const dd = document.getElementById('userDropdown');
                 if (dd) dd.classList.remove('open');
+                wrap.classList.remove('open');
             }
         });
     </script>
