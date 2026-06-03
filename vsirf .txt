@@ -1,0 +1,211 @@
+#include "colors.inc"
+#include "textures.inc"
+
+global_settings {
+  ambient_light White
+}
+
+camera {
+  location <0, 5, -20>
+  look_at <20, -5, 40>
+  angle 60
+}
+
+light_source {
+  <10, 15, -5>
+  color White
+}
+
+light_source {
+  <0, 8, 0>
+  color White
+}
+
+background { color NeonBlue }
+
+plane {
+  y, 0
+  pigment { checker color White, color Gray20 scale 1.5 }
+  finish { ambient 0.2 diffuse 0.8 }
+}
+
+// ========== ÑÒÎË ==========
+
+box {
+  <-1.8, 0, -1.5>, 
+  <-1.5, 1.5, 1.5>
+  pigment { Brown }
+  finish { phong 0.6 }
+}
+
+// Ïðàâàÿ ïåðåãîðîäêà (áîêîâàÿ ñòåíêà)
+box {
+  <1.5, 0, -1.5>, 
+  <1.8, 1.5, 1.5>
+  pigment { Brown }
+  finish { phong 0.6 }
+}
+
+// Ñòîëåøíèöà
+box {
+  <-1.8, 1.5, -1.5>, <1.8, 1.65, 1.5>
+  pigment { color rgb <0.7, 0.5, 0.2> }
+  finish { phong 0.7 reflection 0.1 }
+}
+
+//Êëàâèàòóðà
+box {
+  <-0.5, 1.65, -0.6>, 
+  <1, 1.75, -1.1>
+  texture {                  
+         pigment {
+         image_map {
+          png "gifs/Klava.png" 
+          map_type 0          // Ïëîñêîå íàëîæåíèå
+          interpolate 2
+        }
+       
+        scale <1.5, 0.1, 0.5>
+        translate <0.25, 0, -0.25>
+      }
+      finish { 
+        ambient 0.3 
+        diffuse 0.7
+        }
+      }
+   }
+// ========== ÌÎÍÈÒÎÐ ==========
+
+// Íîæêà ìîíèòîðà (öèëèíäð)
+cylinder { 
+  <0, 1.65, -0.15>, 
+  <0, 2, -0.15>, 
+  0.08
+  pigment { Black }
+  finish { phong 0.5 }
+}
+
+// Êîðïóñ ìîíèòîðà (áîêñ)
+box {
+  <-1, 2, -0.1>, 
+  <1, 2.8, -0.2>
+  texture {                  
+    pigment {
+      image_map {
+        png "gifs/monic.png" 
+        map_type 2          // Íàëîæåíèå íà ãðàíü
+        interpolate 2
+        once
+      }
+      scale <2, 0.8, 1>
+      translate <0, 2, 0>
+    }
+    finish { 
+      ambient 0.3 
+      diffuse 0.7
+    }
+  }
+}
+box {
+  <-1.05, 1.95, -0.05>, 
+  <1.05, 2.85, -0.18>
+  pigment { Black }
+  finish { phong 0.5 }
+}
+// Áîêñ (òóìáà) ïîä ñòîëîì ñëåâà
+box {
+  <0.8, 1.2, 1>, 
+  <1.7, 0, -1>
+  texture {                  
+    pigment {
+      image_map {
+        png "gifs/sis.png" 
+        map_type 1          // Íàëîæåíèå íà ãðàíü
+        interpolate 2
+        once
+      }
+      scale <0.6, 0.6, 1>
+      translate<1.25, 0.6, 0>
+    }
+    finish { 
+      ambient 0.3 
+      diffuse 0.7
+    }
+  }
+}
+//Ñòóë
+#declare styl = union{
+    box { <-8.5, -3.8, 5>,               
+      < -4, -4, 10>               
+      texture {                  
+         pigment { wood }
+      }                          
+ }
+
+box { <-9, -10, 5>,                 
+      < -8.5, 1.4, 5.5>               
+      texture {                  
+         pigment { color Gray } 
+      }                          
+ }                                 
+   
+box { <-9, -10, 10>,                
+      < -8.5, 1.4, 9.5>            
+      texture {                  
+         pigment { color Gray }
+      }                          
+ }
+  
+   
+box { <-3.8, -10, 10>,                
+      < -10.7, -9.5, 9.5>               
+      texture {                  
+         pigment { color Gray }
+      }                          
+ }  
+ 
+box { <-3.8, -10, 5>,                
+      <-10.7, -9.5, 5.5>               
+      texture {                  
+         pigment { color Gray }
+      }                          
+ }
+   
+
+box { <-9, -10, 5>,                 
+      <-8.5, -9.5, 10>               
+      texture {                  
+         pigment { color Gray }  
+      }                          
+ } 
+
+box { <-8.5, -4, 10>,                
+      <-5, -4.5, 9.5>               
+      texture {                  
+         pigment { color Gray } 
+      }                          
+ }  
+ 
+box { <-8.5, -4, 5>,              
+      <-5, -4.5, 5.5>               
+      texture {                  
+         pigment { color Gray } 
+      }                          
+ }
+
+
+box { <-8.5, -1, 5>,            
+      < -8.3, 2, 10>            
+      texture {                  
+         pigment { wood }  
+      }                          
+ }   
+}
+object {
+    styl
+    scale 0.20
+    translate<-1, 2, -1.5>
+    rotate<0, -90, 0>
+    
+} 
+
